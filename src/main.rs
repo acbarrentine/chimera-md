@@ -1,3 +1,5 @@
+//use markdown::to_html;
+
 fn main() {
-    println!("Hello, world!");
+    println!("{}", markdown::to_html("## Hello, *world*!"));
 }
