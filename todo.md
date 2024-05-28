@@ -59,3 +59,15 @@ the source folders directly.
 Joakim has pointed me to [axum](https://docs.rs/axum/latest/axum/), a Rust web server with
 configurable content handlers that looks perfect. Checking this stuff in now so I have a record
 of the notes and all before scrapping the existing code and starting over.
+
+## Serving ordinary files
+
+* https://docs.rs/tower-http/latest/tower_http/services/struct.ServeFile.html
+* https://github.com/tokio-rs/axum/discussions/608
+* https://users.rust-lang.org/t/stream-media-with-axum/108465/3
+
+## Full text search
+
+Joakim:
+
+> for that, I would probably look into meillisearch or if you're feeling really cool: tantivy
