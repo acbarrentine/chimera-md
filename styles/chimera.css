@@ -23,7 +23,7 @@ img {
 }
 
 code {
-    background-color: rgb(51, 55, 65);
+    background-color: rgb(45, 53, 73);
     border: 1px solid rgb(0, 0, 0);
     font-family: monospace;
     font-size: 100%;
@@ -31,11 +31,11 @@ code {
 
 blockquote {
     margin: 0;
-  }
+}
   
 blockquote p {
-    padding: 15px;
-    background: #eee;
+    padding: 10px;
+    background: #4c5353;
     border-radius: 5px;
     border-left: 5px solid black;
 }
@@ -47,4 +47,7 @@ blockquote p::before {
 blockquote p::after {
     content: '\201D';
 }
-  
+
+li {
+    line-height: 1.3;
+}

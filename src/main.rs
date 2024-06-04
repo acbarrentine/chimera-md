@@ -4,7 +4,7 @@ use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request}, response::{Html, IntoResponse}, routing::get, Router
 };
-use pulldown_cmark::{Event, Parser, Tag, TagEnd};
+use pulldown_cmark::{Event, Options, Tag, TagEnd};
 use tokio::sync::RwLock;
 use tower_http::services::ServeFile;
 use handlebars::Handlebars;
@@ -57,27 +57,34 @@ async fn serve_index(
     Html(body)
 }
 
-fn find_title(parser: &mut Parser) -> String {
-    let mut in_header = false;
-    for event in parser.by_ref() {
-        match event {
+#[derive(Default)]
+struct TitleFinder {
+    title: Option<String>,
+    in_header: bool,
+}
+
+impl TitleFinder {
+    fn check_event( &mut self, ev: &Event) {
+        if self.title.is_some() {
+            return;
+        }
+        match ev {
             Event::Start(Tag::Heading{level: _, id: _, classes: _, attrs: _}) => {
-                in_header = true;
+                self.in_header = true;
             },
             Event::Text(t) => {
-                if in_header {
-                    return t.to_string();
+                if self.in_header {
+                    self.title = Some(t.to_string());
                 }
             },
             Event::End(TagEnd::Heading(_level)) => {
-                if in_header {
-                    in_header = false;
+                if self.in_header {
+                    self.in_header = false;
                 }
             },
             _ => {}
         }
     }
-    "Chimera markdown".to_string()
 }
 
 //#[debug_handler]
@@ -90,10 +97,16 @@ async fn serve_file(
         if ext.eq_ignore_ascii_case("md") {
             match tokio::fs::read_to_string(path).await {
                 Ok(md_content) => {
-                    let mut parser = pulldown_cmark::Parser::new(md_content.as_str());
-                    let mut html_content = String::new();
-                    let title = find_title(parser.by_ref());
+                    let mut title_finder = TitleFinder::default();
+                    let parser = pulldown_cmark::Parser::new_ext(
+                        md_content.as_str(), Options::ENABLE_TABLES
+                    ).map(|ev| {
+                        title_finder.check_event(&ev);
+                        ev
+                    });
+                    let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
                     pulldown_cmark::html::push_html(&mut html_content, parser);
+                    let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
 
                     {
                         let state = app_state.read().await;
