@@ -25,4 +25,5 @@ Anyway, here's some `Markdown` features to test with.
     }
 ```
 
-![sky-box](./assets/documentation-img-1.jpg)
+<!--![sky-box](documentation-img-1.jpg)-->
+<img src="documentation-img-1.jpg" alt="Sky box" width="800"/>

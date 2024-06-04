@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#handlebars = "5.1.2"
 markdown = "1.0.0-alpha.17"
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7.5", features = ["macros"] }
+tower-http = { version = "0.5.2", features = ["fs"] }
+handlebars = "5.1.2"
