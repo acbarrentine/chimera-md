@@ -1,4 +1,4 @@
-# Chimera
+# Chimera example markdown
 
 I am making this tool to make it easy to index a variety of markdown documents I have
 lying around, served through a web server with included style information and full
@@ -11,7 +11,16 @@ manages assets referenced by the files.
 
 -----------------
 
+
 Anyway, here are some `Markdown` features to test with.
+
+
+| Month    | Game                     |
+| -------- | ----------------------   |
+| January  | Persona 5                |
+| February | Final Fantasy: Rebirth   |
+| March    | Balatro                  |
+| April    | Curse of the Golden Idol |
 
 ```rust
     let blocks = markdown::to_mdast(md_content.as_str(), &ParseOptions::default());
@@ -25,16 +34,10 @@ Anyway, here are some `Markdown` features to test with.
     }
 ```
 
-| Month    | Game                     |
-| -------- | ----------------------   |
-| January  | Persona 5                |
-| February | Final Fantasy: Rebirth   |
-| March    | Balatro                  |
-| April    | Curse of the Golden Idol |
-
 > This is part of a blockquote.
+> This continues on the same line.
 >
-> Some more stuff.
+> This does not.
 
 * Unordered
 * List

@@ -1,9 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use axum::{
-    debug_handler,
+//    debug_handler,
     extract::State, http::{HeaderMap, Request}, response::{Html, IntoResponse}, routing::get, Router
 };
+use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use tokio::sync::RwLock;
 use tower_http::services::ServeFile;
 use handlebars::Handlebars;
@@ -56,6 +57,29 @@ async fn serve_index(
     Html(body)
 }
 
+fn find_title(parser: &mut Parser) -> String {
+    let mut in_header = false;
+    for event in parser.by_ref() {
+        match event {
+            Event::Start(Tag::Heading{level: _, id: _, classes: _, attrs: _}) => {
+                in_header = true;
+            },
+            Event::Text(t) => {
+                if in_header {
+                    return t.to_string();
+                }
+            },
+            Event::End(TagEnd::Heading(_level)) => {
+                if in_header {
+                    in_header = false;
+                }
+            },
+            _ => {}
+        }
+    }
+    "Chimera markdown".to_string()
+}
+
 //#[debug_handler]
 async fn serve_file(
     State(app_state): State<AppStateType>,
@@ -66,11 +90,16 @@ async fn serve_file(
         if ext.eq_ignore_ascii_case("md") {
             match tokio::fs::read_to_string(path).await {
                 Ok(md_content) => {
-                    let md = markdown::to_html(md_content.as_str());
+                    let mut parser = pulldown_cmark::Parser::new(md_content.as_str());
+                    let mut html_content = String::new();
+                    let title = find_title(parser.by_ref());
+                    pulldown_cmark::html::push_html(&mut html_content, parser);
+
                     {
                         let state = app_state.read().await;
                         let mut map = BTreeMap::new();
-                        map.insert("body".to_string(), md);
+                        map.insert("body".to_string(), html_content);
+                        map.insert("title".to_string(), title);
                         match state.handlebars.render("markdown", &map) {
                             Ok(html) => {
                                 // todo: cache this result

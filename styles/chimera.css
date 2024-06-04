@@ -30,5 +30,21 @@ code {
 }
 
 blockquote {
-    border-left: 3px solid black;
+    margin: 0;
+  }
+  
+blockquote p {
+    padding: 15px;
+    background: #eee;
+    border-radius: 5px;
+    border-left: 5px solid black;
 }
+
+blockquote p::before {
+    content: '\201C';
+}
+
+blockquote p::after {
+    content: '\201D';
+}
+  
