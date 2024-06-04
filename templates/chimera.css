@@ -1,0 +1,30 @@
+body {
+    background-color: rgb(53, 53, 53);
+    color: rgb(210, 208, 208);
+}
+
+a:link {
+    color: rgb(155, 193, 245)
+}
+
+a:visited {
+    color: rgb(136, 160, 216)
+}
+
+a:hover {
+    color: rgb(90, 165, 108)
+}
+
+img {
+    height: auto; 
+    width: auto; 
+    max-width: 100%; 
+    max-height: 100%;
+}
+
+code {
+    background-color: rgb(51, 55, 65);
+    border: 1px solid rgb(0, 0, 0);
+    font-family: monospace;
+    font-size: 100%;
+}

@@ -11,7 +11,7 @@ manages assets referenced by the files.
 
 -----------------
 
-Anyway, here's some `Markdown` features to test with.
+Anyway, here are some `Markdown` features to test with.
 
 ```rust
     let blocks = markdown::to_mdast(md_content.as_str(), &ParseOptions::default());
@@ -25,5 +25,4 @@ Anyway, here's some `Markdown` features to test with.
     }
 ```
 
-<!--![sky-box](documentation-img-1.jpg)-->
-<img src="documentation-img-1.jpg" alt="Sky box" width="800"/>
+![sky-box](documentation-img-1.jpg)
