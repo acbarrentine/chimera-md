@@ -25,4 +25,21 @@ Anyway, here are some `Markdown` features to test with.
     }
 ```
 
+| Month    | Game                     |
+| -------- | ----------------------   |
+| January  | Persona 5                |
+| February | Final Fantasy: Rebirth   |
+| March    | Balatro                  |
+| April    | Curse of the Golden Idol |
+
+> This is part of a blockquote.
+>
+> Some more stuff.
+
+* Unordered
+* List
+* of
+* Length
+* 5
+
 ![sky-box](documentation-img-1.jpg)

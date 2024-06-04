@@ -28,3 +28,7 @@ code {
     font-family: monospace;
     font-size: 100%;
 }
+
+blockquote {
+    border-left: 3px solid black;
+}
