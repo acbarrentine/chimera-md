@@ -6,12 +6,18 @@
     <title>{{title}}</title>
     <link rel="stylesheet" href="/styles/skeleton.css">
     <link rel="stylesheet" href="/styles/chimera.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
+    <script>hljs.highlightAll();</script>
   </head>
   <body>
     <div class="container">
         <div class="row">
             <div class="two columns">
-                Sidebar!
+                <div class="sidebar">
+                    Sidebar!
+                </div>
             </div>
             <div class="ten columns">
                 {{{body}}}
