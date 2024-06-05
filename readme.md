@@ -1,7 +1,7 @@
 # Chimera
 
 A Markdown documentation server. Modeled after my guess about how [MKDocs](https://github.com/mkdocs/mkdocs)
-works, even though I've never used that tool.
+works, even though I've never used that tool
 
 ## Goals
 
@@ -12,3 +12,15 @@ works, even though I've never used that tool.
 5. Simple site navigation
 6. Full text search
 
+## Acknowledgements
+
+* I want to call out [this video by Rainer Stropek](https://www.youtube.com/watch?v=y5W6PErCc2c) for the very cogent guide to using Axum. It was a huge help.
+* Chimera uses the [Skeleton CSS framework](http://getskeleton.com/) under the MIT license
+* It also uses [Axum web framework](https://github.com/tokio-rs/axum), which is similarly under the MIT license
+* [pulldown-cmark](https://crates.io/crates/pulldown-cmark) also uses the MIT license
+* [tokio](https://tokio.rs/) also uses the MIT license
+* [Handlebars](https://github.com/sunng87/handlebars-rust) also uses the MIT license
+
+## License
+
+Like all the components I'm using, this project is open sourced under the MIT license
