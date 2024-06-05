@@ -3,23 +3,17 @@
 I am making this tool to make it easy to index a variety of markdown documents I have
 lying around, served through a web server with included style information and full
 text search. It is also a project goal to learn about making a web app (probably with
-[Nginx](https://nginx.org/en/)) and a [Docker container](https://www.docker.com/).
-
-I keep going back and forth on whether the output should be static HTML or those file
-should be cached intermediates. I should figure out how [MkDocs](https://github.com/mkdocs)
-manages assets referenced by the files.
+[Axum](https://github.com/tokio-rs/axum)) and a [Docker container](https://www.docker.com/).
 
 -----------------
 
-
 Anyway, here are some `Markdown` features to test with.
-
 
 | Month    | Game                     |
 | -------- | ----------------------   |
 | January  | Persona 5                |
 | February | Final Fantasy: Rebirth   |
-| March    | Balatro                  |
+| March    | Return of the Obra Din   |
 | April    | Curse of the Golden Idol |
 
 ```rust
