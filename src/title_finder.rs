@@ -8,6 +8,8 @@ pub struct TitleFinder {
 
 impl TitleFinder {
     pub fn check_event( &mut self, ev: &Event) {
+        tracing::debug!("{ev:?}");
+        // potentially we could scan through the document here for internal links and subheads
         if self.title.is_some() {
             return;
         }

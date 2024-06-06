@@ -9,7 +9,6 @@ use axum::{
 use tokio::sync::RwLock;
 use tower_http::{services::ServeFile, trace::TraceLayer};
 use handlebars::Handlebars;
-use tracing::debug;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::chimera_error::ChimeraError;
@@ -94,7 +93,7 @@ async fn serve_file(
                 let cached_results = state_reader.cached_results.get(path.as_str());
                 if let Some(results) = cached_results {
                     if results.md_modtime == md_modtime && results.hb_modtime == hb_modtime {
-                        debug!("Returning cached response for {path}");
+                        tracing::debug!("Returning cached response for {path}");
                         return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
                     }
                 }
@@ -110,6 +109,7 @@ async fn serve_file(
             });
             let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
             pulldown_cmark::html::push_html(&mut html_content, parser);
+
             // todo: the title fallback should come from config/environment
             let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
 
@@ -120,7 +120,7 @@ async fn serve_file(
                 map.insert("title".to_string(), title);
 
                 let html = state_writer.handlebars.render("markdown", &map)?;
-                debug!("Generated fresh response for {path}");
+                tracing::debug!("Generated fresh response for {path}");
                 state_writer.cached_results.insert(path, CachedResult {
                     html: html.clone(),
                     md_modtime,
