@@ -14,13 +14,22 @@
   <body>
     <div class="container">
         <div class="row">
-            <div class="two columns">
-                <div class="sidebar">
-                    Sidebar!
-                </div>
-            </div>
             <div class="ten columns">
                 {{{body}}}
+            </div>
+            <div class="two columns">
+                <div class="sidebar sticky">
+                    <div class="linkbox">
+                        <p>
+                            <strong>Within this document:</strong>
+                        </p>
+                        <ul>
+                        {{#each doclinks}}
+                            <li><a href="{{anchor}}">{{name}}</a></li>
+                        {{/each}}
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -157,6 +157,7 @@ dependencies = [
  "axum",
  "handlebars",
  "pulldown-cmark",
+ "serde",
  "tokio",
  "tower-http",
  "tracing",

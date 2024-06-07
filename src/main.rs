@@ -6,10 +6,12 @@ use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse}, routing::get, Router
 };
+use title_finder::Doclink;
 use tokio::sync::RwLock;
 use tower_http::{services::ServeFile, trace::TraceLayer};
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use serde::Serialize;
 
 use crate::chimera_error::ChimeraError;
 use crate::title_finder::TitleFinder;
@@ -44,7 +46,7 @@ async fn main() -> Result<(), ChimeraError> {
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_target("tower_http::trace::on_response", tracing::Level::TRACE)
         .with_target("tower_http::trace::make_span", tracing::Level::DEBUG)
-        .with_default(tracing::Level::INFO);
+        .with_default(tracing::Level::DEBUG);
 
     let tracing_layer = tracing_subscriber::fmt::layer();
     tracing_subscriber::registry()
@@ -78,6 +80,13 @@ async fn get_modtime(path: &str) -> Result<SystemTime, ChimeraError> {
     Ok(md_metadata.modified()?)
 }
 
+#[derive(Serialize)]
+struct HandlebarVars {
+    body: String,
+    title: String,
+    doclinks: Vec<Doclink>,
+}
+
 //#[debug_handler]
 async fn serve_file(
     State(app_state): State<AppStateType>,
@@ -100,7 +109,7 @@ async fn serve_file(
             };
 
             let md_content = tokio::fs::read_to_string(path.as_str()).await?;
-            let mut title_finder = TitleFinder::default();
+            let mut title_finder = TitleFinder::new();
             let parser = pulldown_cmark::Parser::new_ext(
                 md_content.as_str(), pulldown_cmark::Options::ENABLE_TABLES
             ).map(|ev| {
@@ -112,15 +121,18 @@ async fn serve_file(
 
             // todo: the title fallback should come from config/environment
             let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
+            let vars = HandlebarVars{
+                body: html_content,
+                title,
+                doclinks: title_finder.doclinks,
+            };
 
             {
                 let mut state_writer = app_state.write().await;
-                let mut map = BTreeMap::new();
-                map.insert("body".to_string(), html_content);
-                map.insert("title".to_string(), title);
 
-                let html = state_writer.handlebars.render("markdown", &map)?;
+                let html = state_writer.handlebars.render("markdown", &vars)?;
                 tracing::debug!("Generated fresh response for {path}");
+
                 state_writer.cached_results.insert(path, CachedResult {
                     html: html.clone(),
                     md_modtime,

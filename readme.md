@@ -12,6 +12,14 @@ works, even though I've never used that tool
 5. Simple site navigation
 6. Full text search
 
+## Contributing
+
+* I have been finding the cargo-watch tool useful to speed development. This command line enables a watcher to spin
+a new server any time I save changes:
+```
+cargo watch -x run -w src/
+```
+
 ## Acknowledgements
 
 * I want to call out [this video by Rainer Stropek](https://www.youtube.com/watch?v=y5W6PErCc2c) for the very cogent guide to using Axum. It was a huge help.
