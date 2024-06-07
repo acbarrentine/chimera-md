@@ -35,7 +35,6 @@ Anyway, here are some `Markdown` features to test with.
 
 ##### Blockquote
 
-<a name="blockquote"></a>
 > This is part of a blockquote.
 > This continues on the same line.
 >

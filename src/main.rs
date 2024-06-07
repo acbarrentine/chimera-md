@@ -91,7 +91,7 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     let mut char_iter = original_html.char_indices();
     while let Some(ch) = char_iter.next() {
         let (i, c) = ch;
-        if c == '<' {
+        if link_index < links.len() && c == '<' {
             if let Some(open_slice) = original_html.get(i..i+4) {
                 let mut slit = open_slice.chars().skip(1);
                 if slit.next() == Some('h') {
