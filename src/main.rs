@@ -46,7 +46,7 @@ async fn main() -> Result<(), ChimeraError> {
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_target("tower_http::trace::on_response", tracing::Level::TRACE)
         .with_target("tower_http::trace::make_span", tracing::Level::DEBUG)
-        .with_default(tracing::Level::DEBUG);
+        .with_default(tracing::Level::INFO);
 
     let tracing_layer = tracing_subscriber::fmt::layer();
     tracing_subscriber::registry()
@@ -78,6 +78,43 @@ async fn serve_index(
 async fn get_modtime(path: &str) -> Result<SystemTime, ChimeraError> {
     let md_metadata = tokio::fs::metadata(path).await?;
     Ok(md_metadata.modified()?)
+}
+
+fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
+    let num_links = links.len() - 1;
+    if num_links == 0 {
+        return original_html;
+    }
+    tracing::info!("{num_links}");
+    let mut link_index = 0;
+    let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
+    let mut char_iter = original_html.char_indices();
+    while let Some(ch) = char_iter.next() {
+        let (i, c) = ch;
+        if c == '<' {
+            if let Some(open_slice) = original_html.get(i..i+4) {
+                let mut slit = open_slice.chars().skip(1);
+                if slit.next() == Some('h') {
+                    if let Some(heading_size) = slit.next() {
+                        if slit.next() == Some('>') {
+                            let anchor = links[link_index].anchor.as_str();
+                            tracing::debug!("Anchor: {anchor}");
+                            new_html.push_str(format!("<h{heading_size}><a id=\"{anchor}\"></a>").as_str());
+                            link_index += 1;
+                            for _ in 0..open_slice.len()-1 {
+                                if char_iter.next().is_none() {
+                                    return new_html;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        new_html.push(c);
+    }
+    new_html
 }
 
 #[derive(Serialize)]
@@ -118,6 +155,7 @@ async fn serve_file(
             });
             let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
             pulldown_cmark::html::push_html(&mut html_content, parser);
+            let html_content = add_anchors_to_headings(html_content, &title_finder.doclinks);
 
             // todo: the title fallback should come from config/environment
             let title = title_finder.title.unwrap_or("Chimera markdown".to_string());

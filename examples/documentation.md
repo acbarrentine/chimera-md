@@ -9,14 +9,8 @@ text search. It is also a project goal to learn about making a web app (probably
 
 Anyway, here are some `Markdown` features to test with.
 
-In document links:
-1. [Game table](#gametable)
-2. [Code block](#codeblock)
-3. [Block quote](#blockquote)
-4. [Unordered list](#unorderedlist)
-5. [Picture](#picture)
+##### Game table
 
-<a name="gametable"></a>
 | Month    | Game                     |
 | -------- | ----------------------   |
 | January  | Persona 5                |
@@ -24,7 +18,9 @@ In document links:
 | March    | Return of the Obra Din   |
 | April    | Curse of the Golden Idol |
 
-<a name="codeblock"></a>
+
+##### Code block
+
 ```rust
     let blocks = markdown::to_mdast(md_content.as_str(), &ParseOptions::default());
     match blocks {
@@ -37,7 +33,7 @@ In document links:
     }
 ```
 
-## A subhead
+##### Blockquote
 
 <a name="blockquote"></a>
 > This is part of a blockquote.
@@ -45,12 +41,14 @@ In document links:
 >
 > This does not.
 
-<a name="unorderedlist"></a>
-* Unordered
-* List
-* of
-* Length
-* 5
+##### Unordered list
 
-<a name="picture"></a>
+* The New York Times
+* The Time Picayune
+* The Seattle Post-Intelligencer
+* The Washington Post
+* The London Times
+
+##### A Picture
+
 ![sky-box](documentation-img-1.jpg)
