@@ -6,6 +6,7 @@ use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse}, routing::get, Router
 };
+use chimera_error::{handle_404, handle_err};
 use title_finder::Doclink;
 use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -40,7 +41,7 @@ impl AppState {
     }
 }
 
-type AppStateType = Arc<RwLock<AppState>>;
+pub(crate) type AppStateType = Arc<RwLock<AppState>>;
 
 #[tokio::main]
 async fn main() -> Result<(), ChimeraError> {
@@ -55,11 +56,11 @@ async fn main() -> Result<(), ChimeraError> {
         .with(trace_filter)
         .init();
 
-    let state = AppState::new()?;
+    let state = Arc::new(RwLock::new(AppState::new()?));
     let app = Router::new()
-        .route("/", get(serve_index))
-        .route("/*path", get(serve_file))
-        .with_state(Arc::new(RwLock::new(state)))
+        .route("/*path", get(handle_path))
+        .fallback_service(get(handle_fallback).with_state(state.clone()))
+        .with_state(state)
         .layer(TraceLayer::new_for_http()
     );
 
@@ -68,28 +69,21 @@ async fn main() -> Result<(), ChimeraError> {
     Ok(())
 }
 
-async fn handle_404(
-    app_state: AppStateType,
-) -> Result<axum::response::Response, ChimeraError> {
-    let vars = BTreeMap::from([
-        ("error-code", "404: Not found"),
-        ("heading", "Page not found"),
-        ("message", "The page you are looking for does not exist or has been moved"),
-    ]);
-    let html = {
-        let state_reader = app_state.read().await;
-        state_reader.handlebars.render("error", &vars)?
-    };
-    Ok((StatusCode::NOT_FOUND, Html(html)).into_response())
+//#[debug_handler]
+async fn handle_path(
+    State(app_state): State<AppStateType>,
+    axum::extract::Path(path): axum::extract::Path<String>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    handle_response(app_state, path.as_str(), headers).await
 }
 
 //#[debug_handler]
-async fn serve_index(
-    State(_app_state): State<AppStateType>,
-    _headers: HeaderMap
-) -> impl IntoResponse {
-    let body = "<h1>Chimera root</h1>";
-    Html(body)
+async fn handle_fallback(
+    State(app_state): State<AppStateType>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    handle_response(app_state, "/", headers).await
 }
 
 async fn get_modtime(path: &str) -> Result<SystemTime, ChimeraError> {
@@ -134,75 +128,119 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     new_html
 }
 
-#[derive(Serialize)]
-struct HandlebarVars {
-    body: String,
-    title: String,
-    doclinks: Vec<Doclink>,
-}
-
-//#[debug_handler]
-async fn serve_file(
-    State(app_state): State<AppStateType>,
-    axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
+async fn serve_markdown_file(
+    app_state: AppStateType,
+    path: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
-    if let Some((_, ext)) = path.rsplit_once('.') {
-        if ext.eq_ignore_ascii_case("md") {
-            let md_modtime = get_modtime(path.as_str()).await?;
-            let hb_modtime = get_modtime("templates/markdown.html").await?;
-            {
-                let state_reader = app_state.read().await;
-                let cached_results = state_reader.cached_results.get(path.as_str());
-                if let Some(results) = cached_results {
-                    if results.md_modtime == md_modtime && results.hb_modtime == hb_modtime {
-                        tracing::debug!("Returning cached response for {path}");
-                        return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
-                    }
-                }
-            };
-
-            let md_content = tokio::fs::read_to_string(path.as_str()).await?;
-            let mut title_finder = TitleFinder::new();
-            let parser = pulldown_cmark::Parser::new_ext(
-                md_content.as_str(), pulldown_cmark::Options::ENABLE_TABLES
-            ).map(|ev| {
-                title_finder.check_event(&ev);
-                ev
-            });
-            let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
-            pulldown_cmark::html::push_html(&mut html_content, parser);
-            let html_content = add_anchors_to_headings(html_content, &title_finder.doclinks);
-
-            // todo: the title fallback should come from config/environment
-            let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
-            let vars = HandlebarVars{
-                body: html_content,
-                title,
-                doclinks: title_finder.doclinks,
-            };
-
-            {
-                let mut state_writer = app_state.write().await;
-
-                let html = state_writer.handlebars.render("markdown", &vars)?;
-                tracing::debug!("Generated fresh response for {path}");
-
-                state_writer.cached_results.insert(path, CachedResult {
-                    html: html.clone(),
-                    md_modtime,
-                    hb_modtime,
-                });
-                return Ok((StatusCode::ACCEPTED, Html(html)).into_response());
+    let md_modtime = match get_modtime(path).await {
+        Ok(modtime) => modtime,
+        Err(_) => return Ok((StatusCode::NOT_FOUND, "not found").into_response())
+    };
+    let hb_modtime = get_modtime("templates/markdown.html").await?;
+    {
+        let state_reader = app_state.read().await;
+        let cached_results = state_reader.cached_results.get(path);
+        if let Some(results) = cached_results {
+            if results.md_modtime == md_modtime && results.hb_modtime == hb_modtime {
+                tracing::debug!("Returning cached response for {path}");
+                return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
             }
         }
+    };
+
+    let md_content = tokio::fs::read_to_string(path).await?;
+    let mut title_finder = TitleFinder::new();
+    let parser = pulldown_cmark::Parser::new_ext(
+        md_content.as_str(), pulldown_cmark::Options::ENABLE_TABLES
+    ).map(|ev| {
+        title_finder.check_event(&ev);
+        ev
+    });
+    let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
+    pulldown_cmark::html::push_html(&mut html_content, parser);
+    let html_content = add_anchors_to_headings(html_content, &title_finder.doclinks);
+
+    #[derive(Serialize)]
+    struct HandlebarVars {
+        body: String,
+        title: String,
+        doclinks: Vec<Doclink>,
     }
 
+    // todo: the title fallback should come from config/environment
+    let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
+    let vars = HandlebarVars{
+        body: html_content,
+        title,
+        doclinks: title_finder.doclinks,
+    };
+
+    let mut state_writer = app_state.write().await;
+
+    let html = state_writer.handlebars.render("markdown", &vars)?;
+    tracing::debug!("Generated fresh response for {path}");
+
+    state_writer.cached_results.insert(path.to_string(), CachedResult {
+        html: html.clone(),
+        md_modtime,
+        hb_modtime,
+    });
+    Ok((StatusCode::ACCEPTED, Html(html)).into_response())
+}
+
+async fn serve_static_file(
+    _app_state: AppStateType,
+    path: &str,
+    headers: HeaderMap,
+) -> Result<axum::response::Response, ChimeraError> {
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    let resp = ServeDir::new(path.as_str()).try_call(req).await?;
-    if resp.status() == StatusCode::NOT_FOUND {
-        return Ok(handle_404(app_state).await.into_response());
-    }
-    Ok(resp.into_response())
+    Ok(ServeDir::new(path).try_call(req).await?.into_response())
 }
+
+async fn get_response(
+    app_state: AppStateType,
+    path: &str,
+    headers: HeaderMap
+) -> Result<axum::response::Response, ChimeraError> {
+    let path = format!("www/{path}");
+    if let Some((_, ext)) = path.rsplit_once('.') {
+        if ext.eq_ignore_ascii_case("md") {
+            return serve_markdown_file(app_state, path.as_str()).await;
+        }
+    }
+    else {
+        let slash = if path.ends_with('/') {""} else {"/"};
+        let path_with_index = format!("{path}{slash}index.md");
+        if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
+            return serve_markdown_file(app_state, &path_with_index).await;
+        }
+    }
+    serve_static_file(app_state, path.as_str(), headers).await
+}
+
+async fn handle_response(
+    app_state: AppStateType,
+    path: &str,
+    headers: HeaderMap,
+) -> axum::response::Response {
+    match get_response(app_state.clone(), path, headers).await {
+        Ok(resp) => {
+            let status = resp.status();
+            tracing::info!("Ok: {}", status);
+            if status.is_success() || status.is_redirection() {
+                resp.into_response()
+            }
+            else if status == StatusCode::NOT_FOUND {
+                handle_404(app_state).await.into_response()
+            }
+            else {
+                handle_err(app_state).await.into_response()
+            }
+        },
+        Err(_e) => {
+            handle_err(app_state).await.into_response()
+        }
+    }
+}
+

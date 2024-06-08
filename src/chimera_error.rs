@@ -1,12 +1,13 @@
 use axum::{http::StatusCode, response::IntoResponse};
+use std::collections::BTreeMap;
+
+use crate::AppStateType;
 
 #[derive(Debug)]
 pub enum ChimeraError {
     MissingMarkdownTemplate(String),
     TemplateRender(String),
     MarkdownFileNotFound(String),
-    //StaticFileNotFound(String),
-    //StaticFile(String),
 }
 
 impl From<handlebars::TemplateError> for ChimeraError {
@@ -27,23 +28,39 @@ impl From<std::io::Error> for ChimeraError {
     }
 }
 
-//impl From<tower_http::
-
 impl IntoResponse for ChimeraError {
     fn into_response(self) -> axum::response::Response {
-        match self {
-            ChimeraError::MissingMarkdownTemplate(e) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to load templates/markdown.html: {e}")).into_response()
-            },
-            ChimeraError::TemplateRender(e) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to render the Handlebars template: {e}")).into_response()
-            },
-            ChimeraError::MarkdownFileNotFound(e) => {
-                (StatusCode::NOT_FOUND, format!("Failed to load file: {e}")).into_response()
-            },
-            // ChimeraError::StaticFileNotFound(e) => {
-            //     (StatusCode::NOT_FOUND, format!("Failed to load file: {e}")).into_response()
-            // },
-        }
+        tracing::error!("Last chance error handler tripped: {self:?}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "Chimera internal server error, and then a second failure attempting to render that error").into_response()
     }
+}
+
+pub async fn handle_404(
+    app_state: AppStateType,
+) -> Result<axum::response::Response, ChimeraError> {
+    let vars = BTreeMap::from([
+        ("error-code", "404: Not found"),
+        ("heading", "Page not found"),
+        ("message", "The page you are looking for does not exist or has been moved"),
+    ]);
+    let html = {
+        let state_reader = app_state.read().await;
+        state_reader.handlebars.render("error", &vars)?
+    };
+    Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
+}
+
+pub async fn handle_err(
+    app_state: AppStateType,
+) -> Result<axum::response::Response, ChimeraError> {
+    let vars = BTreeMap::from([
+        ("error-code", "500: Internal server error"),
+        ("heading", "Internal server error"),
+        ("message", "Chimera failed attempting to complete this request"),
+    ]);
+    let html = {
+        let state_reader = app_state.read().await;
+        state_reader.handlebars.render("error", &vars)?
+    };
+    Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
 }
