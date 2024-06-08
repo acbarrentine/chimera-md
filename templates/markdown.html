@@ -19,16 +19,32 @@
             </div>
             <div class="two columns">
                 <div class="sidebar sticky">
-                    <div class="linkbox">
-                        <p>
-                            <strong>Within this document:</strong>
-                        </p>
-                        <ul>
-                        {{#each doclinks}}
-                            <li><a href="#{{anchor}}">{{name}}</a></li>
-                        {{/each}}
-                        </ul>
-                    </div>
+                    <p>
+                        <div class="linkbox">
+                            <p>
+                                <strong>Within this document:</strong>
+                            </p>
+                            <ul>
+                            {{#each doclinks}}
+                                <li><a href="#{{anchor}}">{{name}}</a></li>
+                            {{/each}}
+                            </ul>
+                        </div>
+                    </p>
+                    <p>
+                        {{#if (gt num_files 0)}}
+                        <div class="linkbox">
+                            <p>
+                                <strong>Other documents:</strong>
+                            </p>
+                            <ul>
+                            {{#each file_list}}
+                                <li><a href="{{anchor}}">{{name}}</a></li>
+                            {{/each}}
+                            </ul>
+                        </div>
+                        {{/if}}
+                    </p>
                 </div>
             </div>
         </div>

@@ -8,7 +8,7 @@ pub struct Doclink {
 }
 
 #[derive(Default)]
-pub struct TitleFinder {
+pub struct DocumentScraper {
     pub doclinks: Vec<Doclink>,
     pub title: Option<String>,
     in_header: bool,
@@ -18,9 +18,9 @@ fn get_munged_anchor(anchor: &str) -> String {
     anchor.replace(' ', "-")
 }
 
-impl TitleFinder {
+impl DocumentScraper {
     pub fn new() -> Self {
-        TitleFinder {
+        DocumentScraper {
             doclinks: vec![Doclink { anchor: "top".to_string(), name: "Top".to_string() }],
             title: None,
             in_header: false,
