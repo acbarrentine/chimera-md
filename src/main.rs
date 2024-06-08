@@ -8,7 +8,7 @@ use axum::{
 };
 use title_finder::Doclink;
 use tokio::sync::RwLock;
-use tower_http::{services::ServeFile, trace::TraceLayer};
+use tower_http::{services::ServeDir, trace::TraceLayer};
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::Serialize;
@@ -32,6 +32,7 @@ impl AppState {
         let mut handlebars = Handlebars::new();
         handlebars.set_dev_mode(true);
         handlebars.register_template_file("markdown", "templates/markdown.html")?;
+        handlebars.register_template_file("error", "templates/error.html")?;
         Ok(AppState{
             handlebars,
             cached_results: BTreeMap::new(),
@@ -59,11 +60,27 @@ async fn main() -> Result<(), ChimeraError> {
         .route("/", get(serve_index))
         .route("/*path", get(serve_file))
         .with_state(Arc::new(RwLock::new(state)))
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http()
+    );
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
     Ok(())
+}
+
+async fn handle_404(
+    app_state: AppStateType,
+) -> Result<axum::response::Response, ChimeraError> {
+    let vars = BTreeMap::from([
+        ("error-code", "404: Not found"),
+        ("heading", "Page not found"),
+        ("message", "The page you are looking for does not exist or has been moved"),
+    ]);
+    let html = {
+        let state_reader = app_state.read().await;
+        state_reader.handlebars.render("error", &vars)?
+    };
+    Ok((StatusCode::NOT_FOUND, Html(html)).into_response())
 }
 
 //#[debug_handler]
@@ -183,6 +200,9 @@ async fn serve_file(
 
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    let resp = ServeFile::new(path).try_call(req).await.unwrap();
+    let resp = ServeDir::new(path.as_str()).try_call(req).await?;
+    if resp.status() == StatusCode::NOT_FOUND {
+        return Ok(handle_404(app_state).await.into_response());
+    }
     Ok(resp.into_response())
 }

@@ -1,4 +1,4 @@
-# Chimera example markdown
+# Chimera example
 
 I am making this tool to make it easy to index a variety of markdown documents I have
 lying around, served through a web server with included style information and full
