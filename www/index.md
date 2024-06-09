@@ -11,4 +11,4 @@ I'm not sure what to say here. Dig up links to real stuff?
 ## Other folders
 
 * [Subfolder](subfolder/)
-* [Tests](tests/)
+* [Gruber test suite](tests/)

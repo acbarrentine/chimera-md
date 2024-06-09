@@ -52,6 +52,7 @@ impl AppState {
 // Site title
 // Path to templates folder
 // Log level
+// index file name (index.md)
 
 pub(crate) type AppStateType = Arc<RwLock<AppState>>;
 
@@ -197,6 +198,32 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     new_html
 }
 
+fn get_language_blob(langs: &[&str]) -> String {
+    let min_js_prefix = "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
+    let min_js_suffix = ".min.js\"></script>\n";
+    let min_jis_len = langs.iter().fold(0, |len, el| {
+        len + el.len()
+    });
+
+    let style = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css\">\n";
+    let highlight_js = "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n";
+    let invoke_js = "<script>hljs.highlightAll();</script>\n";
+    let mut buffer = String::with_capacity(
+        style.len() +
+        highlight_js.len() +
+        min_jis_len +
+        invoke_js.len());
+    buffer.push_str(style);
+    buffer.push_str(highlight_js);
+    for lang in langs {
+        buffer.push_str(min_js_prefix);
+        buffer.push_str(lang);
+        buffer.push_str(min_js_suffix);
+    }
+    buffer.push_str(invoke_js);
+    buffer
+}
+
 async fn serve_markdown_file(
     app_state: AppStateType,
     path: &str,
@@ -232,6 +259,7 @@ async fn serve_markdown_file(
     struct HandlebarVars {
         body: String,
         title: String,
+        code_js: String,
         doclinks: Vec<Doclink>,
         file_list: Vec<Doclink>,
         num_files: usize,
@@ -240,12 +268,28 @@ async fn serve_markdown_file(
     let file_list = build_file_list(path).await;
 
     // todo: the title fallback should be the file name
-    let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
+    let title = title_finder.title.unwrap_or_else(||{
+        if let Some((_, slashpos)) = path.rsplit_once('/') {
+            slashpos.to_string()
+        }
+        else {
+            path.to_string()
+        }
+    });
+
+    let code_js = if title_finder.has_code_blocks {
+        get_language_blob(&title_finder.code_languages)
+    }
+    else {
+        String::new()
+    };
+
     let mut state_writer = app_state.write().await;
 
     let vars = HandlebarVars{
         body: html_content,
         title,
+        code_js,
         doclinks: title_finder.doclinks,
         num_files: file_list.len(),
         file_list,
