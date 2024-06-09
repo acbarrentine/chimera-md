@@ -5,7 +5,7 @@ mod cache_info;
 use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, sync::Arc};
 use axum::{
 //    debug_handler,
-    extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse}, routing::get, Router
+    extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Router
 };
 use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -45,6 +45,13 @@ impl AppState {
         })
     }
 }
+
+// Config properties needed
+// Port
+// Path to document root
+// Site title
+// Path to templates folder
+// Log level
 
 pub(crate) type AppStateType = Arc<RwLock<AppState>>;
 
@@ -95,7 +102,7 @@ async fn handle_fallback(
     handle_response(app_state, "/", headers).await
 }
 
-async fn build_file_list(relative_path: &str, server_root: &std::path::Path) -> Vec<Doclink> {
+async fn build_file_list(relative_path: &str) -> Vec<Doclink> {
     let mut files = Vec::new();
     let relative_path = std::path::PathBuf::from(relative_path);
     let Some(relative_parent_path) = relative_path.parent() else {
@@ -120,12 +127,11 @@ async fn build_file_list(relative_path: &str, server_root: &std::path::Path) -> 
                 let file_name = entry.file_name();
                 if let Some(extension) = path.extension() {
                     if extension.eq_ignore_ascii_case(OsStr::new("md")) && file_name.ne(original_file_name) {
-                        if let Ok(path_to_entry) = path.strip_prefix(server_root) {
-                            files.push(Doclink{
-                                anchor: path_to_entry.to_string_lossy().to_string(),
-                                name: file_name.to_string_lossy().to_string(),
-                            });    
-                        }
+                        let name_string = file_name.to_string_lossy().to_string();
+                        files.push(Doclink{
+                            anchor: urlencoding::encode(name_string.as_str()).into_owned(),
+                            name: name_string,
+                        });
                     }
                 }
             }
@@ -170,10 +176,10 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
                 let mut slit = open_slice.chars().skip(1);
                 if slit.next() == Some('h') {
                     if let Some(heading_size) = slit.next() {
-                        if slit.next() == Some('>') {
+                        if slit.next() == Some('>') || slit.next() == Some(' ') {
                             let anchor = links[link_index].anchor.as_str();
                             tracing::trace!("Anchor: {anchor}");
-                            new_html.push_str(format!("<h{heading_size}><a id=\"{anchor}\"></a>").as_str());
+                            new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
                             link_index += 1;
                             for _ in 0..open_slice.len()-1 {
                                 if char_iter.next().is_none() {
@@ -231,10 +237,11 @@ async fn serve_markdown_file(
         num_files: usize,
     }
 
-    // todo: the title fallback should come from config/environment
+    let file_list = build_file_list(path).await;
+
+    // todo: the title fallback should be the file name
     let title = title_finder.title.unwrap_or("Chimera markdown".to_string());
     let mut state_writer = app_state.write().await;
-    let file_list = build_file_list(path, state_writer.server_root.as_path()).await;
 
     let vars = HandlebarVars{
         body: html_content,
@@ -271,18 +278,25 @@ async fn get_response(
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::info!("Chimera request: {path:?}");
-    let path = format!("www/{path}");
-    if has_extension(path.as_str(), "md") {
-        return serve_markdown_file(app_state, path.as_str()).await;
+    let www_path = format!("www/{path}");
+    if has_extension(www_path.as_str(), "md") {
+        return serve_markdown_file(app_state, www_path.as_str()).await;
     }
     else {
-        let slash = if path.ends_with('/') {""} else {"/"};
-        let path_with_index = format!("{path}{slash}index.md");
-        if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
-            return serve_markdown_file(app_state, &path_with_index).await;
+        // is this a folder?
+        let metadata_opt = tokio::fs::metadata(www_path.as_str()).await;
+        if let Ok(metadata) = metadata_opt {
+            if metadata.is_dir() && !www_path.ends_with('/') {
+                let path_with_slash = format!("{path}/");
+                return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
+            }
+            let path_with_index = format!("{www_path}index.md");
+            if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
+                return serve_markdown_file(app_state, &path_with_index).await;
+            }
         }
     }
-    serve_static_file(app_state, path.as_str(), headers).await
+    serve_static_file(app_state, www_path.as_str(), headers).await
 }
 
 async fn handle_response(

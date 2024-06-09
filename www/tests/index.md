@@ -1,14 +1,21 @@
 # Gruber markdown tests
 
-* [Amps and angle encoding](Amps%20and%20angle%20encoding.md)
-
-www/tests/Amps and angle encoding.md                      www/tests/Links, reference style.md
-www/tests/Auto links.md                                   www/tests/Literal quotes in titles.md
-www/tests/Backslash escapes.md                            www/tests/Markdown Documentation - Basics.md
-www/tests/Blockquotes with code blocks.md                 www/tests/Markdown Documentation - Syntax.md
-www/tests/Hard-wrapped paragraphs with list-like lines.md www/tests/Nested blockquotes.md
-www/tests/Horizontal rules.md                             www/tests/Ordered and unordered lists.md
-www/tests/Inline HTML (Advanced).md                       www/tests/Strong and em together.md
-www/tests/Inline HTML (Simple).md                         www/tests/Tabs.md
-www/tests/Inline HTML comments.md                         www/tests/Tidyness.md
-www/tests/Links, inline style.md                          www/tests/index.md
+* [Amps and angle encoding ](Amps%20and%20angle%20encoding.md) [[html]](Amps%20and%20angle%20encoding.html)
+* [Auto links ](Auto%20links.md) [[html]](Auto%20links.html)
+* [Backslash escapes ](Backslash%20escapes.md) [[html]](Backslash%20escapes.html)
+* [Blockquotes with code blocks ](Blockquotes%20with%20code%20blocks.md) [[html]](Blockquotes%20with%20code%20blocks.html)
+* [Hard-wrapped paragraphs with list-like lines ](Hard-wrapped%20paragraphs%20with%20list-like%20lines.md) [[html]](Hard-wrapped%20paragraphs%20with%20list-like%20lines.html)
+* [Horizontal rules ](Horizontal%20rules.md) [[html]](Horizontal%20rules.html)
+* [Inline HTML (Advanced) ](Inline%20HTML%20(Advanced).md) [[html]](Inline%20HTML%20(Advanced).html)
+* [Inline HTML (Simple) ](Inline%20HTML%20(Simple).md) [[html]](Inline%20HTML%20(Simple).html)
+* [Inline HTML comments ](Inline%20HTML%20comments.md) [[html]](Inline%20HTML%20comments.html)
+* [Links, inline style ](Links,%20inline%20style.md) [[html]](Links,%20inline%20style.html)
+* [Links, reference style ](Links,%20reference%20style.md) [[html]](Links,%20reference%20style.html)
+* [Literal quotes in titles ](Literal%20quotes%20in%20titles.md) [[html]](Literal%20quotes%20in%20titles.html)
+* [Markdown Documentation - Basics ](Markdown%20Documentation%20-%20Basics.md) [[html]](Markdown%20Documentation%20-%20Basics.html)
+* [Markdown Documentation - Syntax ](Markdown%20Documentation%20-%20Syntax.md) [[html]](Markdown%20Documentation%20-%20Syntax.html)
+* [Nested blockquotes ](Nested%20blockquotes.md) [[html]](Nested%20blockquotes.html)
+* [Ordered and unordered lists ](Ordered%20and%20unordered%20lists.md) [[html]](Ordered%20and%20unordered%20lists.html)
+* [Strong and em together ](Strong%20and%20em%20together.md) [[html]](Strong%20and%20em%20together.html)
+* [Tabs ](Tabs.md) [[html]](Tabs.html)
+* [Tidyness ](Tidyness.md) [[html]](Tidyness.html)
