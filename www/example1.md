@@ -1,4 +1,4 @@
-# Chimera example
+# Markdown example 1
 
 I am making this tool to make it easy to index a variety of markdown documents I have
 lying around, served through a web server with included style information and full
@@ -50,4 +50,4 @@ Anyway, here are some `Markdown` features to test with.
 
 ##### A Picture
 
-![sky-box](documentation-img-1.jpg)
+![sky-box](img-1.jpg)
