@@ -1,26 +1,29 @@
 mod chimera_error;
 mod document_scraper;
+mod cache_info;
 
-use std::{collections::BTreeMap, sync::Arc, time::SystemTime};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, sync::Arc};
 use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse}, routing::get, Router
 };
-use chimera_error::{handle_404, handle_err};
-use document_scraper::Doclink;
 use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::Serialize;
 
+use cache_info::get_modtime;
+use chimera_error::{handle_404, handle_err};
+use document_scraper::Doclink;
+
 use crate::chimera_error::ChimeraError;
 use crate::document_scraper::DocumentScraper;
+use crate::cache_info::Modtimes;
 
 struct CachedResult {
     html: String,
-    md_modtime: SystemTime,
-    hb_modtime: SystemTime,
+    modtimes: Modtimes,
 }
 
 struct AppState {
@@ -116,7 +119,7 @@ async fn build_file_list(relative_path: &str, server_root: &std::path::Path) -> 
                 let path = entry.path();
                 let file_name = entry.file_name();
                 if let Some(extension) = path.extension() {
-                    if extension.eq_ignore_ascii_case(std::ffi::OsStr::new("md")) && file_name.ne(original_file_name) {
+                    if extension.eq_ignore_ascii_case(OsStr::new("md")) && file_name.ne(original_file_name) {
                         if let Ok(path_to_entry) = path.strip_prefix(server_root) {
                             files.push(Doclink{
                                 anchor: path_to_entry.to_string_lossy().to_string(),
@@ -131,6 +134,17 @@ async fn build_file_list(relative_path: &str, server_root: &std::path::Path) -> 
             }
         }
     }
+    files.sort_unstable_by(|a, b| {
+        if a.name.eq_ignore_ascii_case("index.md") {
+            Ordering::Less
+        }
+        else if b.name.eq_ignore_ascii_case("index.md") {
+            Ordering::Greater
+        }
+        else {
+            a.name.cmp(&b.name)
+        }
+    });
     files
 }
 
@@ -139,11 +153,6 @@ fn has_extension(file_name: &str, match_ext: &str) -> bool {
         return ext.eq_ignore_ascii_case(match_ext);
     }
     false
-}
-
-async fn get_modtime(path: &str) -> Result<SystemTime, ChimeraError> {
-    let md_metadata = tokio::fs::metadata(path).await?;
-    Ok(md_metadata.modified()?)
 }
 
 fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
@@ -187,23 +196,19 @@ async fn serve_markdown_file(
     path: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request: {path:?}");
-    let md_modtime = match get_modtime(path).await {
-        Ok(modtime) => modtime,
-        Err(_) => return Ok((StatusCode::NOT_FOUND, "not found").into_response())
-    };
-    tracing::debug!("MD modtime: {md_modtime:?}");
-    let hb_modtime = get_modtime("templates/markdown.html").await?;
+    let hb_modtime = get_modtime(std::path::PathBuf::from("templates/markdown.html").as_path()).await?;
+    let modtimes = Modtimes::new(path, hb_modtime).await;
     {
         let state_reader = app_state.read().await;
         let cached_results = state_reader.cached_results.get(path);
         if let Some(results) = cached_results {
-            if results.md_modtime == md_modtime && results.hb_modtime == hb_modtime {
+            if results.modtimes == modtimes {
                 tracing::debug!("Returning cached response for {path}");
                 return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
             }
         }
     };
-    tracing::debug!("Not cached, building: {path:?}");
+    tracing::info!("Not cached, building: {path:?}");
 
     let md_content = tokio::fs::read_to_string(path).await?;
     let mut title_finder = DocumentScraper::new();
@@ -244,8 +249,7 @@ async fn serve_markdown_file(
 
     state_writer.cached_results.insert(path.to_string(), CachedResult {
         html: html.clone(),
-        md_modtime,
-        hb_modtime,
+        modtimes,
     });
     Ok((StatusCode::ACCEPTED, Html(html)).into_response())
 }
@@ -266,7 +270,7 @@ async fn get_response(
     path: &str,
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {
-    tracing::info!("Request: {path:?}");
+    tracing::info!("Chimera request: {path:?}");
     let path = format!("www/{path}");
     if has_extension(path.as_str(), "md") {
         return serve_markdown_file(app_state, path.as_str()).await;
@@ -289,7 +293,7 @@ async fn handle_response(
     match get_response(app_state.clone(), path, headers).await {
         Ok(resp) => {
             let status = resp.status();
-            tracing::info!("Ok: {}", status);
+            tracing::info!("Response ok: {}", status);
             if status.is_success() || status.is_redirection() {
                 resp.into_response()
             }
