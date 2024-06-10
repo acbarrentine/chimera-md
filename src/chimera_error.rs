@@ -7,7 +7,7 @@ use crate::AppStateType;
 pub enum ChimeraError {
     MissingMarkdownTemplate(String),
     TemplateRender(String),
-    MarkdownFileNotFound(String),
+    IOError(String),
 }
 
 impl From<handlebars::TemplateError> for ChimeraError {
@@ -24,7 +24,7 @@ impl From<handlebars::RenderError> for ChimeraError {
 
 impl From<std::io::Error> for ChimeraError {
     fn from(err: std::io::Error) -> Self {
-        ChimeraError::MarkdownFileNotFound(err.to_string())
+        ChimeraError::IOError(err.to_string())
     }
 }
 
@@ -43,10 +43,7 @@ pub async fn handle_404(
         ("heading", "Page not found"),
         ("message", "The page you are looking for does not exist or has been moved"),
     ]);
-    let html = {
-        let state_reader = app_state.read().await;
-        state_reader.handlebars.render("error", &vars)?
-    };
+    let html = app_state.handlebars.render("error", &vars)?;
     Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
 }
 
@@ -58,9 +55,6 @@ pub async fn handle_err(
         ("heading", "Internal server error"),
         ("message", "Chimera failed attempting to complete this request"),
     ]);
-    let html = {
-        let state_reader = app_state.read().await;
-        state_reader.handlebars.render("error", &vars)?
-    };
+    let html = app_state.handlebars.render("error", &vars)?;
     Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
 }

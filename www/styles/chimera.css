@@ -114,6 +114,10 @@ tr:nth-child(odd) {
     padding: 1em;
 }
 
+.sidebar ul {
+    list-style: circle inside;
+}
+
 .linkbox {
     border-radius: 5px;
     border-left: 5px solid black;

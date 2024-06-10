@@ -2,7 +2,7 @@ mod chimera_error;
 mod document_scraper;
 mod cache_info;
 
-use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, sync::Arc, path::PathBuf};
 use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Router
@@ -12,6 +12,7 @@ use tower_http::{services::ServeDir, trace::TraceLayer};
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::Serialize;
+use clap::Parser;
 
 use cache_info::get_modtime;
 use chimera_error::{handle_404, handle_err};
@@ -26,54 +27,83 @@ struct CachedResult {
     modtimes: Modtimes,
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about)]
+struct Config {
+    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/var/chimera/www"))]
+    document_root: String,
+
+    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/var/chimera/template"))]
+    template_root: String,
+
+    #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera Markdown Server"))]
+    site_title: String,
+
+    #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
+    index_file: String,
+
+    #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
+    log_level: Option<tracing::Level>,
+
+    #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..))]
+    port: u16,
+}
+// https://docs.docker.com/compose/environment-variables/env-file/
+// https://stackoverflow.com/questions/73528645/how-to-extract-config-value-from-env-variable-with-clap-derive
+
 struct AppState {
     handlebars: Handlebars<'static>,
-    cached_results: BTreeMap<String, CachedResult>,
-    server_root: std::path::PathBuf,
+    document_root: PathBuf,
+    markdown_template: PathBuf,
+    site_title: String,
+    index_file: String,
+    cached_results: RwLock<BTreeMap<String, CachedResult>>,
 }
 
 impl AppState {
-    pub fn new(server_root: std::path::PathBuf) -> Result<Self, ChimeraError> {
+    pub fn new(config: Config, ) -> Result<Self, ChimeraError> {
         let mut handlebars = Handlebars::new();
         handlebars.set_dev_mode(true);
-        handlebars.register_template_file("markdown", "templates/markdown.html")?;
-        handlebars.register_template_file("error", "templates/error.html")?;
+
+        tracing::info!("Document root: {}", config.document_root);
+        let document_root = PathBuf::from(config.document_root);
+        std::env::set_current_dir(document_root.as_path())?;
+
+        let mut markdown_template = PathBuf::from(config.template_root.as_str());
+        markdown_template.push("markdown.html");
+        tracing::debug!("Markdown template file: {}", markdown_template.display());
+        handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
+
+        let mut error_template = PathBuf::from(config.template_root.as_str());
+        error_template.push("error.html");
+        tracing::debug!("Error template file: {}", error_template.display());
+        handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
         Ok(AppState{
             handlebars,
-            cached_results: BTreeMap::new(),
-            server_root,
+            document_root,
+            markdown_template,
+            site_title: config.site_title,
+            index_file: config.index_file,
+            cached_results: RwLock::new(BTreeMap::new()),
         })
     }
 }
 
-// Config properties needed
-// Port
-// Path to document root
-// Site title
-// Path to templates folder
-// Log level
-// index file name (index.md)
-
-pub(crate) type AppStateType = Arc<RwLock<AppState>>;
+pub(crate) type AppStateType = Arc<AppState>;
 
 #[tokio::main]
 async fn main() -> Result<(), ChimeraError> {
+    let config = Config::parse();
     let trace_filter = tracing_subscriber::filter::Targets::new()
-        .with_target("tower_http::trace::on_response", tracing::Level::TRACE)
-        .with_target("tower_http::trace::make_span", tracing::Level::DEBUG)
-        .with_default(tracing::Level::INFO)
-        //.with_default(tracing::Level::DEBUG)
-        ;
-
+        .with_default(config.log_level.unwrap_or(tracing::Level::INFO));
     let tracing_layer = tracing_subscriber::fmt::layer();
     tracing_subscriber::registry()
         .with(tracing_layer)
         .with(trace_filter)
         .init();
 
-    let root_path = std::fs::canonicalize("www")?;
-
-    let state = Arc::new(RwLock::new(AppState::new(root_path)?));
+    let port = config.port;
+    let state = Arc::new(AppState::new(config)?);
     let app = Router::new()
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
@@ -81,7 +111,7 @@ async fn main() -> Result<(), ChimeraError> {
         .layer(TraceLayer::new_for_http()
     );
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await.unwrap();
     axum::serve(listener, app).await.unwrap();
     Ok(())
 }
@@ -100,27 +130,28 @@ async fn handle_fallback(
     State(app_state): State<AppStateType>,
     headers: HeaderMap
 ) -> axum::response::Response {
-    handle_response(app_state, "/", headers).await
+    let index_file = app_state.index_file.clone();
+    handle_response(app_state, index_file.as_str(), headers).await
 }
 
 async fn build_file_list(relative_path: &str) -> Vec<Doclink> {
     let mut files = Vec::new();
     let relative_path = std::path::PathBuf::from(relative_path);
-    let Some(relative_parent_path) = relative_path.parent() else {
-        return files
+    tracing::debug!("Relative path: {}", relative_path.display());
+    let mut relative_parent_path = match relative_path.parent() {
+        Some(relative_parent_path) => relative_parent_path.to_path_buf(),
+        None => return files
     };
+    let osstr = relative_parent_path.as_mut_os_string();
+    if osstr.is_empty() {
+        osstr.push(".");
+    }
     let Some(original_file_name) = relative_path.file_name() else {
+        tracing::debug!("No filename found for {}", relative_path.display());
         return files
     };
-    let abs_path = match tokio::fs::canonicalize(relative_parent_path).await {
-        Ok(path) => path,
-        Err(e) => {
-            tracing::warn!("Could not get metadata for {relative_parent_path:?}: {e}");
-            return files 
-        }
-    };
-    tracing::debug!("Scanning for files in {abs_path:?}");
-    if let Ok(mut read_dir) = tokio::fs::read_dir(abs_path.as_path()).await {
+    tracing::debug!("Relative path parent: {}", relative_parent_path.display());
+    if let Ok(mut read_dir) = tokio::fs::read_dir(relative_parent_path.as_path()).await {
         while let Ok(entry_opt) = read_dir.next_entry().await {
             if let Some(entry) = entry_opt {
                 tracing::trace!("Found file: {entry:?}");
@@ -229,11 +260,11 @@ async fn serve_markdown_file(
     path: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request: {path:?}");
-    let hb_modtime = get_modtime(std::path::PathBuf::from("templates/markdown.html").as_path()).await?;
+    let hb_modtime = get_modtime(app_state.markdown_template.as_path()).await?;
     let modtimes = Modtimes::new(path, hb_modtime).await;
     {
-        let state_reader = app_state.read().await;
-        let cached_results = state_reader.cached_results.get(path);
+        let cache = app_state.cached_results.read().await;
+        let cached_results = cache.get(path);
         if let Some(results) = cached_results {
             if results.modtimes == modtimes {
                 tracing::debug!("Returning cached response for {path}");
@@ -267,7 +298,6 @@ async fn serve_markdown_file(
 
     let file_list = build_file_list(path).await;
 
-    // todo: the title fallback should be the file name
     let title = title_finder.title.unwrap_or_else(||{
         if let Some((_, slashpos)) = path.rsplit_once('/') {
             slashpos.to_string()
@@ -284,8 +314,6 @@ async fn serve_markdown_file(
         String::new()
     };
 
-    let mut state_writer = app_state.write().await;
-
     let vars = HandlebarVars{
         body: html_content,
         title,
@@ -295,13 +323,16 @@ async fn serve_markdown_file(
         file_list,
     };
 
-    let html = state_writer.handlebars.render("markdown", &vars)?;
+    let html = app_state.handlebars.render("markdown", &vars)?;
     tracing::debug!("Generated fresh response for {path}");
 
-    state_writer.cached_results.insert(path.to_string(), CachedResult {
-        html: html.clone(),
-        modtimes,
-    });
+    {
+        let mut cache = app_state.cached_results.write().await;
+        cache.insert(path.to_string(), CachedResult {
+            html: html.clone(),
+            modtimes,
+        });
+    }
     Ok((StatusCode::ACCEPTED, Html(html)).into_response())
 }
 
@@ -310,7 +341,7 @@ async fn serve_static_file(
     path: &str,
     headers: HeaderMap,
 ) -> Result<axum::response::Response, ChimeraError> {
-    tracing::debug!("Static request: {path:?}");
+    tracing::info!("Static request: {path:?}");
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
@@ -322,25 +353,34 @@ async fn get_response(
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::info!("Chimera request: {path:?}");
-    let www_path = format!("www/{path}");
-    if has_extension(www_path.as_str(), "md") {
-        return serve_markdown_file(app_state, www_path.as_str()).await;
+    //let maybe_slash = if path.ends_with('/') {""} else {"/"};
+    // let abs_path = {
+    //     let read_lock = app_state.read().await;
+    //     format!("{}{}{}", read_lock.config.document_root, maybe_slash, path)
+    // };
+    //let abs = format!("www{slash}{path}");
+    if has_extension(path, "md") {
+        return serve_markdown_file(app_state, path).await;
     }
     else {
         // is this a folder?
-        let metadata_opt = tokio::fs::metadata(www_path.as_str()).await;
+        let metadata_opt = tokio::fs::metadata(path).await;
         if let Ok(metadata) = metadata_opt {
-            if metadata.is_dir() && !www_path.ends_with('/') {
+            tracing::debug!("Metadata obtained for {path}");
+            if metadata.is_dir() && !path.ends_with('/') {
                 let path_with_slash = format!("{path}/");
+                tracing::info!("Missing /, redirecting to {path_with_slash}");
                 return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
             }
-            let path_with_index = format!("{www_path}index.md");
+            let path_with_index = format!("{path}index.md");
             if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
+                tracing::info!("No file specified, sending {path_with_index}");
                 return serve_markdown_file(app_state, &path_with_index).await;
             }
         }
     }
-    serve_static_file(app_state, www_path.as_str(), headers).await
+    tracing::debug!("Not md or a dir {path}. Falling back to static routing");
+    serve_static_file(app_state, path, headers).await
 }
 
 async fn handle_response(
