@@ -2,7 +2,7 @@ mod chimera_error;
 mod document_scraper;
 mod cache_info;
 
-use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, sync::Arc, path::PathBuf};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc};
 use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Router
@@ -53,7 +53,6 @@ struct Config {
 
 struct AppState {
     handlebars: Handlebars<'static>,
-    document_root: PathBuf,
     markdown_template: PathBuf,
     site_title: String,
     index_file: String,
@@ -65,7 +64,7 @@ impl AppState {
         let mut handlebars = Handlebars::new();
         handlebars.set_dev_mode(true);
 
-        tracing::info!("Document root: {}", config.document_root);
+        tracing::debug!("Document root: {}", config.document_root);
         let document_root = PathBuf::from(config.document_root);
         std::env::set_current_dir(document_root.as_path())?;
 
@@ -73,14 +72,16 @@ impl AppState {
         markdown_template.push("markdown.html");
         tracing::debug!("Markdown template file: {}", markdown_template.display());
         handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
+        tracing::debug!("Loaded markdown template {}", markdown_template.display());
 
         let mut error_template = PathBuf::from(config.template_root.as_str());
         error_template.push("error.html");
         tracing::debug!("Error template file: {}", error_template.display());
         handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
+        tracing::debug!("Loaded error template {}", error_template.display());
+
         Ok(AppState{
             handlebars,
-            document_root,
             markdown_template,
             site_title: config.site_title,
             index_file: config.index_file,
@@ -101,6 +102,8 @@ async fn main() -> Result<(), ChimeraError> {
         .with(tracing_layer)
         .with(trace_filter)
         .init();
+
+    tracing::info!("Starting up Chimera MD server \"{}\" on port {}", config.site_title, config.port);
 
     let port = config.port;
     let state = Arc::new(AppState::new(config)?);
@@ -134,7 +137,7 @@ async fn handle_fallback(
     handle_response(app_state, index_file.as_str(), headers).await
 }
 
-async fn build_file_list(relative_path: &str) -> Vec<Doclink> {
+async fn build_file_list(relative_path: &str, index_file: &str) -> Vec<Doclink> {
     let mut files = Vec::new();
     let relative_path = std::path::PathBuf::from(relative_path);
     tracing::debug!("Relative path: {}", relative_path.display());
@@ -173,10 +176,10 @@ async fn build_file_list(relative_path: &str) -> Vec<Doclink> {
         }
     }
     files.sort_unstable_by(|a, b| {
-        if a.name.eq_ignore_ascii_case("index.md") {
+        if a.name.eq_ignore_ascii_case(index_file) {
             Ordering::Less
         }
-        else if b.name.eq_ignore_ascii_case("index.md") {
+        else if b.name.eq_ignore_ascii_case(index_file) {
             Ordering::Greater
         }
         else {
@@ -205,12 +208,12 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
         let (i, c) = ch;
         if link_index < links.len() && c == '<' {
             if let Some(open_slice) = original_html.get(i..i+4) {
-                let mut slit = open_slice.chars().skip(1);
-                if slit.next() == Some('h') {
-                    if let Some(heading_size) = slit.next() {
-                        if slit.next() == Some('>') || slit.next() == Some(' ') {
+                let mut slice_it = open_slice.chars().skip(1);
+                if slice_it.next() == Some('h') {
+                    if let Some(heading_size) = slice_it.next() {
+                        if slice_it.next() == Some('>') {
                             let anchor = links[link_index].anchor.as_str();
-                            tracing::trace!("Anchor: {anchor}");
+                            tracing::debug!("Rewriting anchor: {anchor}");
                             new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
                             link_index += 1;
                             for _ in 0..open_slice.len()-1 {
@@ -219,6 +222,10 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
                                 }
                             }
                             continue;
+                        }
+                        else if slice_it.next() == Some(' ') {
+                            // already has an id?
+                            link_index += 1;
                         }
                     }
                 }
@@ -290,13 +297,14 @@ async fn serve_markdown_file(
     struct HandlebarVars {
         body: String,
         title: String,
+        site_title: String,
         code_js: String,
         doclinks: Vec<Doclink>,
         file_list: Vec<Doclink>,
         num_files: usize,
     }
 
-    let file_list = build_file_list(path).await;
+    let file_list = build_file_list(path, app_state.index_file.as_str()).await;
 
     let title = title_finder.title.unwrap_or_else(||{
         if let Some((_, slashpos)) = path.rsplit_once('/') {
@@ -317,6 +325,7 @@ async fn serve_markdown_file(
     let vars = HandlebarVars{
         body: html_content,
         title,
+        site_title: app_state.site_title.clone(),
         code_js,
         doclinks: title_finder.doclinks,
         num_files: file_list.len(),
@@ -353,12 +362,6 @@ async fn get_response(
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::info!("Chimera request: {path:?}");
-    //let maybe_slash = if path.ends_with('/') {""} else {"/"};
-    // let abs_path = {
-    //     let read_lock = app_state.read().await;
-    //     format!("{}{}{}", read_lock.config.document_root, maybe_slash, path)
-    // };
-    //let abs = format!("www{slash}{path}");
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
     }
@@ -372,7 +375,7 @@ async fn get_response(
                 tracing::info!("Missing /, redirecting to {path_with_slash}");
                 return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
             }
-            let path_with_index = format!("{path}index.md");
+            let path_with_index = format!("{path}{}", app_state.index_file.as_str());
             if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
                 tracing::info!("No file specified, sending {path_with_index}");
                 return serve_markdown_file(app_state, &path_with_index).await;
