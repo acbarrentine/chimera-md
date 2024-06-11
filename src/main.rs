@@ -114,7 +114,7 @@ async fn main() -> Result<(), ChimeraError> {
         .layer(TraceLayer::new_for_http()
     );
 
-    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await.unwrap();
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app).await.unwrap();
     Ok(())
 }
