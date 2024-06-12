@@ -3,7 +3,7 @@ use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct Doclink {
     pub anchor: String,
     pub name: String,

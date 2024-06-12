@@ -101,3 +101,11 @@ The book
 
 Someone targeting linux
 * https://kyle.buzby.dev/notes/compiling-rust-for-ds418j/
+
+## Page design
+
+There are some interesting design elements on the [Tantivy tutorial](https://tantivy-search.github.io/examples/basic_search.html)
+
+* Note the popup menu
+* 2 tone background
+* Vertial alignment of elements across the two columns

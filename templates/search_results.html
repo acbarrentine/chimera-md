@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Search results</title>
+    <link rel="stylesheet" href="/styles/skeleton.css">
+    <link rel="stylesheet" href="/styles/chimera.css">
+  </head>
+  <body>
+    <nav>
+        <div class="row">
+            <div class="three columns">
+                {{{site_title}}}
+            </div>
+            <div class="nine columns">
+                <form action="/search" method="get">
+                    <!-- id for javascript, name for form submit -->
+                    <input id="query" name="query" type="search" placeholder="Search...">
+                    <button type="submit">?</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="row">
+            <div class="nine columns">
+                <p>
+                    <h1>Search results for: "{{query}}"</h1>
+                </p>
+                <ol>
+                {{#each results}}
+                    <li><a href="{{anchor}}">{{name}}</a></li>
+                {{/each}}
+                </ol>
+            </div>
+            <div class="three columns">
+            </div>
+        </div>
+    </div>
+  </body>
+</html>

@@ -8,6 +8,8 @@ pub enum ChimeraError {
     MissingMarkdownTemplate(String),
     TemplateRender(String),
     IOError(String),
+    TantivyError(String),
+    QueryError(String),
 }
 
 impl From<handlebars::TemplateError> for ChimeraError {
@@ -25,6 +27,18 @@ impl From<handlebars::RenderError> for ChimeraError {
 impl From<std::io::Error> for ChimeraError {
     fn from(err: std::io::Error) -> Self {
         ChimeraError::IOError(err.to_string())
+    }
+}
+
+impl From<tantivy::TantivyError> for ChimeraError {
+    fn from(err: tantivy::TantivyError) -> Self {
+        ChimeraError::TantivyError(err.to_string())
+    }
+}
+
+impl From<tantivy::query::QueryParserError> for ChimeraError {
+    fn from(err: tantivy::query::QueryParserError) -> Self {
+        ChimeraError::QueryError(err.to_string())
     }
 }
 

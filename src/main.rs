@@ -1,17 +1,19 @@
 mod chimera_error;
 mod document_scraper;
 mod cache_info;
+mod full_text_index;
 
 use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc};
 use axum::{
 //    debug_handler,
-    extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Router
+    extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router
 };
+use full_text_index::FullTextIndex;
 use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use clap::Parser;
 
 use cache_info::get_modtime;
@@ -48,8 +50,6 @@ struct Config {
     #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..))]
     port: u16,
 }
-// https://docs.docker.com/compose/environment-variables/env-file/
-// https://stackoverflow.com/questions/73528645/how-to-extract-config-value-from-env-variable-with-clap-derive
 
 struct AppState {
     handlebars: Handlebars<'static>,
@@ -57,10 +57,11 @@ struct AppState {
     site_title: String,
     index_file: String,
     cached_results: RwLock<BTreeMap<String, CachedResult>>,
+    full_text_index: FullTextIndex,
 }
 
 impl AppState {
-    pub fn new(config: Config, ) -> Result<Self, ChimeraError> {
+    pub fn new(config: Config, full_text_index: FullTextIndex) -> Result<Self, ChimeraError> {
         let mut handlebars = Handlebars::new();
         handlebars.set_dev_mode(true);
 
@@ -80,12 +81,18 @@ impl AppState {
         handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
         tracing::debug!("Loaded error template {}", error_template.display());
 
+        let mut search_template = PathBuf::from(config.template_root.as_str());
+        search_template.push("search_results.html");
+        tracing::debug!("Search template file: {}", search_template.display());
+        handlebars.register_template_file("search", search_template)?;
+
         Ok(AppState{
             handlebars,
             markdown_template,
             site_title: config.site_title,
             index_file: config.index_file,
             cached_results: RwLock::new(BTreeMap::new()),
+            full_text_index,
         })
     }
 }
@@ -105,9 +112,12 @@ async fn main() -> Result<(), ChimeraError> {
 
     tracing::info!("Starting up Chimera MD server \"{}\" on port {}", config.site_title, config.port);
 
+    let full_text_index = FullTextIndex::new(&config).await?;
+
     let port = config.port;
-    let state = Arc::new(AppState::new(config)?);
+    let state = Arc::new(AppState::new(config, full_text_index)?);
     let app = Router::new()
+        .route("/search", get(handle_search))
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
@@ -117,6 +127,47 @@ async fn main() -> Result<(), ChimeraError> {
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app).await.unwrap();
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct SearchForm {
+    query: String,
+}
+
+//#[debug_handler]
+async fn handle_search(
+    State(app_state): State<AppStateType>,
+    Form(search): Form<SearchForm>
+) -> axum::response::Response {
+    tracing::debug!("Search for {}", search.query);
+    match app_state.full_text_index.search(search.query.as_str()).await {
+        Ok(results) => {
+            #[derive(Serialize)]
+            struct HandlebarVars {
+                site_title: String,
+                query: String,
+                results: Vec<Doclink>,
+            }
+            tracing::info!("Got {} search results", results.len());
+            let vars = HandlebarVars{
+                site_title: app_state.site_title.clone(),
+                query: search.query,
+                results,
+            };
+            match app_state.handlebars.render("search", &vars) {
+                Ok(html) => {
+                    axum::response::Html(html).into_response()
+                },
+                Err(e) => {
+                    tracing::warn!("Error processing request: {e:?}");
+                    handle_err(app_state).await.into_response()
+                }
+            }
+        },
+        Err(_e) => {
+            handle_err(app_state).await.into_response()
+        }
+     }
 }
 
 //#[debug_handler]
@@ -133,6 +184,7 @@ async fn handle_fallback(
     State(app_state): State<AppStateType>,
     headers: HeaderMap
 ) -> axum::response::Response {
+    tracing::debug!("Fallback handler");
     let index_file = app_state.index_file.clone();
     handle_response(app_state, index_file.as_str(), headers).await
 }

@@ -10,17 +10,17 @@
   </head>
   <body>
     <nav>
-        <div>
-            <div class="flex-container">
-                <div>
-                    <h2><a href="/">{{site_title}}</a></h2>
-                </div>
-                <!-- <div>
-                    <h5><a href="/Subfolder">Subfolder</a></h5>
-                </div> -->
+        <div class="row">
+            <div class="three columns">
+                {{{site_title}}}
             </div>
-            <!-- <span class="title"><h2><a href="/">Chimera</a></h2></span>
-            <span class="menu"><h5><a href="/Subfolder">Subfolder</a></h5></span> -->
+            <div class="nine columns">
+                <form action="/search" method="get">
+                    <!-- id for javascript, name for form submit -->
+                    <input id="query" name="query" type="search" placeholder="Search...">
+                    <button type="submit">?</button>
+                </form>
+            </div>
         </div>
     </nav>
     <div class="container">
