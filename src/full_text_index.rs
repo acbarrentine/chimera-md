@@ -2,8 +2,8 @@ use core::ops::Range;
 use std::usize;
 use serde::Serialize;
 use tantivy::{collector::TopDocs, IndexReader};
-use tantivy::query::{Query, QueryParser};
-use tantivy::{schema::*, Searcher, SnippetGenerator, TantivyError};
+use tantivy::query::QueryParser;
+use tantivy::{schema::*, SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
 use tantivy::tokenizer::NgramTokenizer;
 use tempfile::TempDir;
@@ -13,8 +13,9 @@ use crate::Config;
 
 /*
  * Todo
- * * Add documents to work queue, add to index on background thread
- * * Watch documents for changes
+ * Add documents to work queue, add to index on background thread
+ * Watch documents for changes
+ * Strip HTML from documents before indexing
  */
 
 #[derive(Serialize)]
