@@ -30,7 +30,10 @@
                 </p>
                 <ol>
                 {{#each results}}
-                    <li><a href="{{anchor}}">{{name}}</a></li>
+                    <li>
+                        <p><a href="{{link}}">{{title}}</a></p>
+                        <p>{{{snippet}}}</p>
+                    </li>
                 {{/each}}
                 </ol>
                 {{#if (eq num_results 0)}}

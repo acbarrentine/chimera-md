@@ -110,6 +110,12 @@ tr:nth-child(odd) {
     background-color: rgb(62, 72, 101);
 }
 
+.highlight {
+    background-color: yellow;
+    color: black;
+    padding: 3px;
+}
+
 .sidebar {
     padding: 1em;
 }

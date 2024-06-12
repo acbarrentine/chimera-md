@@ -8,7 +8,7 @@ use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router
 };
-use full_text_index::FullTextIndex;
+use full_text_index::{FullTextIndex, SearchResult};
 use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use handlebars::Handlebars;
@@ -145,7 +145,7 @@ async fn handle_search(
                 site_title: String,
                 query: String,
                 num_results: usize,
-                results: Vec<Doclink>,
+                results: Vec<SearchResult>,
             }
             tracing::info!("Got {} search results", results.len());
             let vars = HandlebarVars{

@@ -1,19 +1,28 @@
+use core::ops::Range;
+use std::usize;
+use serde::Serialize;
 use tantivy::{collector::TopDocs, IndexReader};
-use tantivy::query::{FuzzyTermQuery, Query, QueryParser};
-use tantivy::{schema::*, Searcher, TantivyError};
+use tantivy::query::{Query, QueryParser};
+use tantivy::{schema::*, Searcher, SnippetGenerator, TantivyError};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
+use tantivy::tokenizer::NgramTokenizer;
 use tempfile::TempDir;
 
 use crate::chimera_error::ChimeraError;
-use crate::document_scraper::Doclink;
 use crate::Config;
 
 /*
  * Todo
  * * Add documents to work queue, add to index on background thread
- * * Fuzzy search
  * * Watch documents for changes
  */
+
+#[derive(Serialize)]
+ pub struct SearchResult {
+    title: String,
+    link: String,
+    snippet: String,
+}
 
 pub struct FullTextIndex {
     #[allow(dead_code)]     // It's not actually dead...
@@ -35,12 +44,23 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 impl FullTextIndex {
     pub async fn new(config: &Config) -> Result<Self, ChimeraError>{
         let index_path = TempDir::new()?;
+
+        let text_field_indexing = TextFieldIndexing::default()
+            .set_tokenizer("ngram4")
+            .set_index_option(IndexRecordOption::WithFreqsAndPositions);
+
+        let text_options = TextOptions::default()
+            .set_indexing_options(text_field_indexing)
+            .set_stored();
+
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
         schema_builder.add_text_field("anchor", TEXT | STORED);
-        schema_builder.add_text_field("body", TEXT);
+        schema_builder.add_text_field("body", text_options);
         let schema = schema_builder.build();
+
         let index = Index::create_in_dir(&index_path, schema.clone())?;
+        index.tokenizers().register("ngram4", NgramTokenizer::new(4, 4, false).unwrap());
         let mut index_writer: IndexWriter = index.writer(50_000_000)?;
         let title = schema.get_field("title").unwrap();
         let anchor = schema.get_field("anchor").unwrap();
@@ -54,7 +74,7 @@ impl FullTextIndex {
             if entry.file_type().is_file() {
                 let path = entry.path();
                 if let Some(ext) = path.extension() {
-                    if ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("html") {
+                    if ext.eq_ignore_ascii_case("md") {
                         let mut doc = TantivyDocument::default();
                         if let Ok(relative_path) = entry.path().strip_prefix(config.document_root.as_str()) {
                             let anchor_string = relative_path.to_string_lossy();
@@ -86,9 +106,13 @@ impl FullTextIndex {
         Ok(fti)
     }
 
-    fn execute_query(&self, searcher: &Searcher, query: &dyn Query) -> Result<Vec<Doclink>, TantivyError> {
+    pub async fn search(&self, query_str: &str) -> Result<Vec<SearchResult>, ChimeraError> {
+        let searcher = self.index_reader.searcher();
+        let query_parser = QueryParser::for_index(&self.index, vec![self.title, self.body]);
+        let query = query_parser.parse_query(query_str)?;
         let mut results = Vec::new();
-        let top_docs = searcher.search(query, &TopDocs::with_limit(10))?;
+        let snippet_generator = SnippetGenerator::create(&searcher, &query, self.body)?;
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
         for (_score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
             let title = retrieved_doc.get_first(self.title);
@@ -96,36 +120,60 @@ impl FullTextIndex {
             tracing::debug!("Search result: {title:?} {anchor:?}");
             if let Some(OwnedValue::Str(title)) = title {
                 if let Some(OwnedValue::Str(anchor)) = anchor {
-                    results.push(Doclink {
-                        anchor: anchor.clone(),
-                        name: title.clone(),
+                    let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
+                    let snippet = highlight(snippet.fragment(), snippet.highlighted());
+                    results.push(SearchResult {
+                        title: title.clone(),
+                        link: anchor.clone(),
+                        snippet,
                     });
-                }
-            }
-        }
-        Ok(results)
-    }
-
-    pub async fn search(&self, query_str: &str) -> Result<Vec<Doclink>, ChimeraError> {
-        let searcher = self.index_reader.searcher();
-
-        // probably want to soft fail on the query error here
-        let query_parser = QueryParser::for_index(&self.index, vec![self.title, self.body]);
-        let query = query_parser.parse_query(query_str)?;
-        let mut results = self.execute_query(&searcher, &query)?;
-        tracing::debug!("Initial query failed. Trying fuzzy search for {query_str}");
-        if results.is_empty() {
-            let term = Term::from_field_text(self.body, query_str);
-            let query = FuzzyTermQuery::new(term, 2, true);
-            results = match self.execute_query(&searcher, &query) {
-                Ok(results) => results,
-                Err(e) => {
-                    tracing::warn!("Fuzzy search error: {e}");
-                    Vec::new()
                 }
             }
         }
         tracing::debug!("Result count: {}", results.len());
         Ok(results)
     }
+}
+
+fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
+    let mut results = Vec::with_capacity(ranges.len());
+    let mut start = 0;
+    let mut end = 0;
+    for r in ranges {
+        if r.start > end {
+            if start != end {
+                results.push(Range { start, end });
+            }
+            start = r.start;
+            end = r.end;
+        }
+        else {
+            end = r.end;
+        }
+    }
+    if start != end {
+        results.push(Range { start, end });
+    }
+    tracing::debug!("Normalized spans: {results:?}");
+    results
+}
+
+fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
+    tracing::debug!("Highlight {snippet}");
+    tracing::debug!("Spans: {highlights:?}");
+    let prefix = "<span class=\"highlight\">";
+    let suffix = "</span>";
+    let highlight_len = prefix.len() + suffix.len();
+    let mut result = String::with_capacity(snippet.len() + (highlights.len() * highlight_len));
+    let mut start = 0_usize;
+    let highlights = normalize_ranges(highlights);
+    for blurb in highlights {
+        result.push_str(&snippet[start..blurb.start]);
+        result.push_str(prefix);
+        result.push_str(&snippet[blurb.start..blurb.end]);
+        result.push_str(suffix);
+        start = blurb.end;
+    }
+    result.push_str(&snippet[start..]);
+    result
 }
