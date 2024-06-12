@@ -1,17 +1,24 @@
 use tantivy::{collector::TopDocs, IndexReader};
-use tantivy::query::QueryParser;
-use tantivy::schema::*;
-use tantivy::{doc, Index, IndexWriter, ReloadPolicy};
+use tantivy::query::{FuzzyTermQuery, Query, QueryParser};
+use tantivy::{schema::*, Searcher, TantivyError};
+use tantivy::{Index, IndexWriter, ReloadPolicy};
 use tempfile::TempDir;
 
 use crate::chimera_error::ChimeraError;
 use crate::document_scraper::Doclink;
 use crate::Config;
 
+/*
+ * Todo
+ * * Add documents to work queue, add to index on background thread
+ * * Fuzzy search
+ * * Watch documents for changes
+ */
+
 pub struct FullTextIndex {
-    index_path: TempDir,
+    #[allow(dead_code)]     // It's not actually dead...
+    index_path: TempDir,    // I need to keep the TempDir alive for the life of the index 
     index: Index,
-    schema: Schema,
     title: Field,
     anchor: Field,
     body: Field,
@@ -38,12 +45,6 @@ impl FullTextIndex {
         let title = schema.get_field("title").unwrap();
         let anchor = schema.get_field("anchor").unwrap();
         let body = schema.get_field("body").unwrap();
-    
-        // Todo
-        // I obviously need to be reading these on a background thread
-        // And because the index is persistent, I'll also need to make
-        // a directory watcher and refresh them if something changes
-        // (requires deleting and re-adding the doc)
     
         for entry in walkdir::WalkDir::new(config.document_root.as_str())
             .follow_links(true)
@@ -77,7 +78,6 @@ impl FullTextIndex {
         let fti = FullTextIndex {
             index_path,
             index,
-            schema,
             title,
             anchor,
             body,
@@ -86,18 +86,14 @@ impl FullTextIndex {
         Ok(fti)
     }
 
-    pub async fn search(&self, query: &str) -> Result<Vec<Doclink>, ChimeraError> {
+    fn execute_query(&self, searcher: &Searcher, query: &dyn Query) -> Result<Vec<Doclink>, TantivyError> {
         let mut results = Vec::new();
-        let searcher = self.index_reader.searcher();
-        let query_parser = QueryParser::for_index(&self.index, vec![self.title, self.body]);
-        // probably want to soft fail on the query error here
-        let query = query_parser.parse_query(query)?;
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
+        let top_docs = searcher.search(query, &TopDocs::with_limit(10))?;
         for (_score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
             let title = retrieved_doc.get_first(self.title);
             let anchor = retrieved_doc.get_first(self.anchor);
-            tracing::info!("Search result: {title:?} {anchor:?}");
+            tracing::debug!("Search result: {title:?} {anchor:?}");
             if let Some(OwnedValue::Str(title)) = title {
                 if let Some(OwnedValue::Str(anchor)) = anchor {
                     results.push(Doclink {
@@ -107,6 +103,29 @@ impl FullTextIndex {
                 }
             }
         }
+        Ok(results)
+    }
+
+    pub async fn search(&self, query_str: &str) -> Result<Vec<Doclink>, ChimeraError> {
+        let searcher = self.index_reader.searcher();
+
+        // probably want to soft fail on the query error here
+        let query_parser = QueryParser::for_index(&self.index, vec![self.title, self.body]);
+        let query = query_parser.parse_query(query_str)?;
+        let mut results = self.execute_query(&searcher, &query)?;
+        tracing::debug!("Initial query failed. Trying fuzzy search for {query_str}");
+        if results.is_empty() {
+            let term = Term::from_field_text(self.body, query_str);
+            let query = FuzzyTermQuery::new(term, 2, true);
+            results = match self.execute_query(&searcher, &query) {
+                Ok(results) => results,
+                Err(e) => {
+                    tracing::warn!("Fuzzy search error: {e}");
+                    Vec::new()
+                }
+            }
+        }
+        tracing::debug!("Result count: {}", results.len());
         Ok(results)
     }
 }

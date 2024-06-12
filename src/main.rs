@@ -73,13 +73,11 @@ impl AppState {
         markdown_template.push("markdown.html");
         tracing::debug!("Markdown template file: {}", markdown_template.display());
         handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
-        tracing::debug!("Loaded markdown template {}", markdown_template.display());
 
         let mut error_template = PathBuf::from(config.template_root.as_str());
         error_template.push("error.html");
         tracing::debug!("Error template file: {}", error_template.display());
         handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
-        tracing::debug!("Loaded error template {}", error_template.display());
 
         let mut search_template = PathBuf::from(config.template_root.as_str());
         search_template.push("search_results.html");
@@ -146,12 +144,14 @@ async fn handle_search(
             struct HandlebarVars {
                 site_title: String,
                 query: String,
+                num_results: usize,
                 results: Vec<Doclink>,
             }
             tracing::info!("Got {} search results", results.len());
             let vars = HandlebarVars{
                 site_title: app_state.site_title.clone(),
                 query: search.query,
+                num_results: results.len(),
                 results,
             };
             match app_state.handlebars.render("search", &vars) {

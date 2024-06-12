@@ -11,7 +11,7 @@
     <nav>
         <div class="row">
             <div class="three columns">
-                {{{site_title}}}
+                <a href="/"><h1>{{{site_title}}}</h1></a>
             </div>
             <div class="nine columns">
                 <form action="/search" method="get">
@@ -33,6 +33,17 @@
                     <li><a href="{{anchor}}">{{name}}</a></li>
                 {{/each}}
                 </ol>
+                {{#if (eq num_results 0)}}
+                    <p>
+                        No results found. You can try using operators to refine your query:
+                        <ul>
+                            <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
+                            <li>Required terms: <b>+cookie +monster</b></li>
+                            <li>Excluded terms: <b>cookie -monster</b></li>
+                            <li>Phrases: <b>"cookie monster"</b></li>
+                        </ul>
+                    </p>
+                {{/if}}
             </div>
             <div class="three columns">
             </div>
