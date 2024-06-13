@@ -20,3 +20,4 @@ regex = { version = "1.10.5"}
 tantivy = "0.22.0"
 tempfile = "3.10.1"
 walkdir = "2.5.0"
+html2text = "0.12.5"

@@ -160,7 +160,7 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
     let mut results = Vec::with_capacity(ranges.len());
     let mut start = 0;
     let mut end = 0;
-    for r in ranges {
+    ranges.iter().for_each(|r| {
         if r.start > end {
             if start != end {
                 results.push(Range { start, end });
@@ -171,7 +171,7 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
         else {
             end = r.end;
         }
-    }
+    });
     if start != end {
         results.push(Range { start, end });
     }
@@ -199,29 +199,40 @@ fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
     result
 }
 
+fn strip_html(body: String) -> String {
+    let body = html2text::from_read(body.as_bytes(), body.len());
+    body
+}
+
 impl DocumentScanner {
     async fn scan(mut self) -> Result<(), ChimeraError> {
+        let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
             let mut doc = TantivyDocument::default();
             if let Ok(relative_path) = path.strip_prefix(self.document_root.as_str()) {
                 let anchor_string = relative_path.to_string_lossy();
                 if let Some(title_string) = path.file_name() {
                     let title_string = title_string.to_string_lossy();
+                    let body_text = tokio::fs::read_to_string(path.as_path()).await?;
+                    let body_text = strip_html(body_text);
+
                     tracing::info!("Adding {} to full-text index", title_string);
                     doc.add_text(self.title, title_string);
                     doc.add_text(self.link, anchor_string);
-                    doc.add_text(self.body, tokio::fs::read_to_string(path).await?);
+                    doc.add_text(self.body, body_text);
                     {
                         let index = self.index_writer.read()?;
                         index.add_document(doc)?;
                     }
+                    docs_since_last_commit += 1;
                 }
             }
 
             // commit?
-            if self.work_queue.is_empty() {
+            if self.work_queue.is_empty() || docs_since_last_commit > 20 {
                 let mut index = self.index_writer.write()?;
                 index.commit()?;
+                docs_since_last_commit = 0;
             }
         }
         Ok(())
