@@ -1,6 +1,5 @@
 mod chimera_error;
 mod document_scraper;
-mod cache_info;
 mod full_text_index;
 
 use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
@@ -19,11 +18,9 @@ use async_watcher::{notify::{EventKind, RecursiveMode}, AsyncDebouncer};
 
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::{Doclink, DocumentScraper};
-use crate::cache_info::{Modtimes, get_modtime};
 
 struct CachedResult {
-    html: String,
-    modtimes: Modtimes,
+    html: String
 }
 
 #[derive(Parser, Debug)]
@@ -50,8 +47,8 @@ struct Config {
 
 struct AppState {
     handlebars: Handlebars<'static>,
-    markdown_template: PathBuf,
     document_root: PathBuf,
+    template_root: PathBuf,
     site_title: String,
     index_file: String,
     cached_results: RwLock<BTreeMap<String, CachedResult>>,
@@ -67,30 +64,48 @@ impl AppState {
         let document_root = PathBuf::from(config.document_root);
         std::env::set_current_dir(document_root.as_path())?;
 
-        let mut markdown_template = PathBuf::from(config.template_root.as_str());
-        markdown_template.push("markdown.html");
+        let template_root = PathBuf::from(config.template_root.as_str());
+        let mut markdown_template = template_root.clone();
+        markdown_template.push("md.template");
         tracing::debug!("Markdown template file: {}", markdown_template.display());
         handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
 
-        let mut error_template = PathBuf::from(config.template_root.as_str());
-        error_template.push("error.html");
+        let mut error_template = template_root.clone();
+        error_template.push("error.template");
         tracing::debug!("Error template file: {}", error_template.display());
         handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
 
-        let mut search_template = PathBuf::from(config.template_root.as_str());
-        search_template.push("search_results.html");
+        let mut search_template = template_root.clone();
+        search_template.push("search.template");
         tracing::debug!("Search template file: {}", search_template.display());
         handlebars.register_template_file("search", search_template)?;
 
         Ok(AppState{
             handlebars,
-            markdown_template,
             document_root,
+            template_root,
             site_title: config.site_title,
             index_file: config.index_file,
             cached_results: RwLock::new(BTreeMap::new()),
             full_text_index,
         })
+    }
+
+    async fn remove_cached_document(&self, path: &std::path::Path) {
+        if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
+            tracing::info!("Relative path {}", relative_path.display());
+            let path_string = relative_path.to_string_lossy();
+            let path_string = path_string.into_owned();
+            let mut map = self.cached_results.write().await;
+            if map.remove(&path_string).is_some() {
+                tracing::info!("Removed {path_string} from HTML cache");
+            }
+        }
+    }
+
+    async fn remove_all_cached_documents(&self) {
+        let mut map = self.cached_results.write().await;
+        map.clear();
     }
 }
 
@@ -325,16 +340,12 @@ async fn serve_markdown_file(
     path: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request: {path:?}");
-    let hb_modtime = get_modtime(app_state.markdown_template.as_path()).await?;
-    let modtimes = Modtimes::new(path, hb_modtime).await;
     {
         let cache = app_state.cached_results.read().await;
         let cached_results = cache.get(path);
         if let Some(results) = cached_results {
-            if results.modtimes == modtimes {
-                tracing::debug!("Returning cached response for {path}");
-                return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
-            }
+            tracing::debug!("Returning cached response for {path}");
+            return Ok((StatusCode::ACCEPTED, Html(results.html.clone())).into_response());
         }
     };
     tracing::info!("Not cached, building: {path:?}");
@@ -396,8 +407,7 @@ async fn serve_markdown_file(
     {
         let mut cache = app_state.cached_results.write().await;
         cache.insert(path.to_string(), CachedResult {
-            html: html.clone(),
-            modtimes,
+            html: html.clone()
         });
     }
     Ok((StatusCode::ACCEPTED, Html(html)).into_response())
@@ -478,26 +488,39 @@ async fn directory_watcher(app_state: AppStateType) ->Result<(), async_watcher::
     let (mut debouncer, mut file_events) =
         AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
     debouncer.watcher().watch(app_state.document_root.as_path(), RecursiveMode::Recursive)?;
+    debouncer.watcher().watch(app_state.template_root.as_path(), RecursiveMode::Recursive)?;
 
     while let Some(Ok(events)) = file_events.recv().await {
         for e in events {
-            match e.event.kind {
-                EventKind::Create(f) => {
-                    tracing::info!("File event: CREATE - {f:?}, {:?}", e.path);
-                    app_state.full_text_index.rescan_document(e.path.as_path()).await;
-                },
-                EventKind::Modify(f) => {
-                    tracing::info!("File event: MODIFY - {f:?}, {:?}", e.event.paths);
-                    for p in e.event.paths {
-                        app_state.full_text_index.rescan_document(p.as_path()).await;
-                    }
-                },
-                EventKind::Remove(f) => {
-                    tracing::info!("File event: REMOVE - {f:?}, {:?}", e.path);
-                    app_state.full_text_index.rescan_document(e.path.as_path()).await;
-                },
-                _ => {}
-            };
+            tracing::debug!("File change event {e:?}");
+            if let Some(ext) = e.path.extension() {
+                if ext == OsStr::new("template") {
+                    tracing::info!("Handlebars template {} changed. Discarding all cached results", e.path.display());
+                    app_state.remove_all_cached_documents().await;
+                }
+                else if e.path.extension() != Some(OsStr::new("md")) {
+                    continue;
+                }
+                match e.event.kind {
+                    EventKind::Create(f) => {
+                        tracing::debug!("File change event: CREATE - {f:?}, {:?}", e.path);
+                        app_state.full_text_index.rescan_document(e.path.as_path()).await;
+                    },
+                    EventKind::Modify(f) => {
+                        tracing::debug!("File change event: MODIFY - {f:?}, {:?}", e.event.paths);
+                        for p in e.event.paths {
+                            app_state.full_text_index.rescan_document(p.as_path()).await;
+                            app_state.remove_cached_document(e.path.as_path()).await;
+                        }
+                    },
+                    EventKind::Remove(f) => {
+                        tracing::debug!("File change event: REMOVE - {f:?}, {:?}", e.path);
+                        app_state.full_text_index.rescan_document(e.path.as_path()).await;
+                        app_state.remove_cached_document(e.path.as_path()).await;
+                    },
+                    _ => {}
+                };
+            }
         }
     }
     Ok(())

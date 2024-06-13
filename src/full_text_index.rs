@@ -6,16 +6,10 @@ use tantivy::{collector::TopDocs, IndexReader};
 use tantivy::query::QueryParser;
 use tantivy::{schema::*, SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
-use tantivy::tokenizer::NgramTokenizer;
 use tempfile::TempDir;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::chimera_error::ChimeraError;
-
-/*
- * Todo:
- * Watch documents for changes
- */
 
 #[derive(Serialize)]
  pub struct SearchResult {
@@ -58,7 +52,7 @@ impl FullTextIndex {
         let index_path = TempDir::new()?;
 
         let text_field_indexing = TextFieldIndexing::default()
-            .set_tokenizer("ngram4")
+            .set_tokenizer("en_stem")
             .set_index_option(IndexRecordOption::WithFreqsAndPositions);
 
         let text_options = TextOptions::default()
@@ -72,7 +66,6 @@ impl FullTextIndex {
         let schema = schema_builder.build();
 
         let index = Index::create_in_dir(&index_path, schema.clone())?;
-        index.tokenizers().register("ngram4", NgramTokenizer::new(4, 4, false).unwrap());
         let index_writer = Arc::new(RwLock::new(index.writer(50_000_000)?));
 
         let index_reader = index
@@ -216,9 +209,9 @@ impl DocumentScanner {
             if let Ok(relative_path) = path.strip_prefix(self.document_root.as_str()) {
                 let anchor_string = relative_path.to_string_lossy();
 
+                tracing::debug!("Removing {anchor_string} from full text index");
                 let doc_term = Term::from_field_text(self.link, &anchor_string);
                 {
-                    tracing::debug!("Removing {anchor_string} from full text index");
                     let index = self.index_writer.write()?;
                     index.delete_term(doc_term);
                 }
