@@ -1,4 +1,6 @@
 use core::ops::Range;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use std::usize;
 use serde::Serialize;
 use tantivy::{collector::TopDocs, IndexReader};
@@ -7,13 +9,12 @@ use tantivy::{schema::*, SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
 use tantivy::tokenizer::NgramTokenizer;
 use tempfile::TempDir;
+use tokio::sync::mpsc::{self, Receiver};
 
 use crate::chimera_error::ChimeraError;
-use crate::Config;
 
 /*
- * Todo
- * Add documents to work queue, add to index on background thread
+ * Todo:
  * Watch documents for changes
  * Strip HTML from documents before indexing
  */
@@ -28,11 +29,22 @@ use crate::Config;
 pub struct FullTextIndex {
     #[allow(dead_code)]     // It's not actually dead...
     index_path: TempDir,    // I need to keep the TempDir alive for the life of the index 
+
     index: Index,
     title: Field,
     anchor: Field,
     body: Field,
+    index_writer: Arc<RwLock<IndexWriter>>,
     index_reader: IndexReader,
+}
+
+struct DocumentScanner {
+    index_writer: Arc<RwLock<IndexWriter>>,
+    work_queue: Receiver<PathBuf>,
+    document_root: String,
+    title: Field,
+    link: Field,
+    body: Field,
 }
 
 fn is_hidden(entry: &walkdir::DirEntry) -> bool {
@@ -43,7 +55,7 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 }
 
 impl FullTextIndex {
-    pub async fn new(config: &Config) -> Result<Self, ChimeraError>{
+    pub fn new() -> Result<Self, ChimeraError> {
         let index_path = TempDir::new()?;
 
         let text_field_indexing = TextFieldIndexing::default()
@@ -62,36 +74,12 @@ impl FullTextIndex {
 
         let index = Index::create_in_dir(&index_path, schema.clone())?;
         index.tokenizers().register("ngram4", NgramTokenizer::new(4, 4, false).unwrap());
-        let mut index_writer: IndexWriter = index.writer(50_000_000)?;
         let title = schema.get_field("title").unwrap();
         let anchor = schema.get_field("anchor").unwrap();
         let body = schema.get_field("body").unwrap();
-    
-        for entry in walkdir::WalkDir::new(config.document_root.as_str())
-            .follow_links(true)
-            .into_iter()
-            .filter_entry(|e| !is_hidden(e))
-            .flatten() {
-            if entry.file_type().is_file() {
-                let path = entry.path();
-                if let Some(ext) = path.extension() {
-                    if ext.eq_ignore_ascii_case("md") {
-                        let mut doc = TantivyDocument::default();
-                        if let Ok(relative_path) = entry.path().strip_prefix(config.document_root.as_str()) {
-                            let anchor_string = relative_path.to_string_lossy();
-                            let title_string = entry.file_name().to_string_lossy();
-                            tracing::info!("Adding {title_string} to full-text index");
-                            doc.add_text(title, title_string);
-                            doc.add_text(anchor, anchor_string);
-                            doc.add_text(body, tokio::fs::read_to_string(path).await?);
-                            index_writer.add_document(doc)?;
-                        }
-                        
-                    }
-                }
-            }
-        }
-        index_writer.commit()?;
+        let index_writer = Arc::new(RwLock::new(index.writer(50_000_000)?));
+
+        // index_writer.commit()?;
         let index_reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
@@ -102,9 +90,39 @@ impl FullTextIndex {
             title,
             anchor,
             body,
+            index_writer,
             index_reader,
         };
         Ok(fti)
+    }
+    
+    pub async fn scan_directory(&self, root_directory: &str) -> Result<(), ChimeraError> {
+        let (tx, rx) = mpsc::channel::<PathBuf>(32);
+        let scanner = DocumentScanner {
+            index_writer: self.index_writer.clone(),
+            work_queue: rx,
+            document_root: root_directory.to_string(),
+            title: self.title,
+            link: self.anchor,
+            body: self.body,
+        };
+        tokio::spawn(scanner.scan());
+
+        for entry in walkdir::WalkDir::new(root_directory)
+            .follow_links(true)
+            .into_iter()
+            .filter_entry(|e| !is_hidden(e))
+            .flatten() {
+            if entry.file_type().is_file() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    if ext.eq_ignore_ascii_case("md") {
+                        tx.send(entry.path().to_owned()).await?;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     pub async fn search(&self, query_str: &str) -> Result<Vec<SearchResult>, ChimeraError> {
@@ -136,6 +154,8 @@ impl FullTextIndex {
     }
 }
 
+// Ngram tokenizer causes the snippet highlight ranges to overlap for longer search terms
+// "table" => "tabl" + "able"
 fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
     let mut results = Vec::with_capacity(ranges.len());
     let mut start = 0;
@@ -177,4 +197,33 @@ fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
     }
     result.push_str(&snippet[start..]);
     result
+}
+
+impl DocumentScanner {
+    async fn scan(mut self) -> Result<(), ChimeraError> {
+        while let Some(path) = self.work_queue.recv().await {
+            let mut doc = TantivyDocument::default();
+            if let Ok(relative_path) = path.strip_prefix(self.document_root.as_str()) {
+                let anchor_string = relative_path.to_string_lossy();
+                if let Some(title_string) = path.file_name() {
+                    let title_string = title_string.to_string_lossy();
+                    tracing::info!("Adding {} to full-text index", title_string);
+                    doc.add_text(self.title, title_string);
+                    doc.add_text(self.link, anchor_string);
+                    doc.add_text(self.body, tokio::fs::read_to_string(path).await?);
+                    {
+                        let index = self.index_writer.read()?;
+                        index.add_document(doc)?;
+                    }
+                }
+            }
+
+            // commit?
+            if self.work_queue.is_empty() {
+                let mut index = self.index_writer.write()?;
+                index.commit()?;
+            }
+        }
+        Ok(())
+    }
 }

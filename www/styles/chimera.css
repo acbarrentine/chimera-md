@@ -80,14 +80,6 @@ blockquote p {
     border-left: 5px solid black;
 }
 
-blockquote p::before {
-    content: '\201C';
-}
-
-blockquote p::after {
-    content: '\201D';
-}
-
 li {
     line-height: 1.3;
 }

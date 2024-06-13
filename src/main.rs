@@ -102,7 +102,9 @@ async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(config.log_level.unwrap_or(tracing::Level::INFO));
-    let tracing_layer = tracing_subscriber::fmt::layer();
+    let tracing_layer = tracing_subscriber::fmt::layer()
+        .compact()
+        .with_line_number(true);
     tracing_subscriber::registry()
         .with(tracing_layer)
         .with(trace_filter)
@@ -110,10 +112,12 @@ async fn main() -> Result<(), ChimeraError> {
 
     tracing::info!("Starting up Chimera MD server \"{}\" on port {}", config.site_title, config.port);
 
-    let full_text_index = FullTextIndex::new(&config).await?;
+    let full_text_index = FullTextIndex::new()?;
+    full_text_index.scan_directory(config.document_root.as_str()).await?;
 
     let port = config.port;
     let state = Arc::new(AppState::new(config, full_text_index)?);
+
     let app = Router::new()
         .route("/search", get(handle_search))
         .route("/*path", get(handle_path))
