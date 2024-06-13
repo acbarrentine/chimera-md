@@ -3,7 +3,7 @@ mod document_scraper;
 mod cache_info;
 mod full_text_index;
 
-use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 use axum::{
 //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router
@@ -15,14 +15,11 @@ use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::{Deserialize, Serialize};
 use clap::Parser;
+use async_watcher::{notify::{EventKind, RecursiveMode}, AsyncDebouncer};
 
-use cache_info::get_modtime;
-use chimera_error::{handle_404, handle_err};
-use document_scraper::Doclink;
-
-use crate::chimera_error::ChimeraError;
-use crate::document_scraper::DocumentScraper;
-use crate::cache_info::Modtimes;
+use crate::chimera_error::{ChimeraError, handle_404, handle_err};
+use crate::document_scraper::{Doclink, DocumentScraper};
+use crate::cache_info::{Modtimes, get_modtime};
 
 struct CachedResult {
     html: String,
@@ -54,6 +51,7 @@ struct Config {
 struct AppState {
     handlebars: Handlebars<'static>,
     markdown_template: PathBuf,
+    document_root: PathBuf,
     site_title: String,
     index_file: String,
     cached_results: RwLock<BTreeMap<String, CachedResult>>,
@@ -87,6 +85,7 @@ impl AppState {
         Ok(AppState{
             handlebars,
             markdown_template,
+            document_root,
             site_title: config.site_title,
             index_file: config.index_file,
             cached_results: RwLock::new(BTreeMap::new()),
@@ -101,7 +100,8 @@ pub(crate) type AppStateType = Arc<AppState>;
 async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let trace_filter = tracing_subscriber::filter::Targets::new()
-        .with_default(config.log_level.unwrap_or(tracing::Level::INFO));
+        .with_default(config.log_level.unwrap_or(tracing::Level::INFO))
+        .with_target("html5ever", tracing::Level::ERROR);
     let tracing_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_line_number(true);
@@ -112,11 +112,13 @@ async fn main() -> Result<(), ChimeraError> {
 
     tracing::info!("Starting up Chimera MD server \"{}\" on port {}", config.site_title, config.port);
 
-    let full_text_index = FullTextIndex::new()?;
+    let mut full_text_index = FullTextIndex::new()?;
     full_text_index.scan_directory(config.document_root.as_str()).await?;
 
     let port = config.port;
     let state = Arc::new(AppState::new(config, full_text_index)?);
+
+    tokio::spawn(directory_watcher(state.clone()));
 
     let app = Router::new()
         .route("/search", get(handle_search))
@@ -472,3 +474,31 @@ async fn handle_response(
     }
 }
 
+async fn directory_watcher(app_state: AppStateType) ->Result<(), async_watcher::error::Error> {
+    let (mut debouncer, mut file_events) =
+        AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
+    debouncer.watcher().watch(app_state.document_root.as_path(), RecursiveMode::Recursive)?;
+
+    while let Some(Ok(events)) = file_events.recv().await {
+        for e in events {
+            match e.event.kind {
+                EventKind::Create(f) => {
+                    tracing::info!("File event: CREATE - {f:?}, {:?}", e.path);
+                    app_state.full_text_index.rescan_document(e.path.as_path()).await;
+                },
+                EventKind::Modify(f) => {
+                    tracing::info!("File event: MODIFY - {f:?}, {:?}", e.event.paths);
+                    for p in e.event.paths {
+                        app_state.full_text_index.rescan_document(p.as_path()).await;
+                    }
+                },
+                EventKind::Remove(f) => {
+                    tracing::info!("File event: REMOVE - {f:?}, {:?}", e.path);
+                    app_state.full_text_index.rescan_document(e.path.as_path()).await;
+                },
+                _ => {}
+            };
+        }
+    }
+    Ok(())
+}
