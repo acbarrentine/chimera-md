@@ -66,17 +66,17 @@ impl AppState {
 
         let template_root = PathBuf::from(config.template_root.as_str());
         let mut markdown_template = template_root.clone();
-        markdown_template.push("md.template");
+        markdown_template.push("markdown.hbs");
         tracing::debug!("Markdown template file: {}", markdown_template.display());
         handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
 
         let mut error_template = template_root.clone();
-        error_template.push("error.template");
+        error_template.push("error.hbs");
         tracing::debug!("Error template file: {}", error_template.display());
         handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
 
         let mut search_template = template_root.clone();
-        search_template.push("search.template");
+        search_template.push("search.hbs");
         tracing::debug!("Search template file: {}", search_template.display());
         handlebars.register_template_file("search", search_template)?;
 
@@ -506,7 +506,7 @@ async fn directory_watcher(app_state: AppStateType) ->Result<(), async_watcher::
         for e in events {
             tracing::debug!("File change event {e:?}");
             if let Some(ext) = e.path.extension() {
-                if ext == OsStr::new("template") {
+                if ext == OsStr::new("hbs") {
                     tracing::info!("Handlebars template {} changed. Discarding all cached results", e.path.display());
                     app_state.remove_all_cached_documents().await;
                 }
