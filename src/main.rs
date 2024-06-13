@@ -9,7 +9,7 @@ use axum::{
 };
 use full_text_index::{FullTextIndex, SearchResult};
 use tokio::sync::RwLock;
-use tower_http::{services::ServeDir, trace::TraceLayer};
+use tower_http::services::ServeDir;
 use handlebars::Handlebars;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::{Deserialize, Serialize};
@@ -140,8 +140,20 @@ async fn main() -> Result<(), ChimeraError> {
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
-        .layer(TraceLayer::new_for_http()
-    );
+        //.layer(TraceLayer::new_for_http()
+            // .make_span_with(
+            //     tower_http::trace::DefaultMakeSpan::new().include_headers(true)
+            // )
+            // .on_request(
+            //     tower_http::trace::DefaultOnRequest::new().level(tracing::Level::INFO)
+            // )
+            // .on_response(
+            // tower_http::trace::DefaultOnResponse::new()
+            //     .level(tracing::Level::INFO)
+            //     .latency_unit(tower_http::LatencyUnit::Micros)
+            // )
+        //)
+        ;
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app).await.unwrap();
