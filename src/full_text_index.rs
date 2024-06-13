@@ -16,7 +16,6 @@ use crate::chimera_error::ChimeraError;
 /*
  * Todo:
  * Watch documents for changes
- * Strip HTML from documents before indexing
  */
 
 #[derive(Serialize)]
@@ -180,8 +179,6 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
 }
 
 fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
-    tracing::debug!("Highlight {snippet}");
-    tracing::debug!("Spans: {highlights:?}");
     let prefix = "<span class=\"highlight\">";
     let suffix = "</span>";
     let highlight_len = prefix.len() + suffix.len();

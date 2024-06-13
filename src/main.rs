@@ -461,6 +461,10 @@ async fn handle_response(
                 handle_err(app_state).await.into_response()
             }
         },
+        Err(ChimeraError::IOError(e)) => {
+            tracing::warn!("IOError processing request: {e:?}");
+            handle_404(app_state).await.into_response()
+        }
         Err(e) => {
             tracing::warn!("Error processing request: {e:?}");
             handle_err(app_state).await.into_response()
