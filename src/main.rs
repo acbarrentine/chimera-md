@@ -3,10 +3,7 @@ mod document_scraper;
 mod full_text_index;
 
 use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
-use axum::{
-    //    debug_handler,
-    extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router
-};
+use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router};
 use full_text_index::{FullTextIndex, SearchResult};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
@@ -15,6 +12,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::{Deserialize, Serialize};
 use clap::Parser;
 use async_watcher::{notify::{EventKind, RecursiveMode}, AsyncDebouncer};
+
+#[allow(unused_imports)]
+use axum::debug_handler;
 
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::{Doclink, DocumentScraper};
@@ -26,13 +26,13 @@ struct CachedResult {
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
-    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/var/chimera/www"))]
+    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/var/chimera-md/www"))]
     document_root: String,
 
-    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/var/chimera/template"))]
+    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/var/chimera-md/template"))]
     template_root: String,
 
-    #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera Markdown Server"))]
+    #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]
     site_title: String,
 
     #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
@@ -286,8 +286,7 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     let mut link_index = 0;
     let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
     let mut char_iter = original_html.char_indices();
-    while let Some(ch) = char_iter.next() {
-        let (i, c) = ch;
+    while let Some((i, c)) = char_iter.next() {
         if link_index < links.len() && c == '<' {
             if let Some(open_slice) = original_html.get(i..i+4) {
                 let mut slice_it = open_slice.chars().skip(1);
@@ -319,15 +318,19 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
 }
 
 fn get_language_blob(langs: &[&str]) -> String {
-    let min_js_prefix = "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
-    let min_js_suffix = ".min.js\"></script>\n";
+    let min_js_prefix = r#"<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/"#;
+    let min_js_suffix = r#"".min.js"></script>
+    "#;
     let min_jis_len = langs.iter().fold(0, |len, el| {
         len + el.len()
     });
 
-    let style = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css\">\n";
-    let highlight_js = "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n";
-    let invoke_js = "<script>hljs.highlightAll();</script>\n";
+    let style = r#"<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css">
+    "#;
+    let highlight_js = r#"<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    "#;
+    let invoke_js = r#"<script>hljs.highlightAll();</script>
+    "#;
     let mut buffer = String::with_capacity(
         style.len() +
         highlight_js.len() +
