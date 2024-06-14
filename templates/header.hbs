@@ -1,0 +1,26 @@
+<!-- Chimera-md HTML file -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="/styles/skeleton.css">
+    <link rel="stylesheet" href="/styles/chimera.css">
+    {{{code_js}}}
+  </head>
+  <body>
+    <nav>
+        <div class="row">
+            <div class="three columns">
+                <a href="/"><h1>{{{site_title}}}</h1></a>
+            </div>
+            <div class="nine columns">
+                <form action="/search" method="get">
+                    <!-- id for javascript, name for form submit -->
+                    <input id="query" name="query" type="search" placeholder="Search...">
+                    <button type="submit">?</button>
+                </form>
+            </div>
+        </div>
+    </nav>

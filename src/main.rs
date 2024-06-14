@@ -10,7 +10,7 @@ use axum::{
 use full_text_index::{FullTextIndex, SearchResult};
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
-use handlebars::Handlebars;
+use handlebars::{DirectorySourceOptions, Handlebars};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::{Deserialize, Serialize};
 use clap::Parser;
@@ -65,20 +65,17 @@ impl AppState {
         std::env::set_current_dir(document_root.as_path())?;
 
         let template_root = PathBuf::from(config.template_root.as_str());
-        let mut markdown_template = template_root.clone();
-        markdown_template.push("markdown.hbs");
-        tracing::debug!("Markdown template file: {}", markdown_template.display());
-        handlebars.register_template_file("markdown", markdown_template.to_string_lossy().into_owned())?;
-
-        let mut error_template = template_root.clone();
-        error_template.push("error.hbs");
-        tracing::debug!("Error template file: {}", error_template.display());
-        handlebars.register_template_file("error", error_template.to_string_lossy().into_owned())?;
-
-        let mut search_template = template_root.clone();
-        search_template.push("search.hbs");
-        tracing::debug!("Search template file: {}", search_template.display());
-        handlebars.register_template_file("search", search_template)?;
+        handlebars.register_templates_directory(template_root.as_path(), DirectorySourceOptions::default())?;
+        
+        // verify we have all the needed templates
+        let required_templates = ["markdown", "error", "search"];
+        for name in required_templates {
+            if !handlebars.has_template(name) {
+                let template_name = format!("{name}.hbs");
+                tracing::error!("Missing required template: {template_name}");
+                return Err(ChimeraError::MissingMarkdownTemplate(template_name));
+            }
+        }
 
         Ok(AppState{
             handlebars,
@@ -132,7 +129,7 @@ async fn main() -> Result<(), ChimeraError> {
 
     let port = config.port;
     let state = Arc::new(AppState::new(config, full_text_index)?);
-
+    
     tokio::spawn(directory_watcher(state.clone()));
 
     let app = Router::new()

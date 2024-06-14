@@ -1,56 +1,32 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Search results</title>
-    <link rel="stylesheet" href="/styles/skeleton.css">
-    <link rel="stylesheet" href="/styles/chimera.css">
-  </head>
-  <body>
-    <nav>
-        <div class="row">
-            <div class="three columns">
-                <a href="/"><h1>{{{site_title}}}</h1></a>
-            </div>
-            <div class="nine columns">
-                <form action="/search" method="get">
-                    <!-- id for javascript, name for form submit -->
-                    <input id="query" name="query" type="search" placeholder="Search...">
-                    <button type="submit">?</button>
-                </form>
-            </div>
-        </div>
-    </nav>
-    <div class="container">
-        <div class="row">
-            <div class="nine columns">
+{{> header }}
+<div class="container">
+    <div class="row">
+        <div class="nine columns">
+            <p>
+                <h1>Search results for: "{{query}}"</h1>
+            </p>
+            <ol>
+            {{#each results}}
+                <li>
+                    <p><a href="{{link}}">{{title}}</a></p>
+                    <p>{{{snippet}}}</p>
+                </li>
+            {{/each}}
+            </ol>
+            {{#if (eq num_results 0)}}
                 <p>
-                    <h1>Search results for: "{{query}}"</h1>
+                    No results found. You can try using operators to refine your query:
+                    <ul>
+                        <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
+                        <li>Required terms: <b>+cookie +monster</b></li>
+                        <li>Excluded terms: <b>cookie -monster</b></li>
+                        <li>Phrases: <b>"cookie monster"</b></li>
+                    </ul>
                 </p>
-                <ol>
-                {{#each results}}
-                    <li>
-                        <p><a href="{{link}}">{{title}}</a></p>
-                        <p>{{{snippet}}}</p>
-                    </li>
-                {{/each}}
-                </ol>
-                {{#if (eq num_results 0)}}
-                    <p>
-                        No results found. You can try using operators to refine your query:
-                        <ul>
-                            <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
-                            <li>Required terms: <b>+cookie +monster</b></li>
-                            <li>Excluded terms: <b>cookie -monster</b></li>
-                            <li>Phrases: <b>"cookie monster"</b></li>
-                        </ul>
-                    </p>
-                {{/if}}
-            </div>
-            <div class="three columns">
-            </div>
+            {{/if}}
+        </div>
+        <div class="three columns">
         </div>
     </div>
-  </body>
-</html>
+</div>
+{{> footer }}
