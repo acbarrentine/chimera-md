@@ -4,7 +4,7 @@ mod full_text_index;
 
 use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 use axum::{
-//    debug_handler,
+    //    debug_handler,
     extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router
 };
 use full_text_index::{FullTextIndex, SearchResult};
@@ -20,7 +20,7 @@ use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::{Doclink, DocumentScraper};
 
 struct CachedResult {
-    html: String
+    html: String,
 }
 
 #[derive(Parser, Debug)]
@@ -66,7 +66,7 @@ impl AppState {
 
         let template_root = PathBuf::from(config.template_root.as_str());
         handlebars.register_templates_directory(template_root.as_path(), DirectorySourceOptions::default())?;
-        
+
         // verify we have all the needed templates
         let required_templates = ["markdown", "error", "search"];
         for name in required_templates {
@@ -77,7 +77,7 @@ impl AppState {
             }
         }
 
-        Ok(AppState{
+        Ok(AppState {
             handlebars,
             document_root,
             template_root,
@@ -129,7 +129,7 @@ async fn main() -> Result<(), ChimeraError> {
 
     let port = config.port;
     let state = Arc::new(AppState::new(config, full_text_index)?);
-    
+
     tokio::spawn(directory_watcher(state.clone()));
 
     let app = Router::new()
@@ -178,7 +178,7 @@ async fn handle_search(
                 results: Vec<SearchResult>,
             }
             tracing::info!("Got {} search results", results.len());
-            let vars = HandlebarVars{
+            let vars = HandlebarVars {
                 site_title: app_state.site_title.clone(),
                 query: search.query,
                 num_results: results.len(),
@@ -197,7 +197,7 @@ async fn handle_search(
         Err(_e) => {
             handle_err(app_state).await.into_response()
         }
-     }
+    }
 }
 
 //#[debug_handler]
@@ -245,7 +245,7 @@ async fn build_file_list(relative_path: &str, index_file: &str) -> Vec<Doclink> 
                 if let Some(extension) = path.extension() {
                     if extension.eq_ignore_ascii_case(OsStr::new("md")) && file_name.ne(original_file_name) {
                         let name_string = file_name.to_string_lossy().to_string();
-                        files.push(Doclink{
+                        files.push(Doclink {
                             anchor: urlencoding::encode(name_string.as_str()).into_owned(),
                             name: name_string,
                         });
@@ -400,7 +400,7 @@ async fn serve_markdown_file(
         String::new()
     };
 
-    let vars = HandlebarVars{
+    let vars = HandlebarVars {
         body: html_content,
         title,
         site_title: app_state.site_title.clone(),
