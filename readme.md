@@ -2,12 +2,13 @@
 
 Chimera-md is a Markdown-aware documentation server.
 
-I have spent years developing a hard drive full of notes and documents written in the [Markdown]
-(https://www.markdownguide.org/) text processing language, and while it is comparatively easy
-to view them as intended in a special editor, most often I would wind up seeing them in plain
-text form. I went looking for a server I could host that would serve up HTML-ified versions of
-those documents transparently. Most of the tools I found were static site generators, or had
-strong opinions about how the document should be formatted.
+I have spent years developing a hard drive full of notes and documents written in the
+[Markdown](https://www.markdownguide.org/) text processing language, and while it is
+comparatively easy to view them as intended in a special editor, most often I would wind
+up seeing them in plain text form. I went looking for a server I could host that would
+serve up HTML-ified versions of those documents transparently. Most of the tools I
+found were static site generators, or had strong opinions about how the document should
+be formatted.
 
 Chimera-md is my attempt to make a very simple web server that understands and can serve
 a library of markdown files (and supporting assets) transparently. It is a full web server
