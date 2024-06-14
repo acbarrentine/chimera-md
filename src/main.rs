@@ -24,7 +24,7 @@ struct CachedResult {
 }
 
 #[derive(Parser, Debug)]
-#[command(version, about)]
+#[command(about, author, version)]
 struct Config {
     #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/var/chimera/www"))]
     document_root: String,
