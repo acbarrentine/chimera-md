@@ -192,7 +192,10 @@ async fn serve_markdown_file(
     });
     let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
     pulldown_cmark::html::push_html(&mut html_content, parser);
-    let peers = app_state.file_manager.find_peers(path, app_state.index_file.as_str()).await;
+    let peers = app_state.file_manager.find_peers(
+        path,
+        app_state.index_file.as_str()).await
+        .unwrap_or_default();
     let html = app_state.html_generator.gen_markdown(
         path,
         html_content,

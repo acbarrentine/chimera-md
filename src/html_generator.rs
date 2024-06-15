@@ -216,7 +216,7 @@ fn get_language_blob(langs: &[&str]) -> String {
     buffer
 }
 
-async fn remove_cached_result(relative_path: &Path, cache: CachedResults) {
+async fn remove_cached_result(relative_path: &Path, cache: &CachedResults) {
     let path_string = relative_path.to_string_lossy();
     let path_string = path_string.into_owned();
     let mut map = cache.write().await;
@@ -238,13 +238,8 @@ async fn listen_for_changes(
                 map.clear()
             }
             else if ext == OsStr::new("md") {
-                match event.kind {
-                    EventType::Add => {},
-                    _ => {
-                        if let Ok(relative_path) = event.path.strip_prefix(document_root.as_path()) {
-                            remove_cached_result(relative_path, cache.clone()).await;
-                        }
-                    }
+                if let Ok(relative_path) = event.path.strip_prefix(document_root.as_path()) {
+                    remove_cached_result(relative_path, &cache).await;
                 }
             }
         }
