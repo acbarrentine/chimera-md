@@ -127,3 +127,23 @@ tr:nth-child(odd) {
 .linkbox p {
     margin-bottom: 1em;
 }
+
+nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    padding: 0 8em 0 8rem;
+}
+
+section.title {
+    margin-left: 10px;
+    font-weight: 500;
+    font-size: 5rem;
+}
+
+section.search button {
+    fill: white;
+    vertical-align: top;
+    padding-top: 6px;
+}

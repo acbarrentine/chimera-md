@@ -132,7 +132,7 @@ impl FullTextIndex {
             if let Some(OwnedValue::Str(title)) = title {
                 if let Some(OwnedValue::Str(anchor)) = anchor {
                     let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
-                    //tracing::info!("Snippet: {snippet:?}");
+                    tracing::debug!("Snippet: {snippet:?}");
                     let snippet = highlight(snippet.fragment(), snippet.highlighted());
                     results.push(SearchResult {
                         title: title.clone(),
@@ -197,8 +197,7 @@ fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
 }
 
 fn strip_html(body: String) -> String {
-    let body = html2text::from_read(body.as_bytes(), body.len());
-    body
+    html2text::from_read(body.as_bytes(), body.len())
 }
 
 impl DocumentScanner {
