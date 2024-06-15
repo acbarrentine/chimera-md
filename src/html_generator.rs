@@ -1,16 +1,16 @@
-use std::{path::PathBuf, collections::BTreeMap};
+use std::{collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, sync::Arc};
 use tokio::sync::RwLock;
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, full_text_index::SearchResult, Config};
+use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::{EventType, FileEvent, FileManager}, full_text_index::SearchResult};
+
+type CachedResults = Arc<RwLock<BTreeMap<String, String>>>;
 
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
-    pub template_root: PathBuf,
-    document_root: PathBuf,
     site_title: String,
-    cached_results: RwLock<BTreeMap<String, String>>,
+    cached_results: CachedResults,
 }
 
 #[derive(Serialize)]
@@ -41,46 +41,35 @@ struct ErrorVars {
 }
 
 impl HtmlGenerator {
-    pub fn new(config: &Config) -> Result<HtmlGenerator, ChimeraError> {
+    pub fn new(
+        document_root: &Path,
+        template_root: &Path,
+        site_title: String,
+        file_manager: &mut FileManager
+    ) -> Result<HtmlGenerator, ChimeraError> {
         let mut handlebars = Handlebars::new();
 
-        let template_root = PathBuf::from(config.template_root.as_str());
-        handlebars.register_templates_directory(template_root.as_path(), DirectorySourceOptions::default())?;
+        handlebars.register_templates_directory(template_root, DirectorySourceOptions::default())?;
         handlebars.set_dev_mode(true);
 
         let required_templates = ["markdown", "error", "search"];
         for name in required_templates {
             if !handlebars.has_template(name) {
                 let template_name = format!("{name}.hbs");
-                tracing::error!("Missing required template: {}{template_name}", config.template_root);
+                tracing::error!("Missing required template: {}{template_name}", template_root.display());
                 return Err(ChimeraError::MissingMarkdownTemplate(template_name));
             }
         }
 
+        let cached_results = Arc::new(RwLock::new(BTreeMap::new()));
+        let rx = file_manager.subscribe();
+        tokio::spawn(listen_for_changes(rx, cached_results.clone(), document_root.to_path_buf()));
+
         Ok(HtmlGenerator {
             handlebars,
-            template_root,
-            document_root: PathBuf::from(config.document_root.as_str()),
-            site_title: config.site_title.clone(),
-            cached_results: RwLock::new(BTreeMap::new()),
+            site_title,
+            cached_results,
         })
-    }
-
-    pub async fn remove_cached_result(&self, path: &std::path::Path) {
-        if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
-            tracing::info!("Relative path {}", relative_path.display());
-            let path_string = relative_path.to_string_lossy();
-            let path_string = path_string.into_owned();
-            let mut map = self.cached_results.write().await;
-            if map.remove(&path_string).is_some() {
-                tracing::info!("Removed {path_string} from HTML cache");
-            }
-        }
-    }
-
-    pub async fn clear_cached_results(&self) {
-        let mut map = self.cached_results.write().await;
-        map.clear()
     }
 
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
@@ -225,4 +214,39 @@ fn get_language_blob(langs: &[&str]) -> String {
     }
     buffer.push_str(invoke_js);
     buffer
+}
+
+async fn remove_cached_result(relative_path: &Path, cache: CachedResults) {
+    let path_string = relative_path.to_string_lossy();
+    let path_string = path_string.into_owned();
+    let mut map = cache.write().await;
+    if map.remove(&path_string).is_some() {
+        tracing::info!("Removed {path_string} from HTML cache");
+    }
+}
+
+async fn listen_for_changes(
+    mut rx: tokio::sync::broadcast::Receiver<FileEvent>,
+    cache: CachedResults,
+    document_root: PathBuf,
+) {
+    while let Ok(event) = rx.recv().await {
+        if let Some(ext) = event.path.extension() {
+           if ext == OsStr::new("hbs") {
+                tracing::info!("Handlebars template {} changed. Discarding all cached results", event.path.display());
+                let mut map = cache.write().await;
+                map.clear()
+            }
+            else if ext == OsStr::new("md") {
+                match event.kind {
+                    EventType::Add => {},
+                    _ => {
+                        if let Ok(relative_path) = event.path.strip_prefix(document_root.as_path()) {
+                            remove_cached_result(relative_path, cache.clone()).await;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

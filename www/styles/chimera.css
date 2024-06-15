@@ -24,30 +24,26 @@ a:hover {
 nav {
     height: 130px;
     background-color: rgb(30, 30, 30);
-    border-bottom: 5px solid black;
+    border-bottom: 5px solid rgb(90, 165, 145);
     margin: -10px -10px 16px -10px;
-}
-
-nav div {
     display: flex;
-    height: 140px;
-    margin-left: 2em;
     align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    padding: 0 8em 0 8rem;
 }
 
-/*
-.flex-container {
-    display: flex;
+section.title {
+    margin-left: 10px;
+    font-weight: 500;
+    font-size: 5rem;
 }
 
-span.title {
-    text-align: left;
+section.search button {
+    fill: white;
+    vertical-align: top;
+    padding-top: 6px;
 }
-
-span.menu {
-    text-align: right;
-}
-*/
 
 img {
     height: auto;
@@ -126,24 +122,4 @@ tr:nth-child(odd) {
 
 .linkbox p {
     margin-bottom: 1em;
-}
-
-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-    padding: 0 8em 0 8rem;
-}
-
-section.title {
-    margin-left: 10px;
-    font-weight: 500;
-    font-size: 5rem;
-}
-
-section.search button {
-    fill: white;
-    vertical-align: top;
-    padding-top: 6px;
 }

@@ -7,7 +7,6 @@ Markdown: Basics
     <li><a href="Markdown%20Documentation%20-%20Syntax.md" title="Markdown Syntax Documentation">Syntax</a></li>
 </ul>
 
-
 Getting the Gist of Markdown's Formatting Syntax
 ------------------------------------------------
 

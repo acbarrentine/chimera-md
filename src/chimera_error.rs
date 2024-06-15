@@ -1,5 +1,4 @@
 use axum::{http::StatusCode, response::IntoResponse};
-use std::path::PathBuf;
 
 use crate::AppStateType;
 
@@ -12,6 +11,7 @@ pub enum ChimeraError {
     QueryError(String),
     TokioChannel(String),
     RwLock(String),
+    NotifyError(String),
 }
 
 impl From<handlebars::TemplateError> for ChimeraError {
@@ -38,8 +38,14 @@ impl From<tantivy::TantivyError> for ChimeraError {
     }
 }
 
-impl From<tokio::sync::mpsc::error::SendError<PathBuf>> for ChimeraError {
-    fn from(err: tokio::sync::mpsc::error::SendError<PathBuf>) -> Self {
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ChimeraError {
+    fn from(err: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        ChimeraError::TokioChannel(err.to_string())
+    }
+}
+
+impl<T> From<tokio::sync::broadcast::error::SendError<T>> for ChimeraError {
+    fn from(err: tokio::sync::broadcast::error::SendError<T>) -> Self {
         ChimeraError::TokioChannel(err.to_string())
     }
 }
@@ -53,6 +59,17 @@ impl From<tantivy::query::QueryParserError> for ChimeraError {
 impl<T> From<std::sync::PoisonError<T>> for ChimeraError {
     fn from(err: std::sync::PoisonError<T>) -> Self {
         ChimeraError::RwLock(err.to_string())
+    }
+}
+
+impl From<async_watcher::error::Error> for ChimeraError {
+    fn from(err: async_watcher::error::Error) -> Self {
+        ChimeraError::NotifyError(err.to_string())
+    }
+}
+impl From<async_watcher::notify::Error> for ChimeraError {
+    fn from(err: async_watcher::notify::Error) -> Self {
+        ChimeraError::NotifyError(err.to_string())
     }
 }
 

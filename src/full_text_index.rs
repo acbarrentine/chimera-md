@@ -1,15 +1,15 @@
 use core::ops::Range;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::{ffi::OsStr, path::PathBuf, sync::{Arc, RwLock}};
 use serde::Serialize;
 use tantivy::{collector::TopDocs, IndexReader};
 use tantivy::query::QueryParser;
 use tantivy::{schema::*, SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
 use tempfile::TempDir;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{self, Receiver};
 
 use crate::chimera_error::ChimeraError;
+use crate::file_manager::{FileEvent, FileManager};
 
 #[derive(Serialize)]
  pub struct SearchResult {
@@ -28,13 +28,12 @@ pub struct FullTextIndex {
     body_field: Field,
     index_writer: Arc<RwLock<IndexWriter>>,
     index_reader: IndexReader,
-    scan_queue: Option<Sender<PathBuf>>,
 }
 
 struct DocumentScanner {
     index_writer: Arc<RwLock<IndexWriter>>,
     work_queue: Receiver<PathBuf>,
-    document_root: String,
+    document_root: PathBuf,
     title: Field,
     link: Field,
     body: Field,
@@ -81,17 +80,16 @@ impl FullTextIndex {
             body_field,
             index_writer,
             index_reader,
-            scan_queue: None,
         };
         Ok(fti)
     }
     
-    pub async fn scan_directory(&mut self, root_directory: &str) -> Result<(), ChimeraError> {
+    pub async fn scan_directory(&mut self, root_directory: PathBuf, file_manager: &FileManager) -> Result<(), ChimeraError> {
         let (tx, rx) = mpsc::channel::<PathBuf>(32);
         let scanner = DocumentScanner {
             index_writer: self.index_writer.clone(),
             work_queue: rx,
-            document_root: root_directory.to_string(),
+            document_root: root_directory.to_path_buf(),
             title: self.title_field,
             link: self.link_field,
             body: self.body_field,
@@ -112,7 +110,9 @@ impl FullTextIndex {
                 }
             }
         }
-        self.scan_queue = Some(tx);
+
+        let change_rx = file_manager.subscribe();
+        tokio::spawn(listen_for_changes(change_rx, tx));
 
         Ok(())
     }
@@ -144,12 +144,6 @@ impl FullTextIndex {
         }
         tracing::debug!("Result count: {}", results.len());
         Ok(results)
-    }
-
-    pub async fn rescan_document(&self, path: &Path) {
-        if let Some(sender) = &self.scan_queue {
-            let _ = sender.send(path.to_owned()).await;
-        }
     }
 }
 
@@ -205,7 +199,7 @@ impl DocumentScanner {
         let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
             let mut doc = TantivyDocument::default();
-            if let Ok(relative_path) = path.strip_prefix(self.document_root.as_str()) {
+            if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
                 let anchor_string = relative_path.to_string_lossy();
 
                 tracing::debug!("Removing {anchor_string} from full text index");
@@ -241,5 +235,19 @@ impl DocumentScanner {
             }
         }
         Ok(())
+    }
+}
+
+async fn listen_for_changes(
+    mut rx: tokio::sync::broadcast::Receiver<FileEvent>,
+    tx: tokio::sync::mpsc::Sender<PathBuf>,
+) {
+    while let Ok(event) = rx.recv().await {
+        if let Some(ext) = event.path.extension() {
+            if ext == OsStr::new("md") {
+                // forward to the DocumentScanner
+                let _ = tx.send(event.path).await;
+            }
+        }
     }
 }
