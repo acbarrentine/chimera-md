@@ -19,13 +19,13 @@
                     </div>
                 </p>
                 <p>
-                    {{#if (gt num_files 0)}}
+                    {{#if (gt num_peers 0)}}
                     <div class="linkbox">
                         <p>
                             <strong>Other documents:</strong>
                         </p>
                         <ul>
-                        {{#each file_list}}
+                        {{#each peers}}
                             <li><a href="{{anchor}}">{{name}}</a></li>
                         {{/each}}
                         </ul>

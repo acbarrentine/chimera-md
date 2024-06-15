@@ -1,5 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::AppStateType;
 
@@ -66,25 +66,21 @@ impl IntoResponse for ChimeraError {
 pub async fn handle_404(
     app_state: AppStateType,
 ) -> Result<axum::response::Response, ChimeraError> {
-    let vars = BTreeMap::from([
-        ("error-code", "404: Not found"),
-        ("heading", "Page not found"),
-        ("site_title", app_state.site_title.as_str()),
-        ("message", "The page you are looking for does not exist or has been moved"),
-    ]);
-    let html = app_state.handlebars.render("error", &vars)?;
+    let html = app_state.html_generator.gen_error(
+        "404: Not found",
+        "Page not found",
+        "The page you are looking for does not exist or has been moved",
+    )?;
     Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
 }
 
 pub async fn handle_err(
     app_state: AppStateType,
 ) -> Result<axum::response::Response, ChimeraError> {
-    let vars = BTreeMap::from([
-        ("error-code", "500: Internal server error"),
-        ("heading", "Internal server error"),
-        ("site_title", app_state.site_title.as_str()),
-        ("message", "Chimera failed attempting to complete this request"),
-    ]);
-    let html = app_state.handlebars.render("error", &vars)?;
+    let html = app_state.html_generator.gen_error(
+        "500: Internal server error",
+        "Internal server error",
+        "Chimera failed attempting to complete this request",
+    )?;
     Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
 }
