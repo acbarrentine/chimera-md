@@ -3,7 +3,10 @@ use tokio::sync::RwLock;
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::{EventType, FileEvent, FileManager}, full_text_index::SearchResult};
+use crate::{chimera_error::ChimeraError,
+    document_scraper::{Doclink, DocumentScraper},
+    full_text_index::SearchResult, FileManager
+};
 
 type CachedResults = Arc<RwLock<BTreeMap<String, String>>>;
 
@@ -42,7 +45,6 @@ struct ErrorVars {
 
 impl HtmlGenerator {
     pub fn new(
-        document_root: &Path,
         template_root: &Path,
         site_title: String,
         file_manager: &mut FileManager
@@ -63,7 +65,7 @@ impl HtmlGenerator {
 
         let cached_results = Arc::new(RwLock::new(BTreeMap::new()));
         let rx = file_manager.subscribe();
-        tokio::spawn(listen_for_changes(rx, cached_results.clone(), document_root.to_path_buf()));
+        tokio::spawn(listen_for_changes(rx, cached_results.clone()));
 
         Ok(HtmlGenerator {
             handlebars,
@@ -140,7 +142,7 @@ impl HtmlGenerator {
         let html = self.handlebars.render("error", &vars)?;
         Ok(html)
     }
-    
+
     pub async fn get_cached_result(&self, path: &str) -> Option<String> {
         let cache = self.cached_results.read().await;
         cache.get(path).cloned()
@@ -216,31 +218,16 @@ fn get_language_blob(langs: &[&str]) -> String {
     buffer
 }
 
-async fn remove_cached_result(relative_path: &Path, cache: &CachedResults) {
-    let path_string = relative_path.to_string_lossy();
-    let path_string = path_string.into_owned();
-    let mut map = cache.write().await;
-    if map.remove(&path_string).is_some() {
-        tracing::info!("Removed {path_string} from HTML cache");
-    }
-}
-
 async fn listen_for_changes(
-    mut rx: tokio::sync::broadcast::Receiver<FileEvent>,
+    mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
     cache: CachedResults,
-    document_root: PathBuf,
 ) {
-    while let Ok(event) = rx.recv().await {
-        if let Some(ext) = event.path.extension() {
-           if ext == OsStr::new("hbs") {
-                tracing::info!("Handlebars template {} changed. Discarding all cached results", event.path.display());
+    while let Ok(path) = rx.recv().await {
+        if let Some(ext) = path.extension() {
+            if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
+                tracing::info!("Discarding cached HTML results");
                 let mut map = cache.write().await;
                 map.clear()
-            }
-            else if ext == OsStr::new("md") {
-                if let Ok(relative_path) = event.path.strip_prefix(document_root.as_path()) {
-                    remove_cached_result(relative_path, &cache).await;
-                }
             }
         }
     }

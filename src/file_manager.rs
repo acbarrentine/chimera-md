@@ -1,30 +1,13 @@
-use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, sync::Arc, time::Duration};
-use async_watcher::{notify::{event::ModifyKind, EventKind, FsEventWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
-use tokio::sync::RwLock;
+use std::{cmp::Ordering, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use async_watcher::{notify::{EventKind, FsEventWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
 use crate::{chimera_error::ChimeraError, document_scraper::Doclink};
 
 type NotifyError = async_watcher::notify::Error;
 
-type DirectoryCache = Arc<RwLock<BTreeMap<PathBuf, Vec<Doclink>>>>;
-
 pub struct FileManager {
-    cache: DirectoryCache,
-    broadcast_tx: tokio::sync::broadcast::Sender<FileEvent>,
+    broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
     debouncer: AsyncDebouncer<FsEventWatcher>,
-}
-
-#[derive(Clone, Debug)]
-pub enum EventType {
-    Add,
-    Change,
-    Remove,
-}
-
-#[derive(Clone, Debug)]
-pub struct FileEvent {
-    pub path: PathBuf,
-    pub kind: EventType,
 }
 
 impl FileManager {
@@ -32,10 +15,8 @@ impl FileManager {
         let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(32);
         let (debouncer, file_events) =
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
-        let cache = Arc::new(RwLock::new(BTreeMap::new()));
-        tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events, cache.clone()));
+        tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events));
         Ok(FileManager{
-            cache,
             broadcast_tx,
             debouncer,
         })
@@ -46,22 +27,16 @@ impl FileManager {
         let Ok(abs_path) = relative_path.canonicalize() else {
             return None;
         };
-        let Some(relative_parent_path) = abs_path.parent() else {
+        let Some(parent_path) = abs_path.parent() else {
             return None;
         };
         tracing::debug!("Find peers: {}", abs_path.display());
-        {
-            let cache = self.cache.read().await;
-            if let Some(files) = cache.get(abs_path.as_path()) {
-                return Some(files.clone())
-            }
-        }
-        
+
         let Some(original_file_name) = relative_path.file_name() else {
             return None;
         };
         let mut files = Vec::new();
-        if let Ok(mut read_dir) = tokio::fs::read_dir(relative_parent_path.as_os_str()).await {
+        if let Ok(mut read_dir) = tokio::fs::read_dir(parent_path.as_os_str()).await {
             while let Ok(entry_opt) = read_dir.next_entry().await {
                 if let Some(entry) = entry_opt {
                     let path = entry.path();
@@ -93,10 +68,6 @@ impl FileManager {
                 a.name.cmp(&b.name)
             }
         });
-        {
-            let mut cache = self.cache.write().await;
-            cache.insert(relative_parent_path.to_path_buf(), files.clone());
-        }
         Some(files)
     }
 
@@ -105,26 +76,14 @@ impl FileManager {
         Ok(())
     }
 
-    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<FileEvent> {
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<PathBuf> {
         self.broadcast_tx.subscribe()
     }
 }
 
-async fn remove_cached_directory(path: &Path, cache: &DirectoryCache) {
-    if let Ok(abs_path) = path.canonicalize() {
-        if let Some(parent_path) = abs_path.parent() {
-            {
-                let mut cache_lock = cache.write().await;
-                cache_lock.remove(parent_path);
-            }
-        }
-    }
-}
-
 async fn directory_watcher(
-    broadcast_tx: tokio::sync::broadcast::Sender<FileEvent>,
+    broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
     mut file_events: tokio::sync::mpsc::Receiver<Result<Vec<DebouncedEvent>, Vec<NotifyError>>>,
-    cache: DirectoryCache,
 ) ->Result<(), ChimeraError> {
     while let Some(Ok(events)) = file_events.recv().await {
         for e in events {
@@ -132,36 +91,17 @@ async fn directory_watcher(
             match e.event.kind {
                 EventKind::Create(f) => {
                     tracing::debug!("File change event: CREATE - {f:?}, {:?}", e.path);
-                    remove_cached_directory(e.path.as_path(), &cache).await;
-                    broadcast_tx.send(FileEvent{
-                        path: e.path,
-                        kind: EventType::Add,
-                    })?;
+                    broadcast_tx.send(e.path)?;
                 },
                 EventKind::Modify(f) => {
                     tracing::debug!("File change event: MODIFY - {f:?}, {:?}", e.event.paths);
                     for p in e.event.paths {
-                        match f {
-                            ModifyKind::Name(_) |
-                            ModifyKind::Other |
-                            ModifyKind::Any => {
-                                remove_cached_directory(p.as_path(), &cache).await;
-                            },
-                            _ => {}
-                        };
-                        broadcast_tx.send(FileEvent{
-                            path: p,
-                            kind: EventType::Change,
-                        })?;
+                        broadcast_tx.send(p)?;
                     }
                 },
                 EventKind::Remove(f) => {
                     tracing::debug!("File change event: REMOVE - {f:?}, {:?}", e.path);
-                    remove_cached_directory(e.path.as_path(), &cache).await;
-                    broadcast_tx.send(FileEvent{
-                        path: e.path,
-                        kind: EventType::Remove,
-                    })?;
+                    broadcast_tx.send(e.path)?;
                 },
                 _ => {}
             };

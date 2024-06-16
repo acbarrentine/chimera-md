@@ -62,7 +62,6 @@ impl AppState {
         file_manager.add_watch(template_root.as_path())?;
 
         let html_generator = HtmlGenerator::new(
-            document_root.as_path(),
             template_root.as_path(),
             config.site_title,
             &mut file_manager)?;
@@ -192,7 +191,7 @@ async fn serve_markdown_file(
     });
     let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
     pulldown_cmark::html::push_html(&mut html_content, parser);
-    let peers = app_state.file_manager.find_peers(
+    let peer_info = app_state.file_manager.find_peers(
         path,
         app_state.index_file.as_str()).await
         .unwrap_or_default();
@@ -200,7 +199,7 @@ async fn serve_markdown_file(
         path,
         html_content,
         scraper,
-        peers,
+        peer_info,
     ).await?;
 
     Ok((StatusCode::ACCEPTED, Html(html)).into_response())

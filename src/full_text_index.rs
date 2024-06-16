@@ -9,7 +9,7 @@ use tempfile::TempDir;
 use tokio::sync::mpsc::{self, Receiver};
 
 use crate::chimera_error::ChimeraError;
-use crate::file_manager::{FileEvent, FileManager};
+use crate::file_manager::FileManager;
 
 #[derive(Serialize)]
  pub struct SearchResult {
@@ -239,14 +239,14 @@ impl DocumentScanner {
 }
 
 async fn listen_for_changes(
-    mut rx: tokio::sync::broadcast::Receiver<FileEvent>,
+    mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
     tx: tokio::sync::mpsc::Sender<PathBuf>,
 ) {
-    while let Ok(event) = rx.recv().await {
-        if let Some(ext) = event.path.extension() {
+    while let Ok(path) = rx.recv().await {
+        if let Some(ext) = path.extension() {
             if ext == OsStr::new("md") {
                 // forward to the DocumentScanner
-                let _ = tx.send(event.path).await;
+                let _ = tx.send(path).await;
             }
         }
     }
