@@ -115,12 +115,6 @@ async fn main() -> Result<(), ChimeraError> {
     if cfg!(feature="response-timing") {
         tracing::info!("Response timing enabled");
         app = app.layer(tower_http::trace::TraceLayer::new_for_http()
-            .make_span_with(
-                tower_http::trace::DefaultMakeSpan::new().include_headers(true)
-            )
-            .on_request(
-                tower_http::trace::DefaultOnRequest::new().level(tracing::Level::INFO)
-            )
             .on_response(
             tower_http::trace::DefaultOnResponse::new()
                 .level(tracing::Level::INFO)
