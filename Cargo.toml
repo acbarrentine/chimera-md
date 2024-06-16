@@ -27,4 +27,4 @@ async-watcher = "0.3.0"
 
 [features]
 default = []
-response_timing = []
+response-timing = []

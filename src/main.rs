@@ -112,7 +112,8 @@ async fn main() -> Result<(), ChimeraError> {
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state);
 
-    if cfg!(response_timing) {
+    if cfg!(feature="response-timing") {
+        tracing::info!("Response timing enabled");
         app = app.layer(tower_http::trace::TraceLayer::new_for_http()
             .make_span_with(
                 tower_http::trace::DefaultMakeSpan::new().include_headers(true)
