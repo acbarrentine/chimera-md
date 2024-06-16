@@ -37,6 +37,7 @@ section.title {
     margin-left: 10px;
     font-weight: 500;
     font-size: 5rem;
+    text-wrap: nowrap;
 }
 
 section.search button {
@@ -104,10 +105,6 @@ tr:nth-child(odd) {
     padding: 3px;
 }
 
-.sidebar {
-    padding: 1em;
-}
-
 .sidebar ul {
     list-style: circle inside;
 }
@@ -117,9 +114,30 @@ tr:nth-child(odd) {
     border-left: 5px solid black;
     background-color: rgb(44,44,44);
     padding: 1em;
-    width: 100%;
 }
 
 .linkbox p {
     margin-bottom: 1em;
+}
+
+@media screen and (max-width: 550px) {
+    nav {
+        padding: 0 1em 0 1em;
+    }
+    section.title {
+        font-size: 3rem;
+    }
+    section.search {
+        display: none;
+    }
+}
+
+@media (min-width: 550px) {
+    .sidebar {
+        padding: 1em;
+    }
+    
+    .linkbox {
+        width: 100%;
+    }
 }

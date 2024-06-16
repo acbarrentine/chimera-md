@@ -174,13 +174,12 @@ async fn serve_markdown_file(
     app_state: AppStateType,
     path: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
-    tracing::debug!("Markdown request: {path:?}");
+    tracing::debug!("Markdown request {path}");
     if let Some(result) = app_state.html_generator.get_cached_result(path).await {
         tracing::debug!("Returning cached response for {path}");
         return Ok((StatusCode::ACCEPTED, Html(result)).into_response());
     }
-    tracing::info!("Not cached, building: {path:?}");
-
+    tracing::debug!("Not cached, building {path}");
     let md_content = tokio::fs::read_to_string(path).await?;
     let mut scraper = DocumentScraper::new();
     let parser = pulldown_cmark::Parser::new_ext(
@@ -201,7 +200,6 @@ async fn serve_markdown_file(
         scraper,
         peer_info,
     ).await?;
-
     Ok((StatusCode::ACCEPTED, Html(html)).into_response())
 }
 
@@ -210,7 +208,7 @@ async fn serve_static_file(
     path: &str,
     headers: HeaderMap,
 ) -> Result<axum::response::Response, ChimeraError> {
-    tracing::info!("Static request: {path:?}");
+    tracing::info!("Static request {path}");
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
@@ -221,7 +219,7 @@ async fn get_response(
     path: &str,
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {
-    tracing::info!("Chimera request: {path:?}");
+    tracing::info!("Chimera request {path}");
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
     }
@@ -254,7 +252,7 @@ async fn handle_response(
     match get_response(app_state.clone(), path, headers).await {
         Ok(resp) => {
             let status = resp.status();
-            tracing::info!("Response ok: {}", status);
+            tracing::info!("{}: {}", status, path);
             if status.is_success() || status.is_redirection() {
                 resp.into_response()
             }
