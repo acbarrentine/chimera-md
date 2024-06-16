@@ -20,6 +20,14 @@ use crate::html_generator::HtmlGenerator;
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::DocumentScraper;
 
+#[derive(Debug)]
+enum CachedStatus {
+    Cached,
+    NotCached,
+    StaticFile,
+    Redirect,
+}
+
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
@@ -173,11 +181,11 @@ fn has_extension(file_name: &str, match_ext: &str) -> bool {
 async fn serve_markdown_file(
     app_state: AppStateType,
     path: &str,
-) -> Result<axum::response::Response, ChimeraError> {
+) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
     tracing::debug!("Markdown request {path}");
     if let Some(result) = app_state.html_generator.get_cached_result(path).await {
         tracing::debug!("Returning cached response for {path}");
-        return Ok((StatusCode::ACCEPTED, Html(result)).into_response());
+        return Ok((CachedStatus::Cached, (StatusCode::ACCEPTED, Html(result)).into_response()));
     }
     tracing::debug!("Not cached, building {path}");
     let md_content = tokio::fs::read_to_string(path).await?;
@@ -200,26 +208,26 @@ async fn serve_markdown_file(
         scraper,
         peer_info,
     ).await?;
-    Ok((StatusCode::ACCEPTED, Html(html)).into_response())
+    Ok((CachedStatus::NotCached, (StatusCode::ACCEPTED, Html(html)).into_response()))
 }
 
 async fn serve_static_file(
     _app_state: AppStateType,
     path: &str,
     headers: HeaderMap,
-) -> Result<axum::response::Response, ChimeraError> {
-    tracing::info!("Static request {path}");
+) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
+    tracing::debug!("Static request {path}");
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    Ok(ServeDir::new(path).try_call(req).await?.into_response())
+    Ok((CachedStatus::StaticFile, ServeDir::new(path).try_call(req).await?.into_response()))
 }
 
 async fn get_response(
     app_state: AppStateType,
     path: &str,
     headers: HeaderMap
-) -> Result<axum::response::Response, ChimeraError> {
-    tracing::info!("Chimera request {path}");
+) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
+    tracing::debug!("Chimera request {path}");
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
     }
@@ -230,12 +238,12 @@ async fn get_response(
             tracing::debug!("Metadata obtained for {path}");
             if metadata.is_dir() && !path.ends_with('/') {
                 let path_with_slash = format!("{path}/");
-                tracing::info!("Missing /, redirecting to {path_with_slash}");
-                return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
+                tracing::debug!("Missing /, redirecting to {path_with_slash}");
+                return Ok((CachedStatus::Redirect, Redirect::permanent(path_with_slash.as_str()).into_response()));
             }
             let path_with_index = format!("{path}{}", app_state.index_file.as_str());
             if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
-                tracing::info!("No file specified, sending {path_with_index}");
+                tracing::debug!("No file specified, sending {path_with_index}");
                 return serve_markdown_file(app_state, &path_with_index).await;
             }
         }
@@ -250,9 +258,9 @@ async fn handle_response(
     headers: HeaderMap,
 ) -> axum::response::Response {
     match get_response(app_state.clone(), path, headers).await {
-        Ok(resp) => {
+        Ok((cached, resp)) => {
             let status = resp.status();
-            tracing::info!("{}: {}", status, path);
+            tracing::info!("{}: {} ({:?})", status, path, cached);
             if status.is_success() || status.is_redirection() {
                 resp.into_response()
             }

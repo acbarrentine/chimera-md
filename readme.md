@@ -39,7 +39,7 @@ There are currently 5 arguments that can be set either via environment or the co
 ```bash
     --document-root <DOCUMENT_ROOT>  [env: CHIMERA_DOCUMENT_ROOT=/var/chimera-md/www]
     --template-root <TEMPLATE_ROOT>  [env: CHIMERA_TEMPLATE_ROOT=/var/chimera-md/template]
-    --site-title <SITE_TITLE>        [env: CHIMERA_SITE_TITLE=Chimera-md"]
+    --site-title <SITE_TITLE>        [env: CHIMERA_SITE_TITLE=Chimera-md]
     --index-file <INDEX_FILE>        [env: CHIMERA_INDEX_FILE=index.md]
     --log-level <LOG_LEVEL>          [env: CHIMERA_LOG_LEVEL=INFO]
     --port <PORT>                    [env: CHIMERA_HTTP_PORT=8080]
