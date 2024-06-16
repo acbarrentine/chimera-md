@@ -1,5 +1,5 @@
 use std::{cmp::Ordering, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
-use async_watcher::{notify::{EventKind, FsEventWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
+use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
 use crate::{chimera_error::ChimeraError, document_scraper::Doclink};
 
@@ -7,7 +7,7 @@ type NotifyError = async_watcher::notify::Error;
 
 pub struct FileManager {
     broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
-    debouncer: AsyncDebouncer<FsEventWatcher>,
+    debouncer: AsyncDebouncer<RecommendedWatcher>,
 }
 
 impl FileManager {
