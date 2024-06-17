@@ -150,11 +150,11 @@ impl HtmlGenerator {
 }
 
 pub fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
-    let num_links = links.len() - 1;
-    if num_links == 0 {
+    let num_links = links.len();
+    if num_links == 1 {
         return original_html;
     }
-    let mut link_index = 0;
+    let mut link_index = 1;
     let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
     let mut char_iter = original_html.char_indices();
     while let Some((i, c)) = char_iter.next() {

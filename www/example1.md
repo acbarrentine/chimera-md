@@ -18,6 +18,11 @@ Anyway, here are some `Markdown` features to test with.
 | March    | Return of the Obra Din   |
 | April    | Curse of the Golden Idol |
 
+##### Love <3!
+
+##### / [example2](example2.md)
+
+##### [Google](https://www.google.com/) [Lycos](https://www.lycos.com)
 
 ##### Code block
 

@@ -180,7 +180,7 @@ async fn serve_markdown_file(
     tracing::debug!("Markdown request {path}");
     if let Some(result) = app_state.html_generator.get_cached_result(path).await {
         tracing::debug!("Returning cached response for {path}");
-        return Ok((CachedStatus::Cached, (StatusCode::ACCEPTED, Html(result)).into_response()));
+        return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
     }
     tracing::debug!("Not cached, building {path}");
     let md_content = tokio::fs::read_to_string(path).await?;
@@ -203,7 +203,7 @@ async fn serve_markdown_file(
         scraper,
         peer_info,
     ).await?;
-    Ok((CachedStatus::NotCached, (StatusCode::ACCEPTED, Html(html)).into_response()))
+    Ok((CachedStatus::NotCached, (StatusCode::OK, Html(html)).into_response()))
 }
 
 async fn serve_static_file(

@@ -191,8 +191,8 @@ fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
 }
 
 fn strip_html(body: String) -> String {
-    //html2text::from_read(body.as_bytes(), body.len())
-    body
+    html2text::from_read(body.as_bytes(), body.len())
+    //body
 }
 
 impl DocumentScanner {
@@ -251,4 +251,19 @@ async fn listen_for_changes(
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_html_stripper() {
+        let html = "<h3>Kisses<3</h3>";
+        let plain = html2text::from_read(html.as_bytes(), html.len());
+        assert_eq!(plain, "### Kisses<3\n".to_string());
+
+        let html_cfg = html2text::config::plain();
+        let plain = html_cfg.string_from_read(html.as_bytes(), html.len());
+        assert_eq!(plain, Ok("### Kisses<3\n".to_string()));
+    }
+    
 }
