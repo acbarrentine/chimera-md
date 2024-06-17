@@ -32,6 +32,11 @@ This command line enables a watcher to spin a new server any time I save changes
 cargo watch -x run -w src/
 ```
 
+Build for Linux:
+```
+cargo build --release --target=x86_64-unknown-linux-gnu
+```
+
 ## Arguments
 
 There are currently 5 arguments that can be set either via environment or the command line.

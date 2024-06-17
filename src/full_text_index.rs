@@ -191,7 +191,8 @@ fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
 }
 
 fn strip_html(body: String) -> String {
-    html2text::from_read(body.as_bytes(), body.len())
+    //html2text::from_read(body.as_bytes(), body.len())
+    body
 }
 
 impl DocumentScanner {
