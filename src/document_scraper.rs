@@ -98,12 +98,13 @@ impl DocumentScraper {
                 if let Some(name) = self.heading_text.as_mut() {
                     name.push_str(t);
                 }
-                else if self.title.is_none() {
-                        self.title = Some(t.to_string());
-                }
             },
             Event::End(TagEnd::Heading(_level)) => {
                 if let Some(name) = self.heading_text.take() {
+                    // first heading is also the title
+                    if self.title.is_none() {
+                        self.title = Some(name.clone());
+                    }
                     let link = Doclink {
                         anchor: get_munged_anchor(name.to_lowercase().as_str()),
                         name,
@@ -153,5 +154,27 @@ mod tests {
             name: "Kisses <3!".to_string(),
             anchor: "kisses-<3!".to_string()
         });
+    }
+
+    #[test]
+    fn test_first_heading_is_also_title() {
+        let md = "# The title\n\nBody\n\n# Subhead\n\nBody 2";
+        let mut scraper = DocumentScraper::new();
+        let parser = pulldown_cmark::Parser::new(md).map(|ev| {
+            scraper.check_event(&ev);
+            ev
+        });
+        let mut html_content = String::with_capacity(md.len() * 3 / 2);
+        pulldown_cmark::html::push_html(&mut html_content, parser);
+        assert_eq!(scraper.doclinks.len(), 3);
+        assert_eq!(scraper.doclinks[1], Doclink {
+            name: "The title".to_string(),
+            anchor: "the-title".to_string()
+        });
+        assert_eq!(scraper.doclinks[2], Doclink {
+            name: "Subhead".to_string(),
+            anchor: "subhead".to_string()
+        });
+        assert_eq!(scraper.title, Some("The title".to_string()));
     }
 }
