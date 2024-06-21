@@ -259,7 +259,7 @@ fn get_language_blob(langs: &[&str]) -> String {
     let min_js_suffix = r#"".min.js"></script>
     "#;
     let min_jis_len = langs.iter().fold(0, |len, el| {
-        len + el.len()
+        len + el.len() + min_js_prefix.len() + min_js_suffix.len()
     });
 
     let style = r#"<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css">
