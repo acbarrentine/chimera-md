@@ -18,7 +18,7 @@ use crate::file_manager::FileManager;
 use crate::full_text_index::FullTextIndex;
 use crate::html_generator::HtmlGenerator;
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
-use crate::document_scraper::DocumentScraper;
+use document_scraper::parse_markdown;
 
 #[derive(Debug)]
 enum CachedStatus {
@@ -184,15 +184,7 @@ async fn serve_markdown_file(
     }
     tracing::debug!("Not cached, building {path}");
     let md_content = tokio::fs::read_to_string(path).await?;
-    let mut scraper = DocumentScraper::new();
-    let parser = pulldown_cmark::Parser::new_ext(
-        md_content.as_str(), pulldown_cmark::Options::ENABLE_TABLES
-    ).map(|ev| {
-        scraper.check_event(&ev);
-        ev
-    });
-    let mut html_content = String::with_capacity(md_content.len() * 3 / 2);
-    pulldown_cmark::html::push_html(&mut html_content, parser);
+    let (scraper, html_content) = parse_markdown(md_content.as_str());
     let peer_info = app_state.file_manager.find_peers(
         path,
         app_state.index_file.as_str()).await

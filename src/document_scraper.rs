@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
@@ -19,6 +19,7 @@ pub struct DocumentScraper {
     id_re: Regex,
     heading_text: Option<String>,
     pub has_code_blocks: bool,
+    starts_with_heading: bool,
 }
 
 fn get_munged_anchor(anchor: &str) -> String {
@@ -35,24 +36,24 @@ impl DocumentScraper {
                 "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
                 "python", "r", "rust", "sql", "text", "xml", "yaml",
             ]),
-            doclinks: vec![Doclink {
-                anchor: "top".to_string(),
-                name: "Top".to_string(),
-                level: 1,
-            }],
+            doclinks: Vec::new(),
             code_languages: Vec::new(),
             title: None,
             heading_re,
             id_re,
             heading_text: None,
             has_code_blocks: false,
+            starts_with_heading: false,
         }
     }
 
-    pub fn check_event(&mut self, ev: &Event) {
-        tracing::trace!("md-event: {ev:?}");
+    pub fn check_event(&mut self, ev: &Event, range: Range<usize>) {
+        tracing::debug!("md-event: {ev:?} - {range:?}");
         match ev {
             Event::Start(Tag::Heading{level: _, id: _, classes: _, attrs: _}) => {
+                if range.start == 0 {
+                    self.starts_with_heading = true;
+                }
                 self.heading_text = Some(String::with_capacity(64));
             },
             Event::Start(Tag::CodeBlock(kind)) => {
@@ -134,6 +135,25 @@ impl DocumentScraper {
     }
 }
 
+pub fn parse_markdown(md: &str) -> (DocumentScraper, String) {
+    let mut scraper = DocumentScraper::new();
+    let parser = pulldown_cmark::Parser::new(md)
+        .into_offset_iter().map(|(ev, range)| {
+        scraper.check_event(&ev, range);
+        ev
+    });
+    let mut html_content = String::with_capacity(md.len() * 3 / 2);
+    pulldown_cmark::html::push_html(&mut html_content, parser);
+    if !scraper.starts_with_heading {
+        scraper.doclinks.insert(0, Doclink {
+            anchor: "top".to_string(),
+            name: "Top".to_string(),
+            level: 1,
+        });
+    }
+    (scraper, html_content)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,15 +161,9 @@ mod tests {
     #[test]
     fn test_link_in_md_heading() {
         let md = "# / [Home](/index.md) / [Documents](/Documents/index.md) / [Work](index.md)";
-        let mut scraper = DocumentScraper::new();
-        let parser = pulldown_cmark::Parser::new(md).map(|ev| {
-            scraper.check_event(&ev);
-            ev
-        });
-        let mut html_content = String::with_capacity(md.len() * 3 / 2);
-        pulldown_cmark::html::push_html(&mut html_content, parser);
-        assert_eq!(scraper.doclinks.len(), 2);
-        assert_eq!(scraper.doclinks[1], Doclink {
+        let (scraper, _html_content) = parse_markdown(md);
+        assert_eq!(scraper.doclinks.len(), 1);
+        assert_eq!(scraper.doclinks[0], Doclink {
             name: "/ Home / Documents / Work".to_string(),
             anchor: "/-home-/-documents-/-work".to_string(),
             level: 1,
@@ -159,15 +173,9 @@ mod tests {
     #[test]
     fn test_heart_in_md_heading() {
         let md = "### Kisses <3!";
-        let mut scraper = DocumentScraper::new();
-        let parser = pulldown_cmark::Parser::new(md).map(|ev| {
-            scraper.check_event(&ev);
-            ev
-        });
-        let mut html_content = String::with_capacity(md.len() * 3 / 2);
-        pulldown_cmark::html::push_html(&mut html_content, parser);
-        assert_eq!(scraper.doclinks.len(), 2);
-        assert_eq!(scraper.doclinks[1], Doclink {
+        let (scraper, _html_content) = parse_markdown(md);
+        assert_eq!(scraper.doclinks.len(), 1);
+        assert_eq!(scraper.doclinks[0], Doclink {
             name: "Kisses <3!".to_string(),
             anchor: "kisses-<3!".to_string(),
             level: 3,
@@ -177,20 +185,14 @@ mod tests {
     #[test]
     fn test_first_heading_is_also_title() {
         let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
-        let mut scraper = DocumentScraper::new();
-        let parser = pulldown_cmark::Parser::new(md).map(|ev| {
-            scraper.check_event(&ev);
-            ev
-        });
-        let mut html_content = String::with_capacity(md.len() * 3 / 2);
-        pulldown_cmark::html::push_html(&mut html_content, parser);
-        assert_eq!(scraper.doclinks.len(), 3);
-        assert_eq!(scraper.doclinks[1], Doclink {
+        let (scraper, _html_content) = parse_markdown(md);
+        assert_eq!(scraper.doclinks.len(), 2);
+        assert_eq!(scraper.doclinks[0], Doclink {
             name: "The title".to_string(),
             anchor: "the-title".to_string(),
             level: 1,
         });
-        assert_eq!(scraper.doclinks[2], Doclink {
+        assert_eq!(scraper.doclinks[1], Doclink {
             name: "Subhead".to_string(),
             anchor: "subhead".to_string(),
             level: 2,
