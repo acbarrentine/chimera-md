@@ -13,12 +13,14 @@ type CachedResults = Arc<RwLock<BTreeMap<String, String>>>;
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
     site_title: String,
+    version: &'static str,
     cached_results: CachedResults,
 }
 
 #[derive(Serialize)]
 struct MarkdownVars {
     site_title: String,
+    version: String,
     body: String,
     title: String,
     code_js: String,
@@ -48,6 +50,7 @@ impl HtmlGenerator {
     pub fn new(
         template_root: &Path,
         site_title: String,
+        version: &'static str,
         file_manager: &mut FileManager
     ) -> Result<HtmlGenerator, ChimeraError> {
         let mut handlebars = Handlebars::new();
@@ -70,6 +73,7 @@ impl HtmlGenerator {
         Ok(HtmlGenerator {
             handlebars,
             site_title,
+            version,
             cached_results,
         })
     }
@@ -118,6 +122,7 @@ impl HtmlGenerator {
             body: html_content,
             title,
             site_title: self.site_title.clone(),
+            version: self.version.to_string(),
             code_js,
             doclinks_len: doclinks_html.len(),
             doclinks: doclinks_html,

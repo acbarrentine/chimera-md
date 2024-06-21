@@ -28,6 +28,8 @@ enum CachedStatus {
     Redirect,
 }
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
@@ -72,6 +74,7 @@ impl AppState {
         let html_generator = HtmlGenerator::new(
             template_root.as_path(),
             config.site_title,
+            VERSION,
             &mut file_manager)?;
         let mut full_text_index = FullTextIndex::new()?;
         full_text_index.scan_directory(document_root, &file_manager).await?;
