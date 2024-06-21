@@ -52,9 +52,8 @@ impl HtmlGenerator {
     ) -> Result<HtmlGenerator, ChimeraError> {
         let mut handlebars = Handlebars::new();
 
-        handlebars.register_templates_directory(template_root, DirectorySourceOptions::default())?;
         handlebars.set_dev_mode(true);
-
+        handlebars.register_templates_directory(template_root, DirectorySourceOptions::default())?;
         let required_templates = ["markdown", "error", "search"];
         for name in required_templates {
             if !handlebars.has_template(name) {
