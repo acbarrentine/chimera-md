@@ -244,6 +244,7 @@ async fn listen_for_changes(
     tx: tokio::sync::mpsc::Sender<PathBuf>,
 ) {
     while let Ok(path) = rx.recv().await {
+        tracing::info!("FTI change event {}", path.display());
         if let Some(ext) = path.extension() {
             if ext == OsStr::new("md") {
                 // forward to the DocumentScanner

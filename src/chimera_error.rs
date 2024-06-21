@@ -99,5 +99,5 @@ pub async fn handle_err(
         "Internal server error",
         "Chimera failed attempting to complete this request",
     )?;
-    Ok((StatusCode::NOT_FOUND, axum::response::Html(html)).into_response())
+    Ok((StatusCode::INTERNAL_SERVER_ERROR, axum::response::Html(html)).into_response())
 }

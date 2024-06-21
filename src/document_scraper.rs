@@ -7,6 +7,7 @@ use serde::Serialize;
 pub struct Doclink {
     pub anchor: String,
     pub name: String,
+    pub level: u8,
 }
 
 pub struct DocumentScraper {
@@ -26,7 +27,7 @@ fn get_munged_anchor(anchor: &str) -> String {
 
 impl DocumentScraper {
     pub fn new() -> Self {
-        let heading_re = Regex::new(r"<[hH]\d\s*([^<]*)>([^<]*)</[hH]\d>").unwrap();
+        let heading_re = Regex::new(r"<[hH](\d)\s*([^<]*)>([^<]*)</[hH]\d>").unwrap();
         let id_re = Regex::new("id=\"([^\"]+)\"").unwrap();
         DocumentScraper {
             language_map: HashSet::from([
@@ -34,7 +35,11 @@ impl DocumentScraper {
                 "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
                 "python", "r", "rust", "sql", "text", "xml", "yaml",
             ]),
-            doclinks: vec![Doclink { anchor: "top".to_string(), name: "Top".to_string() }],
+            doclinks: vec![Doclink {
+                anchor: "top".to_string(),
+                name: "Top".to_string(),
+                level: 1,
+            }],
             code_languages: Vec::new(),
             title: None,
             heading_re,
@@ -62,8 +67,9 @@ impl DocumentScraper {
             Event::Html(text) => {
                 // <h3 id="the-middle">The middle</h3>
                 if let Some(captures) = self.heading_re.captures(text) {
-                    let id_text = captures.get(1);
-                    let heading_match = captures.get(2);
+                    let level = captures.get(1);
+                    let id_text = captures.get(2);
+                    let heading_match = captures.get(3);
                     let Some(heading_match) = heading_match else {
                         return;
                     };
@@ -87,10 +93,19 @@ impl DocumentScraper {
                             heading_text
                         }
                     };
+                    let level = match level {
+                        Some(level_text) => {
+                            level_text.as_str().parse::<u8>().unwrap()
+                        },
+                        None => {
+                            1_u8
+                        }
+                    };
                     tracing::debug!("Found doclink: {anchor} -> {heading_text}");
                     self.doclinks.push(Doclink {
                         anchor: get_munged_anchor(anchor),
                         name: heading_text.to_string(),
+                        level
                     });
                 }
             },
@@ -99,7 +114,7 @@ impl DocumentScraper {
                     name.push_str(t);
                 }
             },
-            Event::End(TagEnd::Heading(_level)) => {
+            Event::End(TagEnd::Heading(level)) => {
                 if let Some(name) = self.heading_text.take() {
                     // first heading is also the title
                     if self.title.is_none() {
@@ -108,6 +123,7 @@ impl DocumentScraper {
                     let link = Doclink {
                         anchor: get_munged_anchor(name.to_lowercase().as_str()),
                         name,
+                        level: *level as u8,
                     };
                     tracing::debug!("Doclink found: {link:?}");
                     self.doclinks.push(link);
@@ -135,7 +151,8 @@ mod tests {
         assert_eq!(scraper.doclinks.len(), 2);
         assert_eq!(scraper.doclinks[1], Doclink {
             name: "/ Home / Documents / Work".to_string(),
-            anchor: "/-home-/-documents-/-work".to_string()
+            anchor: "/-home-/-documents-/-work".to_string(),
+            level: 1,
         });
     }
 
@@ -152,13 +169,14 @@ mod tests {
         assert_eq!(scraper.doclinks.len(), 2);
         assert_eq!(scraper.doclinks[1], Doclink {
             name: "Kisses <3!".to_string(),
-            anchor: "kisses-<3!".to_string()
+            anchor: "kisses-<3!".to_string(),
+            level: 3,
         });
     }
 
     #[test]
     fn test_first_heading_is_also_title() {
-        let md = "# The title\n\nBody\n\n# Subhead\n\nBody 2";
+        let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
         let mut scraper = DocumentScraper::new();
         let parser = pulldown_cmark::Parser::new(md).map(|ev| {
             scraper.check_event(&ev);
@@ -169,11 +187,13 @@ mod tests {
         assert_eq!(scraper.doclinks.len(), 3);
         assert_eq!(scraper.doclinks[1], Doclink {
             name: "The title".to_string(),
-            anchor: "the-title".to_string()
+            anchor: "the-title".to_string(),
+            level: 1,
         });
         assert_eq!(scraper.doclinks[2], Doclink {
             name: "Subhead".to_string(),
-            anchor: "subhead".to_string()
+            anchor: "subhead".to_string(),
+            level: 2,
         });
         assert_eq!(scraper.title, Some("The title".to_string()));
     }

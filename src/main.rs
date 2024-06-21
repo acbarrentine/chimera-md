@@ -207,7 +207,6 @@ async fn serve_markdown_file(
 }
 
 async fn serve_static_file(
-    _app_state: AppStateType,
     path: &str,
     headers: HeaderMap,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
@@ -244,7 +243,7 @@ async fn get_response(
         }
     }
     tracing::debug!("Not md or a dir {path}. Falling back to static routing");
-    serve_static_file(app_state, path, headers).await
+    serve_static_file(path, headers).await
 }
 
 async fn handle_response(

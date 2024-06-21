@@ -22,9 +22,10 @@ struct MarkdownVars {
     body: String,
     title: String,
     code_js: String,
-    doclinks: Vec<Doclink>,
-    peers: Vec<Doclink>,
-    num_peers: usize,
+    doclinks: String,
+    doclinks_len: usize,
+    peers: String,
+    peers_len: usize,
 }
 
 #[derive(Serialize)]
@@ -110,15 +111,19 @@ impl HtmlGenerator {
                 path.to_string()
             }
         });
-    
+
+        let doclinks_html = generate_doclink_html(scraper.doclinks, true);
+        let peers_html = generate_doclink_html(peers, false);
+
         let vars = MarkdownVars {
             body: html_content,
             title,
             site_title: self.site_title.clone(),
             code_js,
-            doclinks: scraper.doclinks,
-            num_peers: peers.len(),
-            peers,
+            doclinks_len: doclinks_html.len(),
+            doclinks: doclinks_html,
+            peers_len: peers_html.len(),
+            peers: peers_html,
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
@@ -149,7 +154,68 @@ impl HtmlGenerator {
     }
 }
 
-pub fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
+// The indenting scheme requires that we not grow more than 1 step at a time
+// Unfortunately, because this depends on user data, we can easily be asked
+// to process an invalid setup. Eg: <h1> directly to <h3>
+// Outdents don't have the same problem
+// Renumber the link list so we don't violate that assumption
+fn normalize_levels(doclinks: &mut [Doclink]) -> (usize, usize) {
+    let mut last_level = 0;
+    let mut num_indents = 0;
+    let mut text_len = 0;
+    for link in doclinks {
+        if link.level > last_level {
+            num_indents += 1;
+            link.level = last_level + 1;
+        }
+        last_level = link.level;
+        text_len += link.anchor.len() + link.name.len();
+    }
+    (num_indents, text_len)
+}
+
+fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) -> String {
+    if doclinks.is_empty() {
+        return "".to_string()
+    }
+    let (num_indents, text_len) = normalize_levels(&mut doclinks);
+    let list_prefix = "<ul>\n";
+    let list_suffix = "</ul>\n";
+    let item_prefix = if anchors_are_local {"<li><a href=\"#"} else {"<li><a href=\""};
+    let item_middle = "\">";
+    let item_suffix = "</a></li>\n";
+    let expected_size = (num_indents * (list_prefix.len() + list_suffix.len())) +
+        (doclinks.len() * (item_prefix.len() + item_middle.len() + item_suffix.len())) +
+        text_len;
+    let mut last_level = 0;
+    let mut html = String::with_capacity(expected_size);
+    for link in doclinks {
+        if last_level < link.level {
+            html.push_str(list_prefix);
+            last_level = link.level;
+        }
+        else {
+            while last_level != link.level {
+                html.push_str(list_suffix);
+                last_level -= 1;
+            }
+        }
+
+        html.push_str(item_prefix);
+        html.push_str(link.anchor.as_str());
+        html.push_str(item_middle);
+        html.push_str(link.name.as_str());
+        html.push_str(item_suffix);
+    }
+    while last_level > 0 {
+        html.push_str(list_suffix);
+        last_level -= 1;
+    }
+    assert_eq!(html.len(), expected_size);
+    html
+}
+
+fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     let num_links = links.len();
     if num_links == 1 {
         return original_html;
@@ -202,11 +268,8 @@ fn get_language_blob(langs: &[&str]) -> String {
     "#;
     let invoke_js = r#"<script>hljs.highlightAll();</script>
     "#;
-    let mut buffer = String::with_capacity(
-        style.len() +
-        highlight_js.len() +
-        min_jis_len +
-        invoke_js.len());
+    let expected_len = style.len() + highlight_js.len() + min_jis_len + invoke_js.len();
+    let mut buffer = String::with_capacity(expected_len);
     buffer.push_str(style);
     buffer.push_str(highlight_js);
     for lang in langs {
@@ -215,6 +278,7 @@ fn get_language_blob(langs: &[&str]) -> String {
         buffer.push_str(min_js_suffix);
     }
     buffer.push_str(invoke_js);
+    assert_eq!(buffer.len(), expected_len);
     buffer
 }
 
@@ -223,6 +287,7 @@ async fn listen_for_changes(
     cache: CachedResults,
 ) {
     while let Ok(path) = rx.recv().await {
+        tracing::info!("HG change event {}", path.display());
         if let Some(ext) = path.extension() {
             if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
                 tracing::info!("Discarding cached HTML results");
@@ -231,4 +296,68 @@ async fn listen_for_changes(
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_doclink_normalization_1() {
+        let mut nochange = vec![Doclink {
+            name: "a".to_string(),
+            anchor: "a".to_string(),
+            level: 1
+        },
+        Doclink {
+            name: "b".to_string(),
+            anchor: "b".to_string(),
+            level: 2
+        },
+        Doclink {
+            name: "c".to_string(),
+            anchor: "c".to_string(),
+            level: 1
+        }];
+        let (num_indents, text_len) = normalize_levels(&mut nochange);
+        assert_eq!(num_indents, 2);
+        assert_eq!(text_len, 6);
+        assert_eq!(nochange[0].level, 1);
+        assert_eq!(nochange[1].level, 2);
+        assert_eq!(nochange[2].level, 1);
+    }
+
+    #[test]
+    fn test_doclink_normalization_2() {
+        let mut bad_initial_level = vec![Doclink {
+            name: "a".to_string(),
+            anchor: "a".to_string(),
+            level: 2
+        }];
+        let (num_indents, text_len) = normalize_levels(&mut bad_initial_level);
+        assert_eq!(num_indents, 1);
+        assert_eq!(text_len, 2);
+        assert_eq!(bad_initial_level[0].level, 1);
+    }
+
+    #[test]
+    fn test_doclink_normalization_3() {
+        let mut bad_growth = vec![Doclink {
+            name: "a".to_string(),
+            anchor: "a".to_string(),
+            level: 1
+        },
+        Doclink {
+            name: "c".to_string(),
+            anchor: "c".to_string(),
+            level: 3
+        },
+        ];
+        let (num_indents, text_len) = normalize_levels(&mut bad_growth);
+        assert_eq!(num_indents, 2);
+        assert_eq!(text_len, 4);
+        assert_eq!(bad_growth[0].level, 1);
+        assert_eq!(bad_growth[1].level, 2);
+    }
+
 }

@@ -11,24 +11,16 @@
                         <p>
                             <strong>Within this document:</strong>
                         </p>
-                        <ul>
-                        {{#each doclinks}}
-                            <li><a href="#{{anchor}}">{{name}}</a></li>
-                        {{/each}}
-                        </ul>
+                        {{{doclinks}}}
                     </div>
                 </p>
                 <p>
-                    {{#if (gt num_peers 0)}}
+                    {{#if (gt peers_len 0)}}
                     <div class="linkbox">
                         <p>
                             <strong>Other documents:</strong>
                         </p>
-                        <ul>
-                        {{#each peers}}
-                            <li><a href="{{anchor}}">{{name}}</a></li>
-                        {{/each}}
-                        </ul>
+                        {{{peers}}}
                     </div>
                     {{/if}}
                 </p>
