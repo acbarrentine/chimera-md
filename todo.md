@@ -13,8 +13,9 @@
 
 ## My docker commands
 
-* Build: `docker build --platform linux/amd64 . -t chimera-md:test`
-* Shell in image: `docker run -it chimera-md:test bash`
+* Build (works): `docker build . -t chimera-md:test`
+* Build (cross, not working): `docker build --platform linux/amd64 . -t chimera-md:test`
+* Shell in image (won't work with multi-stage image): `docker run -it chimera-md:test bash`
 * Run: `docker run -it -p 8080:8080 chimera-md:test`
 * Run with override: `docker run -it -p 8080:8080 -e CHIMERA_LOG_LEVEL=TRACE chimera-md:test`
 * Run and delete when done: `docker run -it -rm -p 8080:8080 chimera-md:test`

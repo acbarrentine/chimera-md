@@ -1,11 +1,17 @@
-#FROM rust:1.79.0-alpine
-FROM messense/rust-musl-cross:x86_64-musl
+FROM messense/rust-musl-cross:x86_64-musl as builder
 
 WORKDIR /usr/src/chimera-md
 COPY . .
 
+RUN mkdir /empty && chmod 777 /empty
+
 RUN cargo build --release --target x86_64-unknown-linux-musl
-RUN cp target/x86_64-unknown-linux-musl/release/chimera-md /usr/bin/chimera-md
+
+FROM scratch
+COPY --from=builder /usr/src/chimera-md/target/x86_64-unknown-linux-musl/release/chimera-md /bin/chimera-md
+COPY --from=builder /usr/src/chimera-md/www /data/www
+COPY --from=builder /usr/src/chimera-md/templates /data/templates
+COPY --from=builder /empty /tmp
 
 EXPOSE 8080
 

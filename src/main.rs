@@ -33,10 +33,10 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
-    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/usr/src/chimera-md/www"))]
+    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/data/www"))]
     document_root: String,
 
-    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/usr/src/chimera-md/templates"))]
+    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/data/templates"))]
     template_root: String,
 
     #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]

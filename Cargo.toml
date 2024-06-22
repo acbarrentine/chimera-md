@@ -28,3 +28,9 @@ async-watcher = "0.3.0"
 [features]
 default = []
 response-timing = []
+
+[profile.release]
+codegen-units = 1
+lto = "fat" 
+strip = "debuginfo"
+#panic = "abort"
