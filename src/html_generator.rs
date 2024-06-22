@@ -299,44 +299,57 @@ fn get_language_blob(langs: &[&str]) -> String {
     buffer
 }
 
-fn get_breadcrumbs(path: &str) -> String {
-    let mut url = "/".to_string();
-    let parts: Vec<&str> = path.split('/').collect();
-    let home_prefix = r#"<span class="home"><a href=""#;
-    let home_suffix = r#"">Home</a></span>"#;
-    let crumb_prefix = r#"<span class="crumb"><a href=""#;
-    let crumb_middle = r#"">"#;
-    let crumb_suffix = r#"</a></span>"#;
-    let final_prefix = r#"<span class="crumb">"#;
-    let final_suffix = r#"</span>"#;
+const HOME_PREFIX: &str = r#"<span class="home"><a href=""#;
+const HOME_SUFFIX: &str = r#"">Home</a></span>"#;
+const CRUMB_PREFIX: &str = r#"<span class="crumb"><a href=""#;
+const CRUMB_MIDDLE: &str = r#"">"#;
+const CRUMB_SUFFIX: &str = r#"</a></span>"#;
+const FINAL_PREFIX: &str = r#"<span class="crumb">"#;
+const FINAL_SUFFIX: &str = r#"</span>"#;
+
+fn get_breadcrumb_name_and_anchor_len(parts: &[&str]) -> (usize, usize) {
     let mut anchor_len = 1;
+    let mut prev_anchor_len = 1;
     let mut name_len = 0;
     for str in &parts[0..parts.len()-1] {
-        anchor_len = anchor_len * 2 + str.len() + 1;
+        let new_anchor_len = prev_anchor_len + str.len() + 1;
+        anchor_len += new_anchor_len;
+        prev_anchor_len = new_anchor_len;
         name_len += str.len();
     }
     name_len += parts[parts.len() - 1].len();
-    let expected_len = (home_prefix.len() + home_suffix.len()) +
-        (parts.len() - 1) * (crumb_prefix.len() + crumb_middle.len() + crumb_suffix.len()) +
-        (final_prefix.len() + final_suffix.len()) +
-        anchor_len + name_len;
+    (name_len, anchor_len)
+}
+
+fn get_breadcrumbs_len(parts: &[&str]) -> usize {
+    let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(parts);
+    (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
+        (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
+        (FINAL_PREFIX.len() + FINAL_SUFFIX.len()) +
+        anchor_len + name_len
+}
+
+fn get_breadcrumbs(path: &str) -> String {
+    let mut url = "/".to_string();
+    let parts: Vec<&str> = path.split('/').collect();
+    let expected_len = get_breadcrumbs_len(&parts);
     let mut breadcrumbs = String::with_capacity(expected_len);
-    breadcrumbs.push_str(home_prefix);
+    breadcrumbs.push_str(HOME_PREFIX);
     breadcrumbs.push_str(url.as_str());
-    breadcrumbs.push_str(home_suffix);
+    breadcrumbs.push_str(HOME_SUFFIX);
     let num_parts = parts.len();
     for part in &parts[0..num_parts-1] {
         url.push_str(part);
         url.push('/');
-        breadcrumbs.push_str(crumb_prefix);
+        breadcrumbs.push_str(CRUMB_PREFIX);
         breadcrumbs.push_str(url.as_str());
-        breadcrumbs.push_str(crumb_middle);
+        breadcrumbs.push_str(CRUMB_MIDDLE);
         breadcrumbs.push_str(part);
-        breadcrumbs.push_str(crumb_suffix);
+        breadcrumbs.push_str(CRUMB_SUFFIX);
     }
-    breadcrumbs.push_str(final_prefix);
+    breadcrumbs.push_str(FINAL_PREFIX);
     breadcrumbs.push_str(parts[num_parts-1]);
-    breadcrumbs.push_str(final_suffix);
+    breadcrumbs.push_str(FINAL_SUFFIX);
     assert_eq!(breadcrumbs.len(), expected_len);
     breadcrumbs
 }
@@ -430,5 +443,32 @@ mod tests {
         let (num_indents, text_len) = normalize_headings(&mut series_continues_the_jump);
         assert_eq!(num_indents, 4);
         assert_eq!(text_len, 16);
+    }
+
+    #[test]
+    fn test_breadcrumbs_1() {
+        let path = "Documents/Example/index.md";
+        let parts: Vec<&str> = path.split('/').collect();
+        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        assert_eq!(name_len, 24);
+        assert_eq!(anchor_len, 31);
+    }
+
+    #[test]
+    fn test_breadcrumbs_2() {
+        let path = "Documents/Example/Recipes/pizza.md";
+        let parts: Vec<&str> = path.split('/').collect();
+        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        assert_eq!(name_len, 31);
+        assert_eq!(anchor_len, 58);
+    }
+
+    #[test]
+    fn test_breadcrumbs_3() {
+        let path = "index.md";
+        let parts: Vec<&str> = path.split('/').collect();
+        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        assert_eq!(name_len, 8);
+        assert_eq!(anchor_len, 1);
     }
 }
