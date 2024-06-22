@@ -120,6 +120,10 @@ hr {
     width: 90%;
 }
 
+.nine.columns ul, ol {
+    padding-left: 1em;
+}
+
 li {
     line-height: 1.3;
 }
@@ -173,7 +177,13 @@ tr:nth-child(odd) {
     section.search {
         display: none;
     }
-}
+    .breadcrumbs {
+        padding: 4px 1em 4px 2em;
+    }
+    .breadcrumbs .crumb::before {
+        padding: 0 6px 0 3px;
+    }
+    }
 
 @media (min-width: 550px) {
     .sidebar {

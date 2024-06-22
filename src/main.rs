@@ -33,10 +33,10 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
-    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/var/chimera-md/www"))]
+    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/usr/src/chimera-md/www"))]
     document_root: String,
 
-    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/var/chimera-md/template"))]
+    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/usr/src/chimera-md/templates"))]
     template_root: String,
 
     #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]
@@ -48,7 +48,7 @@ struct Config {
     #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
     log_level: Option<tracing::Level>,
 
-    #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..))]
+    #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..), default_value_t = 8080)]
     port: u16,
 }
 
