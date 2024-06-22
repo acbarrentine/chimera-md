@@ -254,6 +254,7 @@ async fn handle_response(
                 resp.into_response()
             }
             else if status == StatusCode::NOT_FOUND {
+                tracing::warn!("Path {path} not found!");
                 handle_404(app_state).await.into_response()
             }
             else {
@@ -261,11 +262,11 @@ async fn handle_response(
             }
         },
         Err(ChimeraError::IOError(e)) => {
-            tracing::warn!("IOError processing request: {e:?}");
+            tracing::warn!("IOError processing request for {path}: {e:?}");
             handle_404(app_state).await.into_response()
         }
         Err(e) => {
-            tracing::warn!("Error processing request: {e:?}");
+            tracing::warn!("Error processing request for {path}: {e:?}");
             handle_err(app_state).await.into_response()
         }
     }

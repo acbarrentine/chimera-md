@@ -15,4 +15,4 @@ COPY --from=builder /empty /tmp
 
 EXPOSE 8080
 
-CMD ["/usr/bin/chimera-md"]
+CMD ["/bin/chimera-md"]
