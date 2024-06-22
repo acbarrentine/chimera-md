@@ -10,6 +10,16 @@ pub struct Doclink {
     pub level: u8,
 }
 
+impl Doclink {
+    pub fn new(anchor: String, name: String, level: u8) -> Self {
+        Doclink {
+            anchor,
+            name,
+            level,
+        }
+    }
+}
+
 pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub doclinks: Vec<Doclink>,
@@ -103,11 +113,7 @@ impl DocumentScraper {
                         }
                     };
                     tracing::debug!("Found doclink: {anchor} -> {heading_text}");
-                    self.doclinks.push(Doclink {
-                        anchor: get_munged_anchor(anchor),
-                        name: heading_text.to_string(),
-                        level
-                    });
+                    self.doclinks.push(Doclink::new(get_munged_anchor(anchor), heading_text.to_string(), level));
                 }
             },
             Event::Text(t) => {
@@ -121,11 +127,9 @@ impl DocumentScraper {
                     if self.title.is_none() {
                         self.title = Some(name.clone());
                     }
-                    let link = Doclink {
-                        anchor: get_munged_anchor(name.to_lowercase().as_str()),
-                        name,
-                        level: *level as u8,
-                    };
+                    let link = Doclink::new(
+                        get_munged_anchor(name.to_lowercase().as_str()), 
+                        name, *level as u8);
                     tracing::debug!("Doclink found: {link:?}");
                     self.doclinks.push(link);
                 }
@@ -137,19 +141,16 @@ impl DocumentScraper {
 
 pub fn parse_markdown(md: &str) -> (DocumentScraper, String) {
     let mut scraper = DocumentScraper::new();
-    let parser = pulldown_cmark::Parser::new(md)
-        .into_offset_iter().map(|(ev, range)| {
+    let parser = pulldown_cmark::Parser::new_ext(
+        md, pulldown_cmark::Options::ENABLE_TABLES
+        ).into_offset_iter().map(|(ev, range)| {
         scraper.check_event(&ev, range);
         ev
     });
     let mut html_content = String::with_capacity(md.len() * 3 / 2);
     pulldown_cmark::html::push_html(&mut html_content, parser);
     if !scraper.starts_with_heading {
-        scraper.doclinks.insert(0, Doclink {
-            anchor: "top".to_string(),
-            name: "Top".to_string(),
-            level: 1,
-        });
+        scraper.doclinks.insert(0, Doclink::new("top".to_string(), "Top".to_string(), 1));
     }
     (scraper, html_content)
 }
@@ -163,11 +164,10 @@ mod tests {
         let md = "# / [Home](/index.md) / [Documents](/Documents/index.md) / [Work](index.md)";
         let (scraper, _html_content) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 1);
-        assert_eq!(scraper.doclinks[0], Doclink {
-            name: "/ Home / Documents / Work".to_string(),
-            anchor: "/-home-/-documents-/-work".to_string(),
-            level: 1,
-        });
+        assert_eq!(scraper.doclinks[0], Doclink::new(
+            "/-home-/-documents-/-work".to_string(),
+            "/ Home / Documents / Work".to_string(),
+            1));
     }
 
     #[test]
@@ -175,11 +175,10 @@ mod tests {
         let md = "### Kisses <3!";
         let (scraper, _html_content) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 1);
-        assert_eq!(scraper.doclinks[0], Doclink {
-            name: "Kisses <3!".to_string(),
-            anchor: "kisses-<3!".to_string(),
-            level: 3,
-        });
+        assert_eq!(scraper.doclinks[0], Doclink::new(
+            "kisses-<3!".to_string(),
+            "Kisses <3!".to_string(),
+            3));
     }
 
     #[test]
@@ -187,16 +186,14 @@ mod tests {
         let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
         let (scraper, _html_content) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 2);
-        assert_eq!(scraper.doclinks[0], Doclink {
-            name: "The title".to_string(),
-            anchor: "the-title".to_string(),
-            level: 1,
-        });
-        assert_eq!(scraper.doclinks[1], Doclink {
-            name: "Subhead".to_string(),
-            anchor: "subhead".to_string(),
-            level: 2,
-        });
+        assert_eq!(scraper.doclinks[0], Doclink::new(
+            "the-title".to_string(),
+            "The title".to_string(),
+            1));
+        assert_eq!(scraper.doclinks[1], Doclink::new(
+            "subhead".to_string(),
+            "Subhead".to_string(),
+            2));
         assert_eq!(scraper.title, Some("The title".to_string()));
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, sync::Arc};
 use tokio::sync::RwLock;
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
@@ -25,9 +25,10 @@ struct MarkdownVars {
     title: String,
     code_js: String,
     doclinks: String,
-    doclinks_len: usize,
     peers: String,
+    breadcrumbs: String,
     peers_len: usize,
+    doclinks_len: usize,
 }
 
 #[derive(Serialize)]
@@ -117,6 +118,7 @@ impl HtmlGenerator {
 
         let doclinks_html = generate_doclink_html(scraper.doclinks, true);
         let peers_html = generate_doclink_html(peers, false);
+        let breadcrumbs = get_breadcrumbs(path);
 
         let vars = MarkdownVars {
             body: html_content,
@@ -128,6 +130,7 @@ impl HtmlGenerator {
             doclinks: doclinks_html,
             peers_len: peers_html.len(),
             peers: peers_html,
+            breadcrumbs,
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
@@ -163,16 +166,27 @@ impl HtmlGenerator {
 // to process an invalid setup. Eg: <h1> directly to <h3>
 // Outdents don't have the same problem
 // Renumber the link list so we don't violate that assumption
-fn normalize_levels(doclinks: &mut [Doclink]) -> (usize, usize) {
-    let mut last_level = 0;
+fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
+    let mut last_used_level = 0;
+    let mut last_seen_level = 0;
     let mut num_indents = 0;
     let mut text_len = 0;
     for link in doclinks {
-        if link.level > last_level {
-            num_indents += 1;
-            link.level = last_level + 1;
+        match link.level.cmp(&last_seen_level) {
+            Ordering::Greater => {
+                num_indents += 1;
+                last_seen_level = link.level;
+                link.level = last_used_level + 1;
+                last_used_level = link.level;
+            },
+            Ordering::Less => {
+                last_used_level = link.level;
+                last_seen_level = link.level;
+            },
+            Ordering::Equal => {
+                link.level = last_used_level;
+            }
         }
-        last_level = link.level;
         text_len += link.anchor.len() + link.name.len();
     }
     (num_indents, text_len)
@@ -182,7 +196,7 @@ fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) ->
     if doclinks.is_empty() {
         return "".to_string()
     }
-    let (num_indents, text_len) = normalize_levels(&mut doclinks);
+    let (num_indents, text_len) = normalize_headings(&mut doclinks);
     let list_prefix = "<ul>\n";
     let list_suffix = "</ul>\n";
     let item_prefix = if anchors_are_local {"<li><a href=\"#"} else {"<li><a href=\""};
@@ -204,7 +218,6 @@ fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) ->
                 last_level -= 1;
             }
         }
-
         html.push_str(item_prefix);
         html.push_str(link.anchor.as_str());
         html.push_str(item_middle);
@@ -286,6 +299,48 @@ fn get_language_blob(langs: &[&str]) -> String {
     buffer
 }
 
+fn get_breadcrumbs(path: &str) -> String {
+    let mut url = "/".to_string();
+    let parts: Vec<&str> = path.split('/').collect();
+    let home_prefix = r#"<span class="home"><a href=""#;
+    let home_suffix = r#"">Home</a></span>"#;
+    let crumb_prefix = r#"<span class="crumb"><a href=""#;
+    let crumb_middle = r#"">"#;
+    let crumb_suffix = r#"</a></span>"#;
+    let final_prefix = r#"<span class="crumb">"#;
+    let final_suffix = r#"</span>"#;
+    let mut anchor_len = 1;
+    let mut name_len = 0;
+    for str in &parts[0..parts.len()-1] {
+        anchor_len = anchor_len * 2 + str.len() + 1;
+        name_len += str.len();
+    }
+    name_len += parts[parts.len() - 1].len();
+    let expected_len = (home_prefix.len() + home_suffix.len()) +
+        (parts.len() - 1) * (crumb_prefix.len() + crumb_middle.len() + crumb_suffix.len()) +
+        (final_prefix.len() + final_suffix.len()) +
+        anchor_len + name_len;
+    let mut breadcrumbs = String::with_capacity(expected_len);
+    breadcrumbs.push_str(home_prefix);
+    breadcrumbs.push_str(url.as_str());
+    breadcrumbs.push_str(home_suffix);
+    let num_parts = parts.len();
+    for part in &parts[0..num_parts-1] {
+        url.push_str(part);
+        url.push('/');
+        breadcrumbs.push_str(crumb_prefix);
+        breadcrumbs.push_str(url.as_str());
+        breadcrumbs.push_str(crumb_middle);
+        breadcrumbs.push_str(part);
+        breadcrumbs.push_str(crumb_suffix);
+    }
+    breadcrumbs.push_str(final_prefix);
+    breadcrumbs.push_str(parts[num_parts-1]);
+    breadcrumbs.push_str(final_suffix);
+    assert_eq!(breadcrumbs.len(), expected_len);
+    breadcrumbs
+}
+
 async fn listen_for_changes(
     mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
     cache: CachedResults,
@@ -308,22 +363,12 @@ mod tests {
 
     #[test]
     fn test_doclink_normalization_1() {
-        let mut nochange = vec![Doclink {
-            name: "a".to_string(),
-            anchor: "a".to_string(),
-            level: 1
-        },
-        Doclink {
-            name: "b".to_string(),
-            anchor: "b".to_string(),
-            level: 2
-        },
-        Doclink {
-            name: "c".to_string(),
-            anchor: "c".to_string(),
-            level: 1
-        }];
-        let (num_indents, text_len) = normalize_levels(&mut nochange);
+        let mut nochange = vec![
+            Doclink::new("a".to_string(), "a".to_string(), 1),
+            Doclink::new("b".to_string(), "b".to_string(), 2),
+            Doclink::new("c".to_string(), "c".to_string(), 1),
+        ];
+        let (num_indents, text_len) = normalize_headings(&mut nochange);
         assert_eq!(num_indents, 2);
         assert_eq!(text_len, 6);
         assert_eq!(nochange[0].level, 1);
@@ -333,12 +378,10 @@ mod tests {
 
     #[test]
     fn test_doclink_normalization_2() {
-        let mut bad_initial_level = vec![Doclink {
-            name: "a".to_string(),
-            anchor: "a".to_string(),
-            level: 2
-        }];
-        let (num_indents, text_len) = normalize_levels(&mut bad_initial_level);
+        let mut bad_initial_level = vec![
+            Doclink::new("a".to_string(), "a".to_string(), 2),
+        ];
+        let (num_indents, text_len) = normalize_headings(&mut bad_initial_level);
         assert_eq!(num_indents, 1);
         assert_eq!(text_len, 2);
         assert_eq!(bad_initial_level[0].level, 1);
@@ -346,22 +389,46 @@ mod tests {
 
     #[test]
     fn test_doclink_normalization_3() {
-        let mut bad_growth = vec![Doclink {
-            name: "a".to_string(),
-            anchor: "a".to_string(),
-            level: 1
-        },
-        Doclink {
-            name: "c".to_string(),
-            anchor: "c".to_string(),
-            level: 3
-        },
+        let mut bad_growth = vec![
+            Doclink::new("a".to_string(), "a".to_string(), 1),
+            Doclink::new("c".to_string(), "c".to_string(), 3),
         ];
-        let (num_indents, text_len) = normalize_levels(&mut bad_growth);
+        let (num_indents, text_len) = normalize_headings(&mut bad_growth);
         assert_eq!(num_indents, 2);
         assert_eq!(text_len, 4);
         assert_eq!(bad_growth[0].level, 1);
         assert_eq!(bad_growth[1].level, 2);
     }
 
+    #[test]
+    fn test_doclink_normalization_4() {
+        let mut series_continues_the_jump = vec![
+            Doclink::new("a".to_string(), "a".to_string(), 1),
+            Doclink::new("b".to_string(), "b".to_string(), 3),
+            Doclink::new("c".to_string(), "c".to_string(), 3),
+        ];
+        let (num_indents, text_len) = normalize_headings(&mut series_continues_the_jump);
+        assert_eq!(num_indents, 2);
+        assert_eq!(text_len, 6);
+        assert_eq!(series_continues_the_jump[0].level, 1);
+        assert_eq!(series_continues_the_jump[1].level, 2);
+        assert_eq!(series_continues_the_jump[2].level, 2);
+    }
+
+    #[test]
+    fn test_doclink_normalization_5() {
+        let mut series_continues_the_jump = vec![
+            Doclink::new("a".to_string(), "a".to_string(), 1),
+            Doclink::new("b".to_string(), "b".to_string(), 2),
+            Doclink::new("c".to_string(), "c".to_string(), 2),
+            Doclink::new("d".to_string(), "d".to_string(), 3),
+            Doclink::new("e".to_string(), "e".to_string(), 2),
+            Doclink::new("f".to_string(), "f".to_string(), 3),
+            Doclink::new("g".to_string(), "g".to_string(), 3),
+            Doclink::new("h".to_string(), "h".to_string(), 3),
+        ];
+        let (num_indents, text_len) = normalize_headings(&mut series_continues_the_jump);
+        assert_eq!(num_indents, 4);
+        assert_eq!(text_len, 16);
+    }
 }

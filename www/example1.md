@@ -9,7 +9,7 @@ text search. It is also a project goal to learn about making a web app (probably
 
 Anyway, here are some `Markdown` features to test with.
 
-##### Game table
+## Game table
 
 | Month    | Game                     |
 | -------- | ----------------------   |
@@ -18,13 +18,13 @@ Anyway, here are some `Markdown` features to test with.
 | March    | Return of the Obra Din   |
 | April    | Curse of the Golden Idol |
 
-##### Love <3!
+## Love <3!
 
-##### / [example2](example2.md)
+### / [example2](example2.md)
 
-##### [Google](https://www.google.com/) [Lycos](https://www.lycos.com)
+### [Google](https://www.google.com/) [Lycos](https://www.lycos.com)
 
-##### Code block
+## Code block
 
 ```rust
     let blocks = markdown::to_mdast(md_content.as_str(), &ParseOptions::default());
@@ -38,14 +38,14 @@ Anyway, here are some `Markdown` features to test with.
     }
 ```
 
-##### Blockquote
+## Blockquote
 
 > This is part of a blockquote.
 > This continues on the same line.
 >
 > This does not.
 
-##### Unordered list
+## Unordered list
 
 * The New York Times
 * The Time Picayune
@@ -53,6 +53,6 @@ Anyway, here are some `Markdown` features to test with.
 * The Washington Post
 * The London Times
 
-##### A Picture
+## A Picture
 
 ![sky-box](/assets/img-1.jpg)
