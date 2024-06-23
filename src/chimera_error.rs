@@ -4,25 +4,27 @@ use crate::AppStateType;
 
 #[derive(Debug)]
 pub enum ChimeraError {
-    MissingMarkdownTemplate(String),
-    TemplateRender(String),
+    MissingMarkdownTemplate,
+    TemplateRender,
     IOError(String),
-    TantivyError(String),
-    QueryError(String),
-    TokioChannel(String),
-    RwLock(String),
-    NotifyError(String),
+    TantivyError,
+    QueryError,
+    TokioChannel,
+    RwLock,
+    NotifyError,
 }
 
 impl From<handlebars::TemplateError> for ChimeraError {
     fn from(err: handlebars::TemplateError) -> Self {
-        ChimeraError::MissingMarkdownTemplate(err.to_string())
+        tracing::warn!("handlebars::TemplateError: {err}");
+        ChimeraError::MissingMarkdownTemplate
     }
 }
 
 impl From<handlebars::RenderError> for ChimeraError {
     fn from(err: handlebars::RenderError) -> Self {
-        ChimeraError::TemplateRender(err.to_string())
+        tracing::warn!("handlebars::RenderError: {err}");
+        ChimeraError::TemplateRender
     }
 }
 
@@ -34,42 +36,49 @@ impl From<std::io::Error> for ChimeraError {
 
 impl From<tantivy::TantivyError> for ChimeraError {
     fn from(err: tantivy::TantivyError) -> Self {
-        ChimeraError::TantivyError(err.to_string())
+        tracing::warn!("tantivy::TantivyError: {err}");
+        ChimeraError::TantivyError
     }
 }
 
 impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ChimeraError {
     fn from(err: tokio::sync::mpsc::error::SendError<T>) -> Self {
-        ChimeraError::TokioChannel(err.to_string())
+        tracing::warn!("tokio::sync::mpsc::error::SendError: {err}");
+        ChimeraError::TokioChannel
     }
 }
 
 impl<T> From<tokio::sync::broadcast::error::SendError<T>> for ChimeraError {
     fn from(err: tokio::sync::broadcast::error::SendError<T>) -> Self {
-        ChimeraError::TokioChannel(err.to_string())
+        tracing::warn!("tokio::sync::broadcast::error::SendError: {err}");
+        ChimeraError::TokioChannel
     }
 }
 
 impl From<tantivy::query::QueryParserError> for ChimeraError {
     fn from(err: tantivy::query::QueryParserError) -> Self {
-        ChimeraError::QueryError(err.to_string())
+        tracing::warn!("tantivy::query::QueryParserError: {err}");
+        ChimeraError::QueryError
     }
 }
 
 impl<T> From<std::sync::PoisonError<T>> for ChimeraError {
     fn from(err: std::sync::PoisonError<T>) -> Self {
-        ChimeraError::RwLock(err.to_string())
+        tracing::warn!("std::sync::PoisonError: {err}");
+        ChimeraError::RwLock
     }
 }
 
 impl From<async_watcher::error::Error> for ChimeraError {
     fn from(err: async_watcher::error::Error) -> Self {
-        ChimeraError::NotifyError(err.to_string())
+        tracing::warn!("async_watcher::error::Error: {err}");
+        ChimeraError::NotifyError
     }
 }
 impl From<async_watcher::notify::Error> for ChimeraError {
     fn from(err: async_watcher::notify::Error) -> Self {
-        ChimeraError::NotifyError(err.to_string())
+        tracing::warn!("async_watcher::notify::Error: {err}");
+        ChimeraError::NotifyError
     }
 }
 

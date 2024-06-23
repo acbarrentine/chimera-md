@@ -63,7 +63,7 @@ impl HtmlGenerator {
             if !handlebars.has_template(name) {
                 let template_name = format!("{name}.hbs");
                 tracing::error!("Missing required template: {}{template_name}", template_root.display());
-                return Err(ChimeraError::MissingMarkdownTemplate(template_name));
+                return Err(ChimeraError::MissingMarkdownTemplate);
             }
         }
 

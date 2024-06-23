@@ -163,7 +163,7 @@ async fn handle_style(
     headers: HeaderMap
 ) -> axum::response::Response {
     let new_path = app_state.style_root.join(path.as_str());
-    tracing::info!("Style request {path} => {}", new_path.display());
+    tracing::debug!("Style request {path} => {}", new_path.display());
     handle_response(app_state, new_path.as_path(), headers).await
 }
 

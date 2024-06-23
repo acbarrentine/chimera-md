@@ -69,8 +69,7 @@ section.search button {
 }
 
 .breadcrumbs {
-    width: 100%;
-    margin: 0px 0px 20px -10px;
+    margin: 0px -10px 20px -10px;
     background-color: #2d2d2d;
     padding: 6px 0px 6px 6em;
     border-bottom: 2px solid rgb(90, 165, 145);
