@@ -1,30 +1,29 @@
 body {
-    background-color: rgb(53, 53, 53);
-    color: rgb(210, 208, 208);
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 h1, h2, h3, h4, h5, h6 {
-    color: rgb(136, 160, 216);
+    color: var(--heading-color);
     font-weight: 500;
 }
 
 a:link {
-    color: rgb(155, 193, 245);
+    color: var(--link-normal-color);
     text-decoration: none;
 }
 
 a:visited {
-    color: rgb(90, 165, 145)
+    color: var(--link-visited-color);
 }
 
 a:hover {
-    color: rgb(120, 210, 165)
+    color: var(--link-hover-color);
 }
 
 nav {
     height: 130px;
-    background-color: rgb(30, 30, 30);
-    border-bottom: 5px solid rgb(90, 165, 145);
+    border-bottom: 5px solid var(--rule-color);
     margin: -10px -10px 0px -10px;
     display: flex;
     align-items: center;
@@ -46,7 +45,7 @@ nav {
 
 .search-icon {
     cursor: pointer;
-    fill: white;
+    fill: var(--text-color);
     vertical-align: top;
 }
 
@@ -62,7 +61,7 @@ section.title {
 }
 
 section.search button {
-    fill: white;
+    fill: var(--text-color);
     vertical-align: top;
     padding: none;
     border: none;
@@ -70,13 +69,13 @@ section.search button {
 
 .breadcrumbs {
     margin: 0px -10px 20px -10px;
-    background-color: #2d2d2d;
+    background-color: var(--box-color);
     padding: 6px 0px 6px 6em;
-    border-bottom: 2px solid rgb(90, 165, 145);
+    border-bottom: 2px solid var(--rule-color);
 }
 
 .breadcrumbs .crumb::before {
-    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none' stroke='%23767676' stroke-width='2' stroke-linecap='round' stroke-linejoin='round%5C'%3E%3Cpolyline points='9 18 15 12 9 6'%3E%3C/polyline%3E%3C/svg%3E");
+    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none' stroke='%23969696' stroke-width='2' stroke-linecap='round' stroke-linejoin='round%5C'%3E%3Cpolyline points='9 18 15 12 9 6'%3E%3C/polyline%3E%3C/svg%3E");
     padding: 10px;
 }
 
@@ -101,7 +100,7 @@ code {
 pre code {
     border-radius: 5px;
     border: none;
-    border-left: 5px solid black;
+    border-left: 5px solid var(--border-color);
 }
 
 blockquote {
@@ -110,9 +109,9 @@ blockquote {
 
 blockquote p {
     padding: 10px;
-    background: rgb(44,44,44);
+    background: var(--block-color);
     border-radius: 5px;
-    border-left: 5px solid black;
+    border-left: 5px solid var(--border-color);
 }
 
 hr {
@@ -130,24 +129,24 @@ li {
 td, th {
     margin: 10px;
     border: none;
-    box-shadow: 0 0 0 1px rgb(30, 30, 30);
+    box-shadow: 0 0 0 1px var(--shade-color);
 }
 
 th {
-    background-color: rgb(30, 30, 30);
+    background-color: var(--shade-color);
 }
 
 tr:nth-child(even) {
-    background-color: rgb(45, 53, 73);
+    background-color: var(--even-row-color);
 }
 
 tr:nth-child(odd) {
-    background-color: rgb(62, 72, 101);
+    background-color: var(--odd-row-color);
 }
 
 .highlight {
-    background-color: yellow;
-    color: black;
+    background-color: var(--highlight-color);
+    color: var(--border-color);
     padding: 3px;
 }
 
@@ -157,8 +156,8 @@ tr:nth-child(odd) {
 
 .linkbox {
     border-radius: 5px;
-    border-left: 5px solid black;
-    background-color: rgb(44,44,44);
+    border-left: 5px solid var(--border-color);
+    background-color: var(--box-color);
     padding: 1em;
 }
 

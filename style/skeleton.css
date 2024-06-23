@@ -112,6 +112,22 @@
 
 }
 
+:root {
+  --bg-color: rgb(53, 53, 53);
+  --shade-color: rgb(30, 30, 30);
+  --text-color: rgb(210, 208, 208);
+  --link-normal-color: rgb(155, 193, 245);
+  --link-visited-color: rgb(90, 165, 145);
+  --link-hover-color: rgb(120, 210, 165);
+  --rule-color: rgb(90, 165, 145);
+  --heading-color: rgb(136, 160, 216);
+  --box-color: rgb(44,44,44);
+  --border-color: black;
+  --block-color: rgb(44,44,44);
+  --even-row-color: rgb(45, 53, 73);
+  --odd-row-color: rgb(62, 72, 101);
+  --highlight-color: yellow;
+}
 
 /* Base Styles
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -124,8 +140,7 @@ body {
   font-size: 1.5em; /* currently ems cause chrome bug misinterpreting rems on body element */
   line-height: 1.6;
   font-weight: 400;
-  font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: #222; }
+  font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif; }
 
 
 /* Typography
@@ -143,15 +158,6 @@ h6 { font-size: 1.5rem; line-height: 1.6;  letter-spacing: 0; }
 
 p {
   margin-top: 0; }
-
-
-/* Links
-–––––––––––––––––––––––––––––––––––––––––––––––––– */
-a {
-  color: #1EAEDB; }
-a:hover {
-  color: #0FA0CE; }
-
 
 /* Buttons
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -301,8 +307,6 @@ code {
   margin: 0 .2rem;
   font-size: 90%;
   white-space: nowrap;
-  background: #F1F1F1;
-  border: 1px solid #E1E1E1;
   border-radius: 4px; }
 pre > code {
   display: block;
@@ -361,7 +365,7 @@ hr {
   margin-top: 3rem;
   margin-bottom: 3.5rem;
   border-width: 0;
-  border-top: 2px solid rgb(90, 165, 145); }
+  border-top: 2px solid var(--rule-color); }
 
 
 /* Clearing
