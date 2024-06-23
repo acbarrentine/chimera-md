@@ -22,7 +22,7 @@ impl FileManager {
         })
     }
 
-    pub async fn find_peers(&self, relative_path: &str, index_file: &str) -> Option<Vec<Doclink>> {
+    pub async fn find_peers(&self, relative_path: &Path, index_file: &str) -> Option<Vec<Doclink>> {
         let relative_path = std::path::PathBuf::from(relative_path);
         let Ok(abs_path) = relative_path.canonicalize() else {
             return None;

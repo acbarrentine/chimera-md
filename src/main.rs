@@ -39,6 +39,9 @@ struct Config {
     #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/data/templates"))]
     template_root: String,
 
+    #[arg(long, env("CHIMERA_STYLE_ROOT"), default_value_t = String::from("/data/style"))]
+    style_root: String,
+
     #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]
     site_title: String,
 
@@ -54,6 +57,7 @@ struct Config {
 
 struct AppState {
     index_file: String,
+    style_root: PathBuf,
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
     file_manager: FileManager,
@@ -81,6 +85,7 @@ impl AppState {
     
         Ok(AppState {
             index_file: config.index_file,
+            style_root: PathBuf::from(config.style_root),
             full_text_index,
             html_generator,
             file_manager,
@@ -95,7 +100,7 @@ async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(config.log_level.unwrap_or(tracing::Level::INFO))
-        .with_target("html5ever", tracing::Level::ERROR);
+        .with_target("html5ever", tracing::Level::ERROR);   // this thing is noisy and I usually don't want to hear about it
     let tracing_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_line_number(true);
@@ -111,6 +116,7 @@ async fn main() -> Result<(), ChimeraError> {
 
     let mut app = Router::new()
         .route("/search", get(handle_search))
+        .route("/style/*path", get(handle_style))
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state);
@@ -151,12 +157,24 @@ async fn handle_search(
 }
 
 //#[debug_handler]
+async fn handle_style(
+    State(app_state): State<AppStateType>,
+    axum::extract::Path(path): axum::extract::Path<String>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    let new_path = app_state.style_root.join(path.as_str());
+    tracing::info!("Style request {path} => {}", new_path.display());
+    handle_response(app_state, new_path.as_path(), headers).await
+}
+
+//#[debug_handler]
 async fn handle_path(
     State(app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
-    handle_response(app_state, path.as_str(), headers).await
+    let path = PathBuf::from(path);
+    handle_response(app_state, path.as_path(), headers).await
 }
 
 //#[debug_handler]
@@ -165,12 +183,12 @@ async fn handle_fallback(
     headers: HeaderMap
 ) -> axum::response::Response {
     tracing::debug!("Fallback handler");
-    let index_file = app_state.index_file.clone();
-    handle_response(app_state, index_file.as_str(), headers).await
+    let index_file = PathBuf::from(app_state.index_file.clone());
+    handle_response(app_state, index_file.as_path(), headers).await
 }
 
-fn has_extension(file_name: &str, match_ext: &str) -> bool {
-    if let Some((_, ext)) = file_name.rsplit_once('.') {
+fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
+    if let Some(ext) = file_name.extension() {
         return ext.eq_ignore_ascii_case(match_ext);
     }
     false
@@ -178,14 +196,14 @@ fn has_extension(file_name: &str, match_ext: &str) -> bool {
 
 async fn serve_markdown_file(
     app_state: AppStateType,
-    path: &str,
+    path: &std::path::Path,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
-    tracing::debug!("Markdown request {path}");
+    tracing::debug!("Markdown request {}", path.display());
     if let Some(result) = app_state.html_generator.get_cached_result(path).await {
-        tracing::debug!("Returning cached response for {path}");
+        tracing::debug!("Returning cached response for {}", path.display());
         return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
     }
-    tracing::debug!("Not cached, building {path}");
+    tracing::debug!("Not cached, building {}", path.display());
     let md_content = tokio::fs::read_to_string(path).await?;
     let (scraper, html_content) = parse_markdown(md_content.as_str());
     let peer_info = app_state.file_manager.find_peers(
@@ -202,10 +220,10 @@ async fn serve_markdown_file(
 }
 
 async fn serve_static_file(
-    path: &str,
+    path: &std::path::Path,
     headers: HeaderMap,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
-    tracing::debug!("Static request {path}");
+    tracing::debug!("Static request {}", path.display());
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
     Ok((CachedStatus::StaticFile, ServeDir::new(path).try_call(req).await?.into_response()))
@@ -213,48 +231,43 @@ async fn serve_static_file(
 
 async fn get_response(
     app_state: AppStateType,
-    path: &str,
+    path: &std::path::Path,
     headers: HeaderMap
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
-    tracing::debug!("Chimera request {path}");
+    tracing::debug!("Chimera request {}", path.display());
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
     }
-    else {
+    else if path.is_dir() { 
         // is this a folder?
-        let metadata_opt = tokio::fs::metadata(path).await;
-        if let Ok(metadata) = metadata_opt {
-            tracing::debug!("Metadata obtained for {path}");
-            if metadata.is_dir() && !path.ends_with('/') {
-                let path_with_slash = format!("{path}/");
-                tracing::debug!("Missing /, redirecting to {path_with_slash}");
-                return Ok((CachedStatus::Redirect, Redirect::permanent(path_with_slash.as_str()).into_response()));
-            }
-            let path_with_index = format!("{path}{}", app_state.index_file.as_str());
-            if tokio::fs::metadata(path_with_index.as_str()).await.is_ok() {
-                tracing::debug!("No file specified, sending {path_with_index}");
-                return serve_markdown_file(app_state, &path_with_index).await;
-            }
+        let path_str = path.to_string_lossy();
+        if !path_str.ends_with('/') {
+            let path_with_slash = format!("{}/", path_str);
+            tracing::debug!("Missing /, redirecting to {path_with_slash}");
+            return Ok((CachedStatus::Redirect, Redirect::permanent(path_with_slash.as_str()).into_response()));
         }
+        let path_with_index = path.join(app_state.index_file.as_str());
+        tracing::debug!("No file specified, sending {}", path_with_index.display());
+        return serve_markdown_file(app_state, &path_with_index).await;
     }
-    tracing::debug!("Not md or a dir {path}. Falling back to static routing");
-    serve_static_file(path, headers).await
+    tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
+    let path = PathBuf::from(path);
+    serve_static_file(path.as_path(), headers).await
 }
 
 async fn handle_response(
     app_state: AppStateType,
-    path: &str,
+    path: &std::path::Path,
     headers: HeaderMap,
 ) -> axum::response::Response {
     match get_response(app_state.clone(), path, headers).await {
         Ok((cached, resp)) => {
             let status = resp.status();
-            tracing::info!("{}: {} ({:?})", status, path, cached);
+            tracing::info!("{}: {} ({:?})", status, path.display(), cached);
             if status.is_success() || status.is_redirection() {
                 resp.into_response()
             }
             else if status == StatusCode::NOT_FOUND {
-                tracing::warn!("Path {path} not found!");
                 handle_404(app_state).await.into_response()
             }
             else {
@@ -262,11 +275,11 @@ async fn handle_response(
             }
         },
         Err(ChimeraError::IOError(e)) => {
-            tracing::warn!("IOError processing request for {path}: {e:?}");
+            tracing::warn!("IOError processing request for {}: {e:?}", path.display());
             handle_404(app_state).await.into_response()
         }
         Err(e) => {
-            tracing::warn!("Error processing request for {path}: {e:?}");
+            tracing::warn!("Error processing request for {}: {e:?}", path.display());
             handle_err(app_state).await.into_response()
         }
     }

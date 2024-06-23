@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}, sync::Arc};
 use tokio::sync::RwLock;
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
@@ -8,7 +8,7 @@ use crate::{chimera_error::ChimeraError,
     full_text_index::SearchResult, FileManager
 };
 
-type CachedResults = Arc<RwLock<BTreeMap<String, String>>>;
+type CachedResults = Arc<RwLock<BTreeMap<PathBuf, String>>>;
 
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
@@ -92,7 +92,7 @@ impl HtmlGenerator {
 
     pub async fn gen_markdown(
         &self,
-        path: &str,
+        path: &std::path::Path,
         html_content: String,
         scraper: DocumentScraper,
         peers: Vec<Doclink>
@@ -108,11 +108,11 @@ impl HtmlGenerator {
         };
 
         let title = scraper.title.unwrap_or_else(||{
-            if let Some((_, slashpos)) = path.rsplit_once('/') {
-                slashpos.to_string()
+            if let Some(name) = path.file_name() {
+                name.to_string_lossy().to_string()
             }
             else {
-                path.to_string()
+                path.to_string_lossy().to_string()
             }
         });
 
@@ -134,11 +134,11 @@ impl HtmlGenerator {
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
-        tracing::debug!("Generated fresh response for {path}");
+        tracing::debug!("Generated fresh response for {}", path.display());
 
         {
             let mut cache = self.cached_results.write().await;
-            cache.insert(path.to_string(), html.clone());
+            cache.insert(path.to_path_buf(), html.clone());
         }
 
         Ok(html)
@@ -155,7 +155,7 @@ impl HtmlGenerator {
         Ok(html)
     }
 
-    pub async fn get_cached_result(&self, path: &str) -> Option<String> {
+    pub async fn get_cached_result(&self, path: &std::path::Path) -> Option<String> {
         let cache = self.cached_results.read().await;
         cache.get(path).cloned()
     }
@@ -307,7 +307,7 @@ const CRUMB_SUFFIX: &str = r#"</a></span>"#;
 const FINAL_PREFIX: &str = r#"<span class="crumb">"#;
 const FINAL_SUFFIX: &str = r#"</span>"#;
 
-fn get_breadcrumb_name_and_anchor_len(parts: &[&str]) -> (usize, usize) {
+fn get_breadcrumb_name_and_anchor_len(parts: &[&OsStr]) -> (usize, usize) {
     let mut anchor_len = 1;
     let mut prev_anchor_len = 1;
     let mut name_len = 0;
@@ -321,7 +321,7 @@ fn get_breadcrumb_name_and_anchor_len(parts: &[&str]) -> (usize, usize) {
     (name_len, anchor_len)
 }
 
-fn get_breadcrumbs_len(parts: &[&str]) -> usize {
+fn get_breadcrumbs_len(parts: &[&OsStr]) -> usize {
     let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(parts);
     (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
         (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
@@ -329,29 +329,29 @@ fn get_breadcrumbs_len(parts: &[&str]) -> usize {
         anchor_len + name_len
 }
 
-fn get_breadcrumbs(path: &str) -> String {
-    let mut url = "/".to_string();
-    let parts: Vec<&str> = path.split('/').collect();
+fn get_breadcrumbs(path: &Path) -> String {
+    let mut url = OsString::from("/");
+    let parts: Vec<&OsStr> = path.iter().collect();
     let expected_len = get_breadcrumbs_len(&parts);
-    let mut breadcrumbs = String::with_capacity(expected_len);
-    breadcrumbs.push_str(HOME_PREFIX);
-    breadcrumbs.push_str(url.as_str());
-    breadcrumbs.push_str(HOME_SUFFIX);
+    let mut breadcrumbs = OsString::with_capacity(expected_len);
+    breadcrumbs.push(HOME_PREFIX);
+    breadcrumbs.push(url.as_os_str());
+    breadcrumbs.push(HOME_SUFFIX);
     let num_parts = parts.len();
     for part in &parts[0..num_parts-1] {
-        url.push_str(part);
-        url.push('/');
-        breadcrumbs.push_str(CRUMB_PREFIX);
-        breadcrumbs.push_str(url.as_str());
-        breadcrumbs.push_str(CRUMB_MIDDLE);
-        breadcrumbs.push_str(part);
-        breadcrumbs.push_str(CRUMB_SUFFIX);
+        url.push(part);
+        url.push("/");
+        breadcrumbs.push(CRUMB_PREFIX);
+        breadcrumbs.push(url.as_os_str());
+        breadcrumbs.push(CRUMB_MIDDLE);
+        breadcrumbs.push(part);
+        breadcrumbs.push(CRUMB_SUFFIX);
     }
-    breadcrumbs.push_str(FINAL_PREFIX);
-    breadcrumbs.push_str(parts[num_parts-1]);
-    breadcrumbs.push_str(FINAL_SUFFIX);
+    breadcrumbs.push(FINAL_PREFIX);
+    breadcrumbs.push(parts[num_parts-1]);
+    breadcrumbs.push(FINAL_SUFFIX);
     assert_eq!(breadcrumbs.len(), expected_len);
-    breadcrumbs
+    breadcrumbs.to_string_lossy().to_string()
 }
 
 async fn listen_for_changes(
@@ -447,8 +447,8 @@ mod tests {
 
     #[test]
     fn test_breadcrumbs_1() {
-        let path = "Documents/Example/index.md";
-        let parts: Vec<&str> = path.split('/').collect();
+        let path = PathBuf::from("Documents/Example/index.md");
+        let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 24);
         assert_eq!(anchor_len, 31);
@@ -456,8 +456,8 @@ mod tests {
 
     #[test]
     fn test_breadcrumbs_2() {
-        let path = "Documents/Example/Recipes/pizza.md";
-        let parts: Vec<&str> = path.split('/').collect();
+        let path = PathBuf::from("Documents/Example/Recipes/pizza.md");
+        let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 31);
         assert_eq!(anchor_len, 58);
@@ -465,8 +465,8 @@ mod tests {
 
     #[test]
     fn test_breadcrumbs_3() {
-        let path = "index.md";
-        let parts: Vec<&str> = path.split('/').collect();
+        let path = PathBuf::from("index.md");
+        let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 8);
         assert_eq!(anchor_len, 1);
