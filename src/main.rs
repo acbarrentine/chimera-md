@@ -142,7 +142,7 @@ async fn main() -> Result<(), ChimeraError> {
 
 #[derive(Deserialize)]
 struct SearchForm {
-    query: String,
+    query: Option<String>,
 }
 
 //#[debug_handler]
@@ -150,12 +150,19 @@ async fn handle_search(
     State(app_state): State<AppStateType>,
     Form(search): Form<SearchForm>
 ) -> axum::response::Response {
-    tracing::debug!("Search for {}", search.query);
-    if let Ok(results) = app_state.full_text_index.search(search.query.as_str()).await {
-        if let Ok(html) = app_state.html_generator.gen_search(search.query.as_str(), results) {
-            return axum::response::Html(html).into_response();
+    if let Some(query) = search.query {
+        if !query.is_empty() {
+            tracing::debug!("Search for {}", query);
+            if let Ok(results) = app_state.full_text_index.search(query.as_str()).await {
+                if let Ok(html) = app_state.html_generator.gen_search(query.as_str(), results) {
+                    return axum::response::Html(html).into_response();
+                }
+            }
         }
     }
+    if let Ok(html) = app_state.html_generator.gen_search_blank() {
+        return axum::response::Html(html).into_response();
+    }    
     handle_err(app_state).await.into_response()
 }
 

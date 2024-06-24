@@ -187,8 +187,10 @@ tr:nth-child(odd) {
     .sidebar {
         padding: 1em;
     }
-    
     .linkbox {
         width: 100%;
+    }
+    section.mobile-search {
+        display: none;
     }
 }

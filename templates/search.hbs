@@ -2,8 +2,20 @@
 <div class="container">
     <div class="row">
         <div class="nine columns">
+            {{#if (ne query "")}}
             <p>
                 <h1>Search results for: "{{query}}"</h1>
+            </p>
+            {{/if}}
+            <p>
+              <form action="/search" method="get" style="display: flex;flex-wrap: nowrap;">
+                <!-- id for javascript, name for form submit -->
+                {{#if (ne query "")}}
+                <input id="query" name="query" type="search" value="{{query}}" style="width: 90%">
+                {{else}}
+                <input id="query" name="query" type="search" placeholder="{{placeholder}}" style="width: 90%">
+                {{/if}}
+              </form>
             </p>
             <ol>
             {{#each results}}
@@ -15,7 +27,9 @@
             </ol>
             {{#if (eq num_results 0)}}
                 <p>
+                    {{#if (ne query "")}}
                     No results found. You can try using operators to refine your query:
+                    {{/if}}
                     <ul>
                         <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
                         <li>Required terms: <b>+cookie +monster</b></li>

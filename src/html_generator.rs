@@ -35,6 +35,7 @@ struct MarkdownVars {
 struct SearchVars {
     site_title: String,
     query: String,
+    placeholder: String,
     num_results: usize,
     results: Vec<SearchResult>,
 }
@@ -80,12 +81,25 @@ impl HtmlGenerator {
     }
 
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
-        tracing::info!("Got {} search results", results.len());
+        tracing::debug!("Got {} search results", results.len());
         let vars = SearchVars {
             site_title: self.site_title.clone(),
             query: query.to_string(),
+            placeholder: query.to_string(),
             num_results: results.len(),
             results,
+        };
+        Ok(self.handlebars.render("search", &vars)?)
+    }
+
+    pub fn gen_search_blank(&self) -> Result<String, ChimeraError> {
+        tracing::debug!("No query, generating blank search page");
+        let vars = SearchVars {
+            site_title: self.site_title.clone(),
+            query: "".to_string(),
+            placeholder: "Search...".to_string(),
+            num_results: 0,
+            results: Vec::new(),
         };
         Ok(self.handlebars.render("search", &vars)?)
     }
