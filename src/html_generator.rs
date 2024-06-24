@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{chimera_error::ChimeraError,
     document_scraper::{Doclink, DocumentScraper},
-    full_text_index::SearchResult, FileManager
+    full_text_index::SearchResult, FileManager, HOME_DIR
 };
 
 type CachedResults = Arc<RwLock<BTreeMap<PathBuf, String>>>;
@@ -308,8 +308,8 @@ const FINAL_PREFIX: &str = r#"<span class="crumb">"#;
 const FINAL_SUFFIX: &str = r#"</span>"#;
 
 fn get_breadcrumb_name_and_anchor_len(parts: &[&OsStr]) -> (usize, usize) {
-    let mut anchor_len = 1;
-    let mut prev_anchor_len = 1;
+    let mut anchor_len = HOME_DIR.len();
+    let mut prev_anchor_len = anchor_len;
     let mut name_len = 0;
     for str in &parts[0..parts.len()-1] {
         let new_anchor_len = prev_anchor_len + str.len() + 1;
@@ -330,7 +330,7 @@ fn get_breadcrumbs_len(parts: &[&OsStr]) -> usize {
 }
 
 fn get_breadcrumbs(path: &Path) -> String {
-    let mut url = OsString::from("/");
+    let mut url = OsString::from(HOME_DIR);
     let parts: Vec<&OsStr> = path.iter().collect();
     let expected_len = get_breadcrumbs_len(&parts);
     let mut breadcrumbs = OsString::with_capacity(expected_len);

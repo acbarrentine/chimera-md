@@ -21,7 +21,7 @@ lion and a goat. It was the differing perspectives that suggested the name for t
 project. It is a webserver that presents an alternative view depending on the kind of
 document you are looking at.
 
-![Chimera plate, Louvre](/assets/Chimera_Apulia_Louvre_K362.jpg)
+![Chimera plate, Louvre](/home/assets/Chimera_Apulia_Louvre_K362.jpg)
 
 ## Example documents
 

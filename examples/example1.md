@@ -55,4 +55,4 @@ Anyway, here are some `Markdown` features to test with.
 
 ## A Picture
 
-![sky-box](/assets/img-1.jpg)
+![sky-box](/home/assets/img-1.jpg)

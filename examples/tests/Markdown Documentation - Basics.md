@@ -2,7 +2,7 @@ Markdown: Basics
 ================
 
 <ul id="ProjectSubmenu">
-    <li><a href="/Tests/" title="Markdown Project Page">Main</a></li>
+    <li><a href="/home/Tests/" title="Markdown Project Page">Main</a></li>
     <li><a class="selected" title="Markdown Basics">Basics</a></li>
     <li><a href="Markdown%20Documentation%20-%20Syntax.md" title="Markdown Syntax Documentation">Syntax</a></li>
 </ul>
@@ -20,9 +20,6 @@ HTML output produced by Markdown.
 It's also helpful to simply try Markdown out; the [Dingus][d] is a
 web application that allows you type your own Markdown-formatted text
 and translate it to XHTML.
-
-**Note:** This document is itself written using Markdown; you
-can [see the source for it by adding '.text' to the URL][src].
 
   [s]: /tests/Markdown%20Documentation%20-%20Syntax.md  "Markdown Syntax"
   [d]: https://daringfireball.net/projects/markdown/dingus  "Markdown Dingus"

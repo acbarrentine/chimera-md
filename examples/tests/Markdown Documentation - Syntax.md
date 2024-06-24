@@ -2,7 +2,7 @@ Markdown: Syntax
 ================
 
 <ul id="ProjectSubmenu">
-    <li><a href="/Tests/" title="Markdown Project Page">Main</a></li>
+    <li><a href="/home/Tests/" title="Markdown Project Page">Main</a></li>
     <li><a href="Markdown%20Documentation%20-%20Basics.md" title="Markdown Basics">Basics</a></li>
     <li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li>
 </ul>
@@ -26,12 +26,6 @@ Markdown: Syntax
 *   [Miscellaneous](#misc)
     *   [Backslash Escapes](#backslash)
     *   [Automatic Links](#autolink)
-
-
-**Note:** This document is itself written using Markdown; you
-can [see the source for it by adding '.text' to the URL][src].
-
-  [src]: /projects/markdown/syntax.text
 
 * * *
 

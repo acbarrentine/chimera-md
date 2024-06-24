@@ -29,6 +29,7 @@ enum CachedStatus {
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const HOME_DIR: &str = "/home/";
 
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
@@ -117,7 +118,9 @@ async fn main() -> Result<(), ChimeraError> {
     let mut app = Router::new()
         .route("/search", get(handle_search))
         .route("/style/*path", get(handle_style))
-        .route("/*path", get(handle_path))
+        .route("/", get(handle_root))
+        .route(HOME_DIR, get(handle_root))
+        .route(format!("{HOME_DIR}*path").as_str(), get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state);
 
@@ -164,7 +167,18 @@ async fn handle_style(
 ) -> axum::response::Response {
     let new_path = app_state.style_root.join(path.as_str());
     tracing::debug!("Style request {path} => {}", new_path.display());
-    handle_response(app_state, new_path.as_path(), headers).await
+    let mut req = Request::new(axum::body::Body::empty());
+    *req.headers_mut() = headers;
+    match ServeDir::new(new_path.as_path()).try_call(req).await {
+        Ok(resp) => {
+            tracing::info!("{}: {}", path, resp.status());
+            resp.into_response()
+        },
+        Err(e) => {
+            tracing::warn!("Error serving style {}: {e}", new_path.display());
+            handle_404(app_state).await.into_response()
+        }
+    }
 }
 
 //#[debug_handler]
@@ -177,14 +191,19 @@ async fn handle_path(
     handle_response(app_state, path.as_path(), headers).await
 }
 
+async fn handle_root(
+    State(app_state): State<AppStateType>,
+) -> axum::response::Response {
+    let redirect_path = format!("{HOME_DIR}{}", app_state.index_file);
+    tracing::info!("Redirecting / => {redirect_path}");
+    Redirect::permanent(redirect_path.as_str()).into_response()
+}
+
 //#[debug_handler]
 async fn handle_fallback(
     State(app_state): State<AppStateType>,
-    headers: HeaderMap
 ) -> axum::response::Response {
-    tracing::debug!("Fallback handler");
-    let index_file = PathBuf::from(app_state.index_file.clone());
-    handle_response(app_state, index_file.as_path(), headers).await
+    handle_err(app_state).await.into_response()
 }
 
 fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
