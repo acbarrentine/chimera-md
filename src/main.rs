@@ -100,8 +100,7 @@ pub(crate) type AppStateType = Arc<AppState>;
 async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let trace_filter = tracing_subscriber::filter::Targets::new()
-        .with_default(config.log_level.unwrap_or(tracing::Level::INFO))
-        .with_target("html5ever", tracing::Level::ERROR);   // this thing is noisy and I usually don't want to hear about it
+        .with_default(config.log_level.unwrap_or(tracing::Level::INFO));
     let tracing_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_line_number(true);

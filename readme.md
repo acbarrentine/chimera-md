@@ -18,11 +18,20 @@ and can handle ordinary files, but with special processing for markdown files.
 
 1. Transparently serve Markdown files
 2. Cooperate with an existing fast, efficient web server (a la [Axum](https://docs.rs/axum/latest/axum/))
-3. Serve multiple origin folders
-4. Nice-looking theme
-5. Simple site navigation
-6. Full text search
-7. Live updating when files change
+3. Nice-looking theme
+4. Simple site navigation
+5. Full text search
+6. Live updates when files change
+
+## User guide
+
+### Installation
+
+* Not a https server. Run behind a reverse proxy like nginx or traefik
+
+### Managing documents
+
+### Customizing the server
 
 ## Contributing
 
