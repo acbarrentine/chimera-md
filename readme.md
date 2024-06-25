@@ -72,7 +72,6 @@ Chimera-md uses the following open source libraries:
 * [urlencoding](https://crates.io/crates/urlencoding)
 * [tempfile](https://crates.io/crates/tempfile)
 * [walkdir](https://crates.io/crates/walkdir)
-* [html2text](https://crates.io/crates/html2text)
 * [async-watcher](https://crates.io/crates/async-watcher)
 
 ## License

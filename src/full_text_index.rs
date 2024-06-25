@@ -1,5 +1,6 @@
 use core::ops::Range;
 use std::{ffi::OsStr, path::PathBuf, sync::{Arc, RwLock}};
+use regex::Regex;
 use serde::Serialize;
 use tantivy::{collector::TopDocs, IndexReader};
 use tantivy::query::QueryParser;
@@ -18,6 +19,10 @@ use crate::file_manager::FileManager;
     snippet: String,
 }
 
+struct HtmlStripper {
+    html_tag_re: Regex,
+}
+
 pub struct FullTextIndex {
     #[allow(dead_code)]     // It's not actually dead...
     index_path: TempDir,    // I need to keep the TempDir alive for the life of the index 
@@ -28,6 +33,7 @@ pub struct FullTextIndex {
     body_field: Field,
     index_writer: Arc<RwLock<IndexWriter>>,
     index_reader: IndexReader,
+    html_stripper: HtmlStripper,
 }
 
 struct DocumentScanner {
@@ -67,6 +73,8 @@ impl FullTextIndex {
         let index = Index::create_in_dir(&index_path, schema.clone())?;
         let index_writer = Arc::new(RwLock::new(index.writer(50_000_000)?));
 
+        let html_stripper = HtmlStripper::new();
+
         let index_reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
@@ -80,6 +88,7 @@ impl FullTextIndex {
             body_field,
             index_writer,
             index_reader,
+            html_stripper,
         };
         Ok(fti)
     }
@@ -133,7 +142,7 @@ impl FullTextIndex {
                 if let Some(OwnedValue::Str(anchor)) = anchor {
                     let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
                     tracing::debug!("Snippet: {snippet:?}");
-                    let snippet = highlight(snippet.fragment(), snippet.highlighted());
+                    let snippet = self.highlight(snippet.fragment(), snippet.highlighted());
                     results.push(SearchResult {
                         title: title.clone(),
                         link: anchor.clone(),
@@ -144,6 +153,24 @@ impl FullTextIndex {
         }
         tracing::debug!("Result count: {}", results.len());
         Ok(results)
+    }
+
+    fn highlight(&self, snippet: &str, highlights: &[Range<usize>]) -> String {
+        let prefix = "<span class=\"highlight\">";
+        let suffix = "</span>";
+        let per_highlight_len = prefix.len() + suffix.len();
+        let mut result = String::with_capacity(snippet.len() + (highlights.len() * per_highlight_len));
+        let mut start = 0_usize;
+        let highlights = normalize_ranges(highlights);
+        for blurb in highlights {
+            result.push_str(self.html_stripper.strip(&snippet[start..blurb.start]).as_str());
+            result.push_str(prefix);
+            result.push_str(&snippet[blurb.start..blurb.end]);
+            result.push_str(suffix);
+            start = blurb.end;
+        }
+        result.push_str(self.html_stripper.strip(&snippet[start..]).as_str());
+        result
     }
 }
 
@@ -172,29 +199,6 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
     results
 }
 
-fn highlight(snippet: &str, highlights: &[Range<usize>]) -> String {
-    let prefix = "<span class=\"highlight\">";
-    let suffix = "</span>";
-    let highlight_len = prefix.len() + suffix.len();
-    let mut result = String::with_capacity(snippet.len() + (highlights.len() * highlight_len));
-    let mut start = 0_usize;
-    let highlights = normalize_ranges(highlights);
-    for blurb in highlights {
-        result.push_str(&snippet[start..blurb.start]);
-        result.push_str(prefix);
-        result.push_str(&snippet[blurb.start..blurb.end]);
-        result.push_str(suffix);
-        start = blurb.end;
-    }
-    result.push_str(&snippet[start..]);
-    result
-}
-
-fn strip_html(body: String) -> String {
-    html2text::from_read(body.as_bytes(), body.len())
-    //body
-}
-
 impl DocumentScanner {
     async fn scan(mut self) -> Result<(), ChimeraError> {
         let mut docs_since_last_commit = 0;
@@ -213,8 +217,6 @@ impl DocumentScanner {
                 if let Some(title_string) = path.file_name() {
                     let title_string = title_string.to_string_lossy();
                     if let Ok(body_text) = tokio::fs::read_to_string(path.as_path()).await {
-                        let body_text = strip_html(body_text);
-
                         tracing::debug!("Adding {} to full-text index", title_string);
                         doc.add_text(self.title, title_string);
                         doc.add_text(self.link, anchor_string);
@@ -254,17 +256,37 @@ async fn listen_for_changes(
     }
 }
 
+impl HtmlStripper {
+    fn new() -> Self {
+        let html_tag_re = Regex::new(r"</?[a-zA-Z][^>]*>").unwrap();
+        HtmlStripper {
+            html_tag_re,
+        }
+    }
+
+    fn strip(&self, text: &str) -> String {
+        tracing::debug!("Snippet: \"{text}\"");
+        let mut i = 0_usize;
+        let mut buf = String::with_capacity(text.len());
+        for hit in self.html_tag_re.find_iter(text) {
+            tracing::debug!("Found hit: {}", &text[hit.start()..hit.end()]);
+            buf.push_str(&text[i..hit.start()]);
+            i = hit.end();
+        }
+        buf.push_str(&text[i..]);
+        buf
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::full_text_index::HtmlStripper;
+
     #[test]
     fn test_html_stripper() {
+        let stripper = HtmlStripper::new();
         let html = "<h3>Kisses<3</h3>";
-        let plain = html2text::from_read(html.as_bytes(), html.len());
-        assert_eq!(plain, "### Kisses<3\n".to_string());
-
-        let html_cfg = html2text::config::plain();
-        let plain = html_cfg.string_from_read(html.as_bytes(), html.len());
-        assert_eq!(plain, Ok("### Kisses<3\n".to_string()));
+        let plain = stripper.strip(html);
+        assert_eq!(plain, "Kisses<3".to_string());
     }
-    
 }

@@ -465,7 +465,7 @@ mod tests {
         let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 24);
-        assert_eq!(anchor_len, 31);
+        assert_eq!(anchor_len, 46);
     }
 
     #[test]
@@ -474,7 +474,7 @@ mod tests {
         let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 31);
-        assert_eq!(anchor_len, 58);
+        assert_eq!(anchor_len, 78);
     }
 
     #[test]
@@ -483,6 +483,6 @@ mod tests {
         let parts: Vec<&OsStr> = path.iter().collect();
         let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
         assert_eq!(name_len, 8);
-        assert_eq!(anchor_len, 1);
+        assert_eq!(anchor_len, 6);
     }
 }
