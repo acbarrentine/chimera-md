@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  chimera-md:
+    container_name: chimera-md
+    platform: linux/amd64
+    image: acbarrentine/chimera-md:0.1.3
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # /data/www is the web root -- Point this to your main documents folder
+      - /usr/data/user1/documents:/data/www
+
+      # You may want to map an images folder
+      - /usr/data/user1/media:/data/www/images:ro
+
+      # You can map in a favicon, if you'd like
+      # - /usr/data/user1/images/logo.png:/data/www/favicon.ico:ro
+
+      # Optional extra document directories can be added to the web root
+      # - /usr/data/user1/notes:/data/www/notes:ro
+
+      # Similarly, you can map additional image directories
+      # - /usr/data/user1/icons:/data/www/images/icons:ro
+
+    environment:
+      # Chimera provides a number of environment variable-based configuration options. Only a few
+      # are relevant to Docker installations
+
+      # Site title appears in the <title> tags of served pages
+      - CHIMERA_SITE_TITLE=Chimera-md
+
+      # What is the name of the index file to serve for a folder URL?
+      - CHIMERA_INDEX_FILE=index.md
+
+      # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
+      # Case matters
+      - CHIMERA_LOG_LEVEL=INFO
+
+    restart: unless-stopped
