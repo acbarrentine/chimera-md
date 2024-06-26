@@ -42,7 +42,7 @@ services:
   chimera-md:
     container_name: chimera-md
     platform: linux/amd64
-    image: acbarrentine/chimera-md:0.1.3
+    image: acbarrentine/chimera-md:latest
     ports:
       - "8080:8080"
 
