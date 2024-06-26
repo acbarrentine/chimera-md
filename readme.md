@@ -1,5 +1,7 @@
 # Chimera-md
 
+![screenshot](examples/assets/screenshot.jpg)
+
 Chimera-md is a [Markdown](https://www.markdownguide.org/)-aware documentation server.
 
 I have spent years developing a hard drive full of notes and documents written in the
@@ -21,7 +23,7 @@ they are fancy HTML.
 ## Goals
 
 1. Transparently serve Markdown files
-2. Built on top of an existing speedy [web server](https://docs.rs/axum/latest/axum/))
+2. Built on top of an existing speedy [web server framework](https://docs.rs/axum/latest/axum/)
 3. Nice-looking theme
 4. Simple site navigation
 5. Full text search
@@ -31,7 +33,8 @@ they are fancy HTML.
 
 The intended way to install is via [Docker](https://hub.docker.com/repository/docker/acbarrentine/chimera-md/general).
 The Docker Compose file is probably the easiest way to get going. The version below should
-get you going, but the one on github will probably be more up to date.
+get you going, but the [one on Github](https://github.com/acbarrentine/chimera-md/blob/main/compose.yaml)
+will probably be more up to date.
 
 ```yaml
 version: '3.8'
@@ -86,9 +89,9 @@ want authenticated traffic (and you probably do!), you should run it behind a re
 
 If you, like me, haven't been putting files in any semblance of order as they accumulate, you
 might feel at a loss how to make a single folder that indexes them all. And that's what the web
-root is -- the starting point for serving up all your documents.
+root is — the starting point for serving up all your documents.
 
-The basic organizational structure you'll want is an index.md file in each interesting directory
+The basic organizational structure you'll want is an `index.md` file in each interesting directory
 that points to the files you want to show and to the other folders you want to have reachable from
 there. This doesn't have to be a tree structure, but that's a good way to start. Page sidebars
 will attempt to show discovered peer documents (anything with a .md extension), but you can link
@@ -97,8 +100,8 @@ sharp!
 
 If you don't have a tree-like structure, you can use Docker volume mappings to invent one. As long
 as mappings don't target the same exact Docker directory, they can overlap however you'd like. I
-have a bunch of Synology "shared folder" map points mapped into the one document folder, which
-presents like a very serve-able tree.
+have a bunch of Synology "shared folder" mount points mapped into the one document folder, which
+presents as a very serve-able tree.
 
 ![index](examples/assets/index.png)
 
@@ -129,13 +132,14 @@ server. Feel free to add other kinds of documents or assets to your pages. Only 
 will be discovered by the full-text indexer, however.
 
 A note about URLs: content inside your document root will be routed on the server through
-a common root directory called `/home` — this keeps them from potentially colliding with
+a common root path called `/home` — this keeps them from potentially colliding with
 internal route names controlled by the server. Supposing you had a folder structure like this:
 
-`/users/me/taxes` -> `/data/www/taxes`
+`/users/me/taxes` → `/data/www/taxes`
 
-The index.md file inside that folder would have an absolute URL of `/home/taxes/index.md`.
-In general, though, relative URLs are sufficient. I find it comes up most often for image
+The `index.md` file inside that folder would have an absolute URL of `/home/taxes/index.md`.
+In general, though, relative URLs are sufficient. The root `index.md`, for example, would
+refer to that document by `[Taxes](taxes/index.md)`. I find it comes up most often for image
 references. A file such as `/data/www/images/logo.png` would route as `/home/images/logo.png`
 
 ## Customizing the server
@@ -143,49 +147,53 @@ references. A file such as `/data/www/images/logo.png` would route as `/home/ima
 There are 3 different possible levels of customization points for the Chimera-md server. In
 increasing complexity, these are:
 
-1. `/home/style/site.css`
+1.  `/home/style/site.css`
 
-The Chimera-md header template references three CSS files. Two are termed internal
-use, and serve from the `/style` route. But the third, `/home/style/site.css` is intended
-for end-user customization. In there, you can adapt the site style as you see fit. There is
-a set of CSS color variables to make broad color changes easy. An example of this file is
-provided on Github. You can make your own site.css file within your document root without
-having to do any Docker mapping hijinks, and browsers will just immediately start using it.
-It does expect to be in a `style` subfolder, though. So if your document root was
-`/users/me/documents/`, you would place it in `/users/me/documents/style/site.css`.
+    The Chimera-md header template references three CSS files. Two are termed internal
+    use, and serve from the `/style` route. But the third, `/home/style/site.css` is intended
+    for end-user customization. In there, you can adapt the site style as you see fit. There is
+    a set of CSS color variables to make broad color changes easy. An example of this file is
+    provided on [Github](https://github.com/acbarrentine/chimera-md/blob/main/examples/style/site.css).
+    You can make your own `site.css` file within your document root without having to do any
+    Docker mapping hijinks, and browsers will just immediately start using it. It does expect
+    to be in a `style` subfolder, though. So if your document root was `/users/me/documents`,
+    you would place it in `/users/me/documents/style/site.css`.
 
-2. Override the built-in CSS files
+    You can also put a `favicon.ico` file in the web root and browsers will discover it on
+    their own.
 
-Using Docker mapping, you can paper over the built-in CSS files. These are located
-at `/data/style/skeleton.css` and `/data/style/chimera.css` (in Docker parlance).
-`skeleton.css` is an open source [CSS framework](http://getskeleton.com/), and I have
-only lightly customized it. `chimera.css` contains most of what you would consider
-the look of the site. You could start with my copies from Github and map them over
-with your adapted copies via Docker volume commands, like so:
+2.  Override the built-in CSS files
 
-```
-    volumes:
-      - /users/me/style/my-fancy.css:/data/style/chimera.css
-```
+    Using Docker mapping, you can paper over the built-in CSS files. These are located
+    at `/data/style/skeleton.css` and `/data/style/chimera.css` (in Docker parlance).
+    `skeleton.css` is an open source [CSS framework](http://getskeleton.com/), and I have
+    only lightly customized it. `chimera.css` contains most of what you would consider
+    the look of the site. You could start with my copies from Github and map them over
+    with your adapted copies via Docker volume commands, like so:
 
-Note, however, that I probably won't be hands-off with these files as I make updates
-to the app, so grabbing new versions could cause instabilities with your local changes.
+    ```
+        volumes:
+        - /users/me/style/my-fancy.css:/data/style/chimera.css
+    ```
 
-3. Override the Handlebars files
+    Note, however, that I probably won't be hands-off with these files as I make updates
+    to the app, so grabbing new versions could cause instabilities with your local changes.
 
-The Markdown files Chimera-md serves are assembled from your Markdown content
-folded into three different template files: `/data/templates/header.hb`,
-`/data/templates/footer.hb`, and `/data/templates/markdown.hb`. Here, again, you
-could make local customized copies of [these files](https://github.com/acbarrentine/chimera-md/tree/main/templates)
-and user volume mapping to have your container serve your copies. Two additional
-templates for errors and the search page are also in there. As with the style
-files, though, changes here have a decent chance of conflicting with changes I
-might make. I suggest using the partials system to isolate your changes, if
-possible. See how `markdown.hb` links to the other two.
+3.  Override the Handlebars files
 
-Special note: the [Rust Handlebars library](https://docs.rs/handlebars/5.1.2/handlebars/index.html)
-is not a complete implementation of the Javascript original, so you may have to do
-some trial and error when reaching for things like conditional behaviors.
+    The Markdown files Chimera-md serves are assembled from your Markdown content
+    folded into three different template files: `/data/templates/header.hb`,
+    `/data/templates/footer.hb`, and `/data/templates/markdown.hb`. Here, again, you
+    could make local customized copies of [these files](https://github.com/acbarrentine/chimera-md/tree/main/templates)
+    and use volume mapping to have your container serve your copies. Two additional
+    templates for errors and the search page are also in there. As with the style
+    files, though, changes here have a decent chance of conflicting with changes I
+    might make. I suggest using the partials system to isolate your changes, if
+    possible. See how `markdown.hb` links to the other two.
+
+    Special note: the [Rust Handlebars library](https://docs.rs/handlebars/5.1.2/handlebars/index.html)
+    is not a complete implementation of the Javascript original, so you may have to do
+    some trial and error when reaching for things like conditional behaviors.
 
 ## Non-Docker installation
 
@@ -195,7 +203,7 @@ and build it from source. It is a standard [Rust](https://www.rust-lang.org/) pr
 and should compile on just about any platform.
 
 One interesting thing I noted while developing this. While running it locally prevents
-the user of Docker directory mapping, I was able to use soft links to present a unified
+the use of Docker directory mapping, I was able to use soft links to present a unified
 folder structure under the document root. The server was able to navigate them just fine.
 That does not appear to be the case in the Docker version, however.
 
@@ -209,7 +217,7 @@ There are currently 6 arguments that can be set either via environment or the co
 Each has a default, but odds are good you'll want to override at least a few of them.
 
 ```bash
-    # Often it's easiest to establish these in a globally loaded files, like .zshrc
+    # Often it's easiest to establish these in a globally loaded file like .zshrc
     export CHIMERA_DOCUMENT_ROOT=/data/www
     export CHIMERA_TEMPLATE_ROOT=/data/templates
     export CHIMERA_STYLE_ROOT=/data/style
@@ -232,7 +240,7 @@ Each has a default, but odds are good you'll want to override at least a few of 
     --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --log-level DEBUG --port 8080
 ```
 
-Personally, I set the vars in my shell environment and then use [cargo-watch](https://crates.io/crates/cargo-watch)
+Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)
 to monitor for source changes. If you're not hacking on the source, though, it won't help
 you.
 
