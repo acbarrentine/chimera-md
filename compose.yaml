@@ -15,6 +15,7 @@ services:
       - /usr/data/user1/media:/data/www/images:ro
 
       # You can map in a favicon, if you'd like
+      # Or just put a file called favicon.ico in your document root
       # - /usr/data/user1/images/logo.png:/data/www/favicon.ico:ro
 
       # Optional extra document directories can be added to the web root
