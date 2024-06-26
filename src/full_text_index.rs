@@ -205,7 +205,7 @@ impl DocumentScanner {
         while let Some(path) = self.work_queue.recv().await {
             let mut doc = TantivyDocument::default();
             if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
-                let anchor_string = relative_path.to_string_lossy();
+                let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
 
                 tracing::debug!("Removing {anchor_string} from full text index");
                 let doc_term = Term::from_field_text(self.link, &anchor_string);

@@ -208,8 +208,10 @@ async fn handle_root(
 //#[debug_handler]
 async fn handle_fallback(
     State(app_state): State<AppStateType>,
+    uri: axum::http::Uri,
 ) -> axum::response::Response {
-    handle_err(app_state).await.into_response()
+    tracing::warn!("404 Not found: {uri}");
+    handle_404(app_state).await.into_response()
 }
 
 fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
