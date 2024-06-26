@@ -1,4 +1,5 @@
 /target
+/search
 deploy.sh
 chimera_test.tar
 *.tar

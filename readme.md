@@ -50,6 +50,10 @@ services:
       # /data/www is the web root -- Point this to your main documents folder
       - /usr/data/user1/documents:/data/www
 
+      # /data/search is where the full text indexer writes its work files
+      # These are persisted to optimize server startup times
+      - /docker/chimera-md/search:/data/search
+
       # You may want to map an images folder
       - /usr/data/user1/media:/data/www/images:ro
 
@@ -76,6 +80,9 @@ services:
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters
       - CHIMERA_LOG_LEVEL=INFO
+
+      # If a directory doesn't contain an index.md file, should we generate one?
+      - CHIMERA_GENERATE_INDEX=true
 
     restart: unless-stopped
 ```
@@ -213,16 +220,18 @@ can either use the environment, or specify them on the command line.
 
 ## Arguments
 
-There are currently 6 arguments that can be set either via environment or the command line.
-Each has a default, but odds are good you'll want to override at least a few of them.
+Command arguments can be set either via environment or the command line. Each has a default,
+but odds are good you'll want to override at least a few of them.
 
 ```bash
     # Often it's easiest to establish these in a globally loaded file like .zshrc
     export CHIMERA_DOCUMENT_ROOT=/data/www
     export CHIMERA_TEMPLATE_ROOT=/data/templates
     export CHIMERA_STYLE_ROOT=/data/style
+    export CHIMERA_SEARCH_INDEX_DIR=/data/search
     export CHIMERA_SITE_TITLE=Chimera-md
     export CHIMERA_INDEX_FILE=index.md
+    export CHIMERA_GENERATE_INDEX=true
     export CHIMERA_LOG_LEVEL=INFO
     export CHIMERA_PORT=8080
 
@@ -237,7 +246,8 @@ Each has a default, but odds are good you'll want to override at least a few of 
 
     # Or you can do it all on the command line
     cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
-    --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --log-level DEBUG --port 8080
+      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md
+      --generate-index=true --log-level DEBUG --port 8080
 ```
 
 Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)
@@ -288,9 +298,9 @@ Chimera-md uses the following open source libraries:
 * [clap](https://crates.io/crates/clap)
 * [regex](https://crates.io/crates/regex)
 * [urlencoding](https://crates.io/crates/urlencoding)
-* [tempfile](https://crates.io/crates/tempfile)
 * [walkdir](https://crates.io/crates/walkdir)
 * [async-watcher](https://crates.io/crates/async-watcher)
+* [toml](https://crates.io/crates/toml)
 
 ## License
 

@@ -33,6 +33,7 @@ struct MarkdownVars {
 
 #[derive(Serialize)]
 struct SearchVars {
+    title: String,
     site_title: String,
     query: String,
     placeholder: String,
@@ -42,6 +43,7 @@ struct SearchVars {
 
 #[derive(Serialize)]
 struct ErrorVars {
+    title: String,
     site_title: String,
     error_code: String,
     heading: String,
@@ -83,6 +85,7 @@ impl HtmlGenerator {
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
         tracing::debug!("Got {} search results", results.len());
         let vars = SearchVars {
+            title: format!("{}: Search results", self.site_title),
             site_title: self.site_title.clone(),
             query: query.to_string(),
             placeholder: query.to_string(),
@@ -95,6 +98,7 @@ impl HtmlGenerator {
     pub fn gen_search_blank(&self) -> Result<String, ChimeraError> {
         tracing::debug!("No query, generating blank search page");
         let vars = SearchVars {
+            title: format!("{}: Search", self.site_title),
             site_title: self.site_title.clone(),
             query: "".to_string(),
             placeholder: "Search...".to_string(),
@@ -136,7 +140,7 @@ impl HtmlGenerator {
 
         let vars = MarkdownVars {
             body: html_content,
-            title,
+            title: format!("{}: {}", self.site_title, title),
             site_title: self.site_title.clone(),
             version: self.version.to_string(),
             code_js,
@@ -160,6 +164,7 @@ impl HtmlGenerator {
 
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
         let vars = ErrorVars {
+            title: format!("{}: Error", self.site_title),
             site_title: self.site_title.clone(),
             error_code: error_code.to_string(),
             heading: heading.to_string(),

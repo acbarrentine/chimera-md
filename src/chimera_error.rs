@@ -41,6 +41,13 @@ impl From<tantivy::TantivyError> for ChimeraError {
     }
 }
 
+impl From<tantivy::directory::error::OpenDirectoryError> for ChimeraError {
+    fn from(err: tantivy::directory::error::OpenDirectoryError) -> Self {
+        tracing::warn!("tantivy::OpenDirectoryError: {err}");
+        ChimeraError::TantivyError
+    }
+}
+
 impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ChimeraError {
     fn from(err: tokio::sync::mpsc::error::SendError<T>) -> Self {
         tracing::warn!("tokio::sync::mpsc::error::SendError: {err}");

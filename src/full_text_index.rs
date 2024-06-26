@@ -1,22 +1,29 @@
 use core::ops::Range;
-use std::{ffi::OsStr, path::PathBuf, sync::{Arc, RwLock}};
+use std::{collections::BTreeMap, ffi::OsStr, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
 use regex::Regex;
-use serde::Serialize;
-use tantivy::{collector::TopDocs, IndexReader};
+use serde::{Deserialize, Serialize};
+use tantivy::{collector::TopDocs, directory::MmapDirectory, IndexReader};
 use tantivy::query::QueryParser;
 use tantivy::{schema::*, SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
-use tempfile::TempDir;
-use tokio::sync::mpsc::{self, Receiver};
+use tokio::{io::AsyncWriteExt, sync::mpsc::{self, Receiver}};
 
 use crate::chimera_error::ChimeraError;
 use crate::file_manager::FileManager;
 
 #[derive(Serialize)]
- pub struct SearchResult {
+pub struct SearchResult {
     title: String,
     link: String,
     snippet: String,
+}
+
+type FileMapType = BTreeMap<PathBuf, SystemTime>;
+
+#[derive(Default, Serialize, Deserialize)]
+struct FileTimes {
+    index_location: PathBuf,
+    files: FileMapType,
 }
 
 struct HtmlStripper {
@@ -24,9 +31,6 @@ struct HtmlStripper {
 }
 
 pub struct FullTextIndex {
-    #[allow(dead_code)]     // It's not actually dead...
-    index_path: TempDir,    // I need to keep the TempDir alive for the life of the index 
-
     index: Index,
     title_field: Field,
     link_field: Field,
@@ -38,6 +42,7 @@ pub struct FullTextIndex {
 
 struct DocumentScanner {
     index_writer: Arc<RwLock<IndexWriter>>,
+    file_times: FileTimes,
     work_queue: Receiver<PathBuf>,
     document_root: PathBuf,
     title: Field,
@@ -53,9 +58,7 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 }
 
 impl FullTextIndex {
-    pub fn new() -> Result<Self, ChimeraError> {
-        let index_path = TempDir::new()?;
-
+    pub fn new(index_path: &std::path::Path) -> Result<Self, ChimeraError> {
         let text_field_indexing = TextFieldIndexing::default()
             .set_tokenizer("en_stem")
             .set_index_option(IndexRecordOption::WithFreqsAndPositions);
@@ -70,7 +73,8 @@ impl FullTextIndex {
         let body_field = schema_builder.add_text_field("body", text_options);
         let schema = schema_builder.build();
 
-        let index = Index::create_in_dir(&index_path, schema.clone())?;
+        let dir = MmapDirectory::open(index_path)?;
+        let index = Index::open_or_create(dir, schema.clone())?;
         let index_writer = Arc::new(RwLock::new(index.writer(50_000_000)?));
 
         let html_stripper = HtmlStripper::new();
@@ -81,7 +85,6 @@ impl FullTextIndex {
             .try_into()?;
 
         let fti = FullTextIndex {
-            index_path,
             index,
             title_field,
             link_field,
@@ -93,10 +96,17 @@ impl FullTextIndex {
         Ok(fti)
     }
     
-    pub async fn scan_directory(&mut self, root_directory: PathBuf, file_manager: &FileManager) -> Result<(), ChimeraError> {
+    pub async fn scan_directory(
+        &mut self, root_directory: PathBuf,
+        search_index_dir: PathBuf,
+        file_manager: &FileManager
+    ) -> Result<(), ChimeraError> {
+        let file_times = FileTimes::try_load(search_index_dir).await;
+
         let (tx, rx) = mpsc::channel::<PathBuf>(32);
         let scanner = DocumentScanner {
             index_writer: self.index_writer.clone(),
+            file_times,
             work_queue: rx,
             document_root: root_directory.to_path_buf(),
             title: self.title_field,
@@ -199,10 +209,24 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
     results
 }
 
+async fn get_modtime(path: &std::path::Path) -> Option<SystemTime> {
+    if let Ok(metadata) = tokio::fs::metadata(path).await {
+        if let Ok(modtime) = metadata.modified() {
+            return Some(modtime);
+        }
+    }
+    None
+}
+
 impl DocumentScanner {
     async fn scan(mut self) -> Result<(), ChimeraError> {
         let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
+            let modtime = get_modtime(path.as_path()).await;
+            if self.file_times.check_up_to_date(path.as_path(), modtime) {
+                continue;
+            }
+
             let mut doc = TantivyDocument::default();
             if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
                 let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
@@ -232,6 +256,7 @@ impl DocumentScanner {
 
             // commit?
             if self.work_queue.is_empty() || docs_since_last_commit > 20 {
+                self.file_times.save().await?;
                 let mut index = self.index_writer.write()?;
                 index.commit()?;
                 docs_since_last_commit = 0;
@@ -275,6 +300,73 @@ impl HtmlStripper {
         }
         buf.push_str(&text[i..]);
         buf
+    }
+}
+
+impl FileTimes {
+    async fn try_load(search_index_dir: PathBuf) -> FileTimes {
+        let index_file = search_index_dir.join("ft.toml");
+        let times = match tokio::fs::read_to_string(index_file.as_path()).await {
+            Ok(f) => {
+                let ft: Result<FileMapType, toml::de::Error> = toml::from_str(f.as_str());
+                match ft {
+                    Ok(ft) => { ft },
+                    Err(_) => {
+                        FileMapType::default()
+                    }
+                }
+            },
+            Err(_) => {
+                FileMapType::default()
+            }
+        };
+        FileTimes {
+            index_location: index_file,
+            files: times,
+        }
+    }
+
+    fn check_up_to_date(&mut self, path: &std::path::Path, current_modtime: Option<SystemTime>) -> bool {
+        if current_modtime.is_none() {
+            // No such file, remove from index, if it's there
+            tracing::debug!("File not in ft.toml: {}", path.display());
+            let _ = self.files.remove(path);
+            return false;
+        }
+        let current_modtime = current_modtime.unwrap();
+        let last_modtime = self.files.get(path);
+        if last_modtime.is_some() && *last_modtime.unwrap() == current_modtime {
+            tracing::debug!("Up-to-date in ft.toml: {}", path.display());
+            return true;
+        }
+        tracing::debug!("Adding to ft.toml: {}", path.display());
+        self.files.insert(path.to_path_buf(), current_modtime);
+        false
+    }
+
+    async fn save(&self) -> Result<(), ChimeraError> {
+        let mut file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(self.index_location.as_path())
+            .await?;
+        match toml::to_string(&self.files) {
+            Ok(toml) => {
+                match tokio::fs::File::write_all(&mut file, toml.as_bytes()).await {
+                    Ok(_) => {
+                        tracing::info!("Saved ft.toml");
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failure writing full text index file times: {e}");
+                    }
+                }
+            },
+            Err(e) => {
+                tracing::warn!("Failure converting file times to toml: {e}");
+            }
+        }
+        Ok(())
     }
 }
 

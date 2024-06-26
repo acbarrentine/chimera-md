@@ -43,11 +43,17 @@ struct Config {
     #[arg(long, env("CHIMERA_STYLE_ROOT"), default_value_t = String::from("/data/style"))]
     style_root: String,
 
+    #[arg(long, env("CHIMERA_SEARCH_INDEX_DIR"), default_value_t = String::from("/data/search"))]
+    search_index_dir: String,
+
     #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]
     site_title: String,
 
     #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
     index_file: String,
+
+    #[arg(long, env("CHIMERA_GENERATE_INDEX"), default_value_t = true)]
+    generate_index: bool,
 
     #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
     log_level: Option<tracing::Level>,
@@ -59,6 +65,7 @@ struct Config {
 struct AppState {
     index_file: String,
     style_root: PathBuf,
+    generate_index: bool,
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
     file_manager: FileManager,
@@ -70,6 +77,7 @@ impl AppState {
 
         let template_root = PathBuf::from(config.template_root.as_str());
         let document_root = PathBuf::from(config.document_root.as_str());
+        let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
         std::env::set_current_dir(document_root.as_path())?;
 
         let mut file_manager = FileManager::new().await?;
@@ -81,12 +89,13 @@ impl AppState {
             config.site_title,
             VERSION,
             &mut file_manager)?;
-        let mut full_text_index = FullTextIndex::new()?;
-        full_text_index.scan_directory(document_root, &file_manager).await?;
+        let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
+        full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
     
         Ok(AppState {
             index_file: config.index_file,
             style_root: PathBuf::from(config.style_root),
+            generate_index: config.generate_index,
             full_text_index,
             html_generator,
             file_manager,
