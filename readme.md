@@ -100,10 +100,11 @@ root is — the starting point for serving up all your documents.
 
 The basic organizational structure you'll want is an `index.md` file in each interesting directory
 that points to the files you want to show and to the other folders you want to have reachable from
-there. This doesn't have to be a tree structure, but that's a good way to start. Page sidebars
-will attempt to show discovered peer documents (anything with a .md extension), but you can link
-to whatever you'd like. Consider dressing up your index documents with pictures to make them look
-sharp!
+there. This doesn't have to be a tree structure, but that's a good way to start. If you don't have
+an index file, but CHIMERA_GENERATE_INDEX is set to `true`, the server will make a best guess from
+the contents of a folder (showing anything with a .md extension). That setting will also populate
+a sidebar panel on markdown documents linking to discovered peers. Consider dressing up your index
+documents with pictures to make them look sharp!
 
 If you don't have a tree-like structure, you can use Docker volume mappings to invent one. As long
 as mappings don't target the same exact Docker directory, they can overlap however you'd like. I
@@ -192,8 +193,8 @@ increasing complexity, these are:
     folded into three different template files: `/data/templates/header.hb`,
     `/data/templates/footer.hb`, and `/data/templates/markdown.hb`. Here, again, you
     could make local customized copies of [these files](https://github.com/acbarrentine/chimera-md/tree/main/templates)
-    and use volume mapping to have your container serve your copies. Two additional
-    templates for errors and the search page are also in there. As with the style
+    and use volume mapping to have your container serve your copies. Three additional
+    templates for index, error, and search are also in there. As with the style
     files, though, changes here have a decent chance of conflicting with changes I
     might make. I suggest using the partials system to isolate your changes, if
     possible. See how `markdown.hb` links to the other two.
@@ -231,7 +232,7 @@ but odds are good you'll want to override at least a few of them.
     export CHIMERA_SEARCH_INDEX_DIR=/data/search
     export CHIMERA_SITE_TITLE=Chimera-md
     export CHIMERA_INDEX_FILE=index.md
-    export CHIMERA_GENERATE_INDEX=true
+    export CHIMERA_GENERATE_INDEX=false
     export CHIMERA_LOG_LEVEL=INFO
     export CHIMERA_PORT=8080
 

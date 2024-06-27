@@ -52,8 +52,8 @@ struct Config {
     #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
     index_file: String,
 
-    #[arg(long, env("CHIMERA_GENERATE_INDEX"), default_value_t = true)]
-    generate_index: bool,
+    #[arg(long, env("CHIMERA_GENERATE_INDEX"))]
+    generate_index: Option<bool>,
 
     #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
     log_level: Option<tracing::Level>,
@@ -91,11 +91,12 @@ impl AppState {
             &mut file_manager)?;
         let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
-    
+
+        let generate_index = config.generate_index.map_or(false, |v| v);
         Ok(AppState {
             index_file: config.index_file,
             style_root: PathBuf::from(config.style_root),
-            generate_index: config.generate_index,
+            generate_index,
             full_text_index,
             html_generator,
             file_manager,
@@ -242,15 +243,21 @@ async fn serve_markdown_file(
     tracing::debug!("Not cached, building {}", path.display());
     let md_content = tokio::fs::read_to_string(path).await?;
     let (scraper, html_content) = parse_markdown(md_content.as_str());
-    let peer_info = app_state.file_manager.find_peers(
-        path,
-        app_state.index_file.as_str()).await
-        .unwrap_or_default();
+    let peers = match app_state.generate_index {
+        true => {
+            app_state.file_manager.find_peers(
+                path,
+                app_state.index_file.as_str()).await
+        },
+        false => {
+            None
+        }
+    };
     let html = app_state.html_generator.gen_markdown(
         path,
         html_content,
         scraper,
-        peer_info,
+        peers,
     ).await?;
     Ok((CachedStatus::NotCached, (StatusCode::OK, Html(html)).into_response()))
 }
@@ -283,8 +290,20 @@ async fn get_response(
             return Ok((CachedStatus::Redirect, Redirect::permanent(path_with_slash.as_str()).into_response()));
         }
         let path_with_index = path.join(app_state.index_file.as_str());
-        tracing::debug!("No file specified, sending {}", path_with_index.display());
-        return serve_markdown_file(app_state, &path_with_index).await;
+        if path_with_index.exists() {
+            tracing::debug!("No file specified, sending {}", path_with_index.display());
+            return serve_markdown_file(app_state, &path_with_index).await;
+        }
+        else if app_state.generate_index {
+            if let Some(result) = app_state.html_generator.get_cached_result(path).await {
+                tracing::debug!("Returning cached index for {}", path.display());
+                return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
+            }
+            tracing::info!("No file specified. Generating an index result at {}", path.display());
+            let links = app_state.file_manager.find_files_in_directory(path, None).await;
+            let html = app_state.html_generator.gen_index(path, links).await?;
+            return Ok((CachedStatus::NotCached, Html(html).into_response()));
+        }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
     let path = PathBuf::from(path);

@@ -22,27 +22,22 @@ impl FileManager {
         })
     }
 
-    pub async fn find_peers(&self, relative_path: &Path, index_file: &str) -> Option<Vec<Doclink>> {
-        let relative_path = std::path::PathBuf::from(relative_path);
-        let Ok(abs_path) = relative_path.canonicalize() else {
-            return None;
-        };
-        let Some(parent_path) = abs_path.parent() else {
-            return None;
-        };
-        tracing::debug!("Find peers: {}", abs_path.display());
-
-        let Some(original_file_name) = relative_path.file_name() else {
-            return None;
-        };
+    pub async fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> Option<Vec<Doclink>> {
+        tracing::debug!("Find file in: {}", abs_path.display());
         let mut files = Vec::new();
-        if let Ok(mut read_dir) = tokio::fs::read_dir(parent_path.as_os_str()).await {
+        if let Ok(mut read_dir) = tokio::fs::read_dir(abs_path.as_os_str()).await {
             while let Ok(entry_opt) = read_dir.next_entry().await {
                 if let Some(entry) = entry_opt {
                     let path = entry.path();
                     let file_name = entry.file_name();
                     if let Some(extension) = path.extension() {
-                        if extension.eq_ignore_ascii_case(OsStr::new("md")) && file_name.ne(original_file_name) {
+                        tracing::debug!("Found {}", path.display());
+                        if extension.eq_ignore_ascii_case(OsStr::new("md")) {
+                            if let Some(skip) = skip {
+                                if file_name.eq(skip) {
+                                    continue;
+                                }
+                            }
                             let name_string = file_name.to_string_lossy().to_string();
                             tracing::debug!("Peer: {}", name_string);
                             files.push(Doclink {
@@ -58,18 +53,43 @@ impl FileManager {
                 }
             }
         }
-        files.sort_unstable_by(|a, b| {
-            if a.name.eq_ignore_ascii_case(index_file) {
-                Ordering::Less
-            }
-            else if b.name.eq_ignore_ascii_case(index_file) {
-                Ordering::Greater
-            }
-            else {
-                a.name.cmp(&b.name)
-            }
-        });
-        Some(files)
+        if files.is_empty() {
+            None
+        }
+        else {
+            Some(files)
+        }
+    }
+
+    pub async fn find_peers(&self, relative_path: &Path, index_file: &str) -> Option<Vec<Doclink>> {
+        tracing::debug!("Finding peers of {}", relative_path.display());
+        let Ok(abs_path) = relative_path.canonicalize() else {
+            tracing::debug!("No canonical representation");
+            return None;
+        };
+        let Some(parent_path) = abs_path.parent() else {
+            tracing::debug!("No parent path");
+            return None;
+        };
+        let Some(original_file_name) = relative_path.file_name() else {
+            tracing::debug!("No root file");
+            return None;
+        };
+        let mut files = self.find_files_in_directory(parent_path, Some(original_file_name)).await;
+        if let Some(files) = files.as_mut() {
+            files.sort_unstable_by(|a, b| {
+                if a.name.eq_ignore_ascii_case(index_file) {
+                    Ordering::Less
+                }
+                else if b.name.eq_ignore_ascii_case(index_file) {
+                    Ordering::Greater
+                }
+                else {
+                    a.name.cmp(&b.name)
+                }
+            });
+        }
+        files
     }
 
     pub fn add_watch(&mut self, path: &Path) -> Result<(), ChimeraError> {

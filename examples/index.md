@@ -28,6 +28,7 @@ document you are looking at.
 * [Index (this document)](index.md)
 * [Example 1](example1.md)
 * [Example 2](example2.md)
+* [Something](no-index/something.md)
 
 ## Other folders
 

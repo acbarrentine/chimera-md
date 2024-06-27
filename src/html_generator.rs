@@ -50,6 +50,16 @@ struct ErrorVars {
     message: String,
 }
 
+#[derive(Serialize)]
+struct IndexVars {
+    title: String,
+    site_title: String,
+    path: String,
+    peers: String,
+    breadcrumbs: String,
+    peers_len: usize,
+}
+
 impl HtmlGenerator {
     pub fn new(
         template_root: &Path,
@@ -113,7 +123,7 @@ impl HtmlGenerator {
         path: &std::path::Path,
         html_content: String,
         scraper: DocumentScraper,
-        peers: Vec<Doclink>
+        peers: Option<Vec<Doclink>>,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
         let html_content = add_anchors_to_headings(html_content, &scraper.doclinks);
@@ -134,7 +144,8 @@ impl HtmlGenerator {
             }
         });
 
-        let doclinks_html = generate_doclink_html(scraper.doclinks, true);
+        let doclinks = if scraper.doclinks.is_empty() { None } else { Some(scraper.doclinks) };
+        let doclinks_html = generate_doclink_html(doclinks, true);
         let peers_html = generate_doclink_html(peers, false);
         let breadcrumbs = get_breadcrumbs(path);
 
@@ -171,6 +182,28 @@ impl HtmlGenerator {
             message: message.to_string(),
         };
         let html = self.handlebars.render("error", &vars)?;
+        Ok(html)
+    }
+
+    pub async fn gen_index(&self, path: &Path, peers: Option<Vec<Doclink>>) -> Result<String, ChimeraError> {
+        let peers_html = generate_doclink_html(peers, false);
+        let breadcrumbs = get_breadcrumbs(path);
+
+        let vars = IndexVars {
+            title: format!("{}: {}", self.site_title, path.display()),
+            site_title: self.site_title.clone(),
+            path: path.to_string_lossy().to_string(),
+            peers_len: peers_html.len(),
+            peers: peers_html,
+            breadcrumbs,
+        };
+        let html = self.handlebars.render("index", &vars)?;
+
+        {
+            let mut cache = self.cached_results.write().await;
+            cache.insert(path.to_path_buf(), html.clone());
+        }
+
         Ok(html)
     }
 
@@ -211,10 +244,11 @@ fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
     (num_indents, text_len)
 }
 
-fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) -> String {
-    if doclinks.is_empty() {
+fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool) -> String {
+    let Some(mut doclinks) = doclinks else {
         return "".to_string()
-    }
+    };
+    assert_ne!(doclinks.len(), 0);
     let (num_indents, text_len) = normalize_headings(&mut doclinks);
     let list_prefix = "<ul>\n";
     let list_suffix = "</ul>\n";
