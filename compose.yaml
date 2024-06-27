@@ -9,7 +9,12 @@ services:
 
     volumes:
       # /data/www is the web root -- Point this to your main documents folder
-      - /usr/data/user1/documents:/data/www
+      - /usr/data/user1/documents:/data/www:ro
+
+      # /data/search is where the full text indexer writes its work files
+      # These are persisted to optimize server startup times
+      # (Note: not read-only!)
+      - /docker/chimera-md/search:/data/search
 
       # You may want to map an images folder
       - /usr/data/user1/media:/data/www/images:ro
@@ -37,5 +42,8 @@ services:
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters
       - CHIMERA_LOG_LEVEL=INFO
+
+      # If a directory doesn't contain an index.md file, should we generate one?
+      - CHIMERA_GENERATE_INDEX=true
 
     restart: unless-stopped

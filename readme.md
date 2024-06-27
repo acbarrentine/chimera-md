@@ -48,7 +48,7 @@ services:
 
     volumes:
       # /data/www is the web root -- Point this to your main documents folder
-      - /usr/data/user1/documents:/data/www
+      - /usr/data/user1/documents:/data/www:ro
 
       # /data/search is where the full text indexer writes its work files
       # These are persisted to optimize server startup times

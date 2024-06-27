@@ -189,21 +189,21 @@ impl HtmlGenerator {
         let peers_html = generate_doclink_html(peers, false);
         let breadcrumbs = get_breadcrumbs(path);
 
+        let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
+        let path_str = path_os_str.to_string_lossy().to_string();
         let vars = IndexVars {
-            title: format!("{}: {}", self.site_title, path.display()),
+            title: format!("{}: {}", self.site_title, path_str),
             site_title: self.site_title.clone(),
-            path: path.to_string_lossy().to_string(),
+            path: path_str,
             peers_len: peers_html.len(),
             peers: peers_html,
             breadcrumbs,
         };
         let html = self.handlebars.render("index", &vars)?;
-
         {
             let mut cache = self.cached_results.write().await;
             cache.insert(path.to_path_buf(), html.clone());
         }
-
         Ok(html)
     }
 
