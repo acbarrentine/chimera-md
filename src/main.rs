@@ -81,8 +81,8 @@ impl AppState {
         std::env::set_current_dir(document_root.as_path())?;
 
         let mut file_manager = FileManager::new().await?;
-        file_manager.add_watch(document_root.as_path())?;
-        file_manager.add_watch(template_root.as_path())?;
+        file_manager.add_watch(document_root.as_path());
+        file_manager.add_watch(template_root.as_path());
 
         let html_generator = HtmlGenerator::new(
             template_root.as_path(),

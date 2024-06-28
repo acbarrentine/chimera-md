@@ -92,9 +92,10 @@ impl FileManager {
         files
     }
 
-    pub fn add_watch(&mut self, path: &Path) -> Result<(), ChimeraError> {
-        self.debouncer.watcher().watch(path, RecursiveMode::Recursive)?;
-        Ok(())
+    pub fn add_watch(&mut self, path: &Path) {
+        if let Err(e) = self.debouncer.watcher().watch(path, RecursiveMode::Recursive) {
+            tracing::warn!("Error reported adding a watch to {}: {e}", path.display());
+        }
     }
 
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<PathBuf> {

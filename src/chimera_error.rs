@@ -82,12 +82,6 @@ impl From<async_watcher::error::Error> for ChimeraError {
         ChimeraError::NotifyError
     }
 }
-impl From<async_watcher::notify::Error> for ChimeraError {
-    fn from(err: async_watcher::notify::Error) -> Self {
-        tracing::warn!("async_watcher::notify::Error: {err}");
-        ChimeraError::NotifyError
-    }
-}
 
 impl IntoResponse for ChimeraError {
     fn into_response(self) -> axum::response::Response {
