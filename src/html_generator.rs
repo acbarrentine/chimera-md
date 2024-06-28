@@ -13,6 +13,7 @@ type CachedResults = Arc<RwLock<BTreeMap<PathBuf, String>>>;
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
     site_title: String,
+    index_file: OsString,
     version: &'static str,
     cached_results: CachedResults,
 }
@@ -64,6 +65,7 @@ impl HtmlGenerator {
     pub fn new(
         template_root: &Path,
         site_title: String,
+        index_file: &str,
         version: &'static str,
         file_manager: &mut FileManager
     ) -> Result<HtmlGenerator, ChimeraError> {
@@ -87,6 +89,7 @@ impl HtmlGenerator {
         Ok(HtmlGenerator {
             handlebars,
             site_title,
+            index_file: OsString::from(index_file),
             version,
             cached_results,
         })
@@ -147,7 +150,7 @@ impl HtmlGenerator {
         let doclinks = if scraper.doclinks.is_empty() { None } else { Some(scraper.doclinks) };
         let doclinks_html = generate_doclink_html(doclinks, true);
         let peers_html = generate_doclink_html(peers, false);
-        let breadcrumbs = get_breadcrumbs(path);
+        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let vars = MarkdownVars {
             body: html_content,
@@ -187,7 +190,7 @@ impl HtmlGenerator {
 
     pub async fn gen_index(&self, path: &Path, peers: Option<Vec<Doclink>>) -> Result<String, ChimeraError> {
         let peers_html = generate_doclink_html(peers, false);
-        let breadcrumbs = get_breadcrumbs(path);
+        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
@@ -364,45 +367,57 @@ fn get_breadcrumb_name_and_anchor_len(parts: &[&OsStr]) -> (usize, usize) {
     let mut anchor_len = HOME_DIR.len();
     let mut prev_anchor_len = anchor_len;
     let mut name_len = 0;
-    for str in &parts[0..parts.len()-1] {
-        let new_anchor_len = prev_anchor_len + str.len() + 1;
-        anchor_len += new_anchor_len;
-        prev_anchor_len = new_anchor_len;
-        name_len += str.len();
+    if parts.len() > 0 {
+        for str in &parts[0..parts.len()-1] {
+            let new_anchor_len = prev_anchor_len + str.len() + 1;
+            anchor_len += new_anchor_len;
+            prev_anchor_len = new_anchor_len;
+            name_len += str.len();
+        }
+        name_len += parts[parts.len() - 1].len();
     }
-    name_len += parts[parts.len() - 1].len();
     (name_len, anchor_len)
 }
 
 fn get_breadcrumbs_len(parts: &[&OsStr]) -> usize {
     let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(parts);
     (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
-        (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
-        (FINAL_PREFIX.len() + FINAL_SUFFIX.len()) +
-        anchor_len + name_len
+        if parts.is_empty() {
+            0
+        }
+        else {
+            (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
+            (FINAL_PREFIX.len() + FINAL_SUFFIX.len())
+        }
+        + anchor_len + name_len
 }
 
-fn get_breadcrumbs(path: &Path) -> String {
+fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
     let mut url = OsString::from(HOME_DIR);
-    let parts: Vec<&OsStr> = path.iter().collect();
+    let mut parts: Vec<&OsStr> = path.iter().collect();
+    if parts.last() == Some(&skip) {
+        let _ = parts.pop();
+    }
     let expected_len = get_breadcrumbs_len(&parts);
     let mut breadcrumbs = OsString::with_capacity(expected_len);
     breadcrumbs.push(HOME_PREFIX);
     breadcrumbs.push(url.as_os_str());
     breadcrumbs.push(HOME_SUFFIX);
     let num_parts = parts.len();
-    for part in &parts[0..num_parts-1] {
-        url.push(part);
-        url.push("/");
-        breadcrumbs.push(CRUMB_PREFIX);
-        breadcrumbs.push(url.as_os_str());
-        breadcrumbs.push(CRUMB_MIDDLE);
-        breadcrumbs.push(part);
-        breadcrumbs.push(CRUMB_SUFFIX);
+    if num_parts > 0 {
+        for part in &parts[0..num_parts-1] {
+            url.push(part);
+            url.push("/");
+            breadcrumbs.push(CRUMB_PREFIX);
+            breadcrumbs.push(url.as_os_str());
+            breadcrumbs.push(CRUMB_MIDDLE);
+            breadcrumbs.push(part);
+            breadcrumbs.push(CRUMB_SUFFIX);
+        }
+        breadcrumbs.push(FINAL_PREFIX);
+        breadcrumbs.push(parts[num_parts-1]);
+        breadcrumbs.push(FINAL_SUFFIX);
     }
-    breadcrumbs.push(FINAL_PREFIX);
-    breadcrumbs.push(parts[num_parts-1]);
-    breadcrumbs.push(FINAL_SUFFIX);
     assert_eq!(breadcrumbs.len(), expected_len);
     breadcrumbs.to_string_lossy().to_string()
 }

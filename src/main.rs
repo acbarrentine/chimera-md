@@ -87,6 +87,7 @@ impl AppState {
         let html_generator = HtmlGenerator::new(
             template_root.as_path(),
             config.site_title,
+            config.index_file.as_str(),
             VERSION,
             &mut file_manager)?;
         let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
