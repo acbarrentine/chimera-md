@@ -13,6 +13,7 @@ type CachedResults = Arc<RwLock<BTreeMap<PathBuf, String>>>;
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
     site_title: String,
+    highlight_style: String,
     index_file: OsString,
     version: &'static str,
     cached_results: CachedResults,
@@ -66,6 +67,7 @@ impl HtmlGenerator {
         template_root: &Path,
         site_title: String,
         index_file: &str,
+        highlight_style: String,
         version: &'static str,
         file_manager: &mut FileManager
     ) -> Result<HtmlGenerator, ChimeraError> {
@@ -89,6 +91,7 @@ impl HtmlGenerator {
         Ok(HtmlGenerator {
             handlebars,
             site_title,
+            highlight_style,
             index_file: OsString::from(index_file),
             version,
             cached_results,
@@ -132,7 +135,7 @@ impl HtmlGenerator {
         let html_content = add_anchors_to_headings(html_content, &scraper.doclinks);
 
         let code_js = if scraper.has_code_blocks {
-            get_language_blob(&scraper.code_languages)
+            get_language_blob(&scraper.code_languages, self.highlight_style.as_str())
         }
         else {
             String::new()
@@ -327,28 +330,28 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     new_html
 }
 
-fn get_language_blob(langs: &[&str]) -> String {
-    let min_js_prefix = r#"<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/"#;
-    let min_js_suffix = r#"".min.js"></script>
-    "#;
-    let min_jis_len = langs.iter().fold(0, |len, el| {
-        len + el.len() + min_js_prefix.len() + min_js_suffix.len()
+fn get_language_blob(langs: &[&str], highlight_style: &str) -> String {
+    let lang_prefix = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
+    let lang_suffix = ".min.js\"></script>\n";
+    let lang_len = langs.iter().fold(0, |len, el| {
+        len + el.len() + lang_prefix.len() + lang_suffix.len()
     });
 
-    let style = r#"<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/an-old-hope.min.css">
-    "#;
-    let highlight_js = r#"<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    "#;
-    let invoke_js = r#"<script>hljs.highlightAll();</script>
-    "#;
-    let expected_len = style.len() + highlight_js.len() + min_jis_len + invoke_js.len();
+    let highlight_style_prefix = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/";
+    let highlight_style_suffix = ".min.css\">\n";
+    let highlight_js = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n";
+    let invoke_js = "    <script>hljs.highlightAll();</script>";
+    let expected_len = highlight_style_prefix.len() + highlight_style.len() + highlight_style_suffix.len() +
+        highlight_js.len() + lang_len + invoke_js.len();
     let mut buffer = String::with_capacity(expected_len);
-    buffer.push_str(style);
+    buffer.push_str(highlight_style_prefix);
+    buffer.push_str(highlight_style);
+    buffer.push_str(highlight_style_suffix);
     buffer.push_str(highlight_js);
     for lang in langs {
-        buffer.push_str(min_js_prefix);
+        buffer.push_str(lang_prefix);
         buffer.push_str(lang);
-        buffer.push_str(min_js_suffix);
+        buffer.push_str(lang_suffix);
     }
     buffer.push_str(invoke_js);
     assert_eq!(buffer.len(), expected_len);
@@ -367,7 +370,7 @@ fn get_breadcrumb_name_and_anchor_len(parts: &[&OsStr]) -> (usize, usize) {
     let mut anchor_len = HOME_DIR.len();
     let mut prev_anchor_len = anchor_len;
     let mut name_len = 0;
-    if parts.len() > 0 {
+    if !parts.is_empty() {
         for str in &parts[0..parts.len()-1] {
             let new_anchor_len = prev_anchor_len + str.len() + 1;
             anchor_len += new_anchor_len;

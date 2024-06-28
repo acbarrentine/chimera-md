@@ -52,6 +52,9 @@ struct Config {
     #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
     index_file: String,
 
+    #[arg(long, env("CHIMERA_HIGHLIGHT_STYLE"), default_value_t = String::from("a11y-dark"))]
+    highlight_style: String,
+
     #[arg(long, env("CHIMERA_GENERATE_INDEX"))]
     generate_index: Option<bool>,
 
@@ -88,6 +91,7 @@ impl AppState {
             template_root.as_path(),
             config.site_title,
             config.index_file.as_str(),
+            config.highlight_style,
             VERSION,
             &mut file_manager)?;
         let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;

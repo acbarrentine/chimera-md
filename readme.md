@@ -27,7 +27,8 @@ they are fancy HTML.
 3. Nice-looking theme
 4. Simple site navigation
 5. Full text search
-6. Updates automatically when files change
+6. Syntax highlighting for code blocks
+7. Updates automatically when files change
 
 ## Installation
 
@@ -76,6 +77,12 @@ services:
 
       # What is the name of the index file to serve for a folder URL?
       - CHIMERA_INDEX_FILE=index.md
+
+      # What code block highlight style should we use?
+      # Syntax highlighting provided by highlight.js
+      # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
+      # Default is "a11y-dark", a dark theme
+      - CHIMERA_HIGHLIGHT_STYLE=a11y-dark
 
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters
@@ -232,6 +239,7 @@ but odds are good you'll want to override at least a few of them.
     export CHIMERA_SEARCH_INDEX_DIR=/data/search
     export CHIMERA_SITE_TITLE=Chimera-md
     export CHIMERA_INDEX_FILE=index.md
+    export CHIMERA_HIGHLIGHT_STYLE=a11y-dark
     export CHIMERA_GENERATE_INDEX=false
     export CHIMERA_LOG_LEVEL=INFO
     export CHIMERA_PORT=8080
@@ -247,8 +255,8 @@ but odds are good you'll want to override at least a few of them.
 
     # Or you can do it all on the command line
     cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
-      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md
-      --generate-index=true --log-level DEBUG --port 8080
+      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --highlight-style
+      a11y-dark --generate-index=true --log-level DEBUG --port 8080
 ```
 
 Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)
