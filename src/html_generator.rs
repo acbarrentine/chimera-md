@@ -254,7 +254,7 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
     let Some(mut doclinks) = doclinks else {
         return "".to_string()
     };
-    assert_ne!(doclinks.len(), 0);
+    debug_assert_ne!(doclinks.len(), 0);
     let (num_indents, text_len) = normalize_headings(&mut doclinks);
     let list_prefix = "<ul>\n";
     let list_suffix = "</ul>\n";
@@ -287,7 +287,7 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
         html.push_str(list_suffix);
         last_level -= 1;
     }
-    assert_eq!(html.len(), expected_size);
+    debug_assert_eq!(html.len(), expected_size);
     html
 }
 
@@ -354,7 +354,7 @@ fn get_language_blob(langs: &[&str], highlight_style: &str) -> String {
         buffer.push_str(lang_suffix);
     }
     buffer.push_str(invoke_js);
-    assert_eq!(buffer.len(), expected_len);
+    debug_assert_eq!(buffer.len(), expected_len);
     buffer
 }
 
@@ -366,25 +366,28 @@ const CRUMB_SUFFIX: &str = r#"</a></span>"#;
 const FINAL_PREFIX: &str = r#"<span class="crumb">"#;
 const FINAL_SUFFIX: &str = r#"</span>"#;
 
-fn get_breadcrumb_name_and_anchor_len(parts: &[&OsStr]) -> (usize, usize) {
-    let mut anchor_len = HOME_DIR.len();
-    let mut prev_anchor_len = anchor_len;
+fn get_breadcrumb_name_and_url_len(parts: &[&OsStr]) -> (usize, usize, usize) {
+    let mut url_len = HOME_DIR.len();
+    let mut prev_url_len = url_len;
     let mut name_len = 0;
-    if !parts.is_empty() {
-        for str in &parts[0..parts.len()-1] {
-            let new_anchor_len = prev_anchor_len + str.len() + 1;
-            anchor_len += new_anchor_len;
-            prev_anchor_len = new_anchor_len;
-            name_len += str.len();
+    let mut it = parts.iter().peekable();
+    while let Some(p) = it.next() {
+        if it.peek().is_some() {
+            let new_url_len = prev_url_len + p.len() + 1;
+            url_len += new_url_len;
+            prev_url_len = new_url_len;
+            name_len += p.len();
         }
-        name_len += parts[parts.len() - 1].len();
+        else {
+            name_len += parts[parts.len() - 1].len();
+        }
     }
-    (name_len, anchor_len)
+    (name_len, url_len, prev_url_len)
 }
 
-fn get_breadcrumbs_len(parts: &[&OsStr]) -> usize {
-    let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(parts);
-    (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
+fn get_breadcrumbs_len(parts: &[&OsStr]) -> (usize, usize) {
+    let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(parts);
+    let breadcrumb_len = (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
         if parts.is_empty() {
             0
         }
@@ -392,36 +395,41 @@ fn get_breadcrumbs_len(parts: &[&OsStr]) -> usize {
             (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
             (FINAL_PREFIX.len() + FINAL_SUFFIX.len())
         }
-        + anchor_len + name_len
+        + url_len + name_len;
+    (breadcrumb_len, max_url_len)
 }
 
 fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
-    let mut url = OsString::from(HOME_DIR);
-    let mut parts: Vec<&OsStr> = path.iter().collect();
-    if parts.last() == Some(&skip) {
-        let _ = parts.pop();
-    }
-    let expected_len = get_breadcrumbs_len(&parts);
-    let mut breadcrumbs = OsString::with_capacity(expected_len);
+    let parts: Vec<&OsStr> = path.iter().filter(|el| {
+        el != &skip
+    }).collect();
+    let (breadcrumb_len, url_len) = get_breadcrumbs_len(&parts);
+    let mut breadcrumbs = OsString::with_capacity(breadcrumb_len);
+    let mut url = OsString::with_capacity(url_len);
+    url.push(HOME_DIR);
     breadcrumbs.push(HOME_PREFIX);
     breadcrumbs.push(url.as_os_str());
     breadcrumbs.push(HOME_SUFFIX);
-    let num_parts = parts.len();
-    if num_parts > 0 {
-        for part in &parts[0..num_parts-1] {
-            url.push(part);
+
+    let mut it = parts.iter().peekable();
+    while let Some(p) = it.next() {
+        if it.peek().is_some() {
+            url.push(p);
             url.push("/");
             breadcrumbs.push(CRUMB_PREFIX);
             breadcrumbs.push(url.as_os_str());
             breadcrumbs.push(CRUMB_MIDDLE);
-            breadcrumbs.push(part);
+            breadcrumbs.push(p);
             breadcrumbs.push(CRUMB_SUFFIX);
         }
-        breadcrumbs.push(FINAL_PREFIX);
-        breadcrumbs.push(parts[num_parts-1]);
-        breadcrumbs.push(FINAL_SUFFIX);
+        else {
+            breadcrumbs.push(FINAL_PREFIX);
+            breadcrumbs.push(p);
+            breadcrumbs.push(FINAL_SUFFIX);
+        }
     }
-    assert_eq!(breadcrumbs.len(), expected_len);
+    debug_assert_eq!(breadcrumbs.len(), breadcrumb_len);
+    debug_assert_eq!(url.len(), url_len);
     breadcrumbs.to_string_lossy().to_string()
 }
 
@@ -520,26 +528,29 @@ mod tests {
     fn test_breadcrumbs_1() {
         let path = PathBuf::from("Documents/Example/index.md");
         let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
         assert_eq!(name_len, 24);
-        assert_eq!(anchor_len, 46);
+        assert_eq!(url_len, 46);
+        assert_eq!(max_url_len, 24);
     }
 
     #[test]
     fn test_breadcrumbs_2() {
         let path = PathBuf::from("Documents/Example/Recipes/pizza.md");
         let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
         assert_eq!(name_len, 31);
-        assert_eq!(anchor_len, 78);
+        assert_eq!(url_len, 78);
+        assert_eq!(max_url_len, 32);
     }
 
     #[test]
     fn test_breadcrumbs_3() {
         let path = PathBuf::from("index.md");
         let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, anchor_len) = get_breadcrumb_name_and_anchor_len(&parts);
+        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
         assert_eq!(name_len, 8);
-        assert_eq!(anchor_len, 6);
+        assert_eq!(url_len, 6);
+        assert_eq!(max_url_len, 6);
     }
 }

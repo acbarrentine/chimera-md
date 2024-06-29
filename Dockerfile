@@ -3,8 +3,6 @@ FROM rust:1.79-alpine as builder
 WORKDIR /usr/src/chimera-md
 COPY . .
 
-RUN mkdir /empty && chmod 777 /empty
-
 RUN apk add --no-cache musl-dev
 RUN cargo build --release
 
@@ -13,7 +11,6 @@ COPY --from=builder /usr/src/chimera-md/target/release/chimera-md /bin/chimera-m
 COPY --from=builder /usr/src/chimera-md/www /data/www
 COPY --from=builder /usr/src/chimera-md/templates /data/templates
 COPY --from=builder /usr/src/chimera-md/style/ /data/style
-COPY --from=builder /empty /tmp
 
 EXPOSE 8080
 
