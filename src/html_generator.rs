@@ -328,7 +328,7 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_to
 }
 
 fn get_plugins(scraper: &DocumentScraper) -> String {
-    tracing::info!("Plugins: {:?}", scraper.plugins);
+    tracing::debug!("Including plugins: {:?}", scraper.plugins);
     let mut plugins = String::with_capacity(1024);
     if !scraper.plugins.is_empty() {
         plugins.push_str("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js\"></script>\n");

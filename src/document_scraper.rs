@@ -62,7 +62,7 @@ impl DocumentScraper {
     }
 
     pub fn check_event(&mut self, ev: &Event, range: Range<usize>) {
-        tracing::info!("md-event: {ev:?} - {range:?}");
+        tracing::debug!("md-event: {ev:?} - {range:?}");
         match ev {
             Event::Start(tag) => {
                 match tag {
@@ -75,10 +75,6 @@ impl DocumentScraper {
                             self.has_readable_text = true;
                         }
                         self.text_collector = Some(String::with_capacity(64));
-                    },
-                    Tag::BlockQuote(_) => {
-                        tracing::info!("Blockquote");
-                        self.has_readable_text = true;
                     },
                     Tag::CodeBlock(kind) => {
                         self.has_code_blocks = true;
@@ -157,13 +153,13 @@ impl DocumentScraper {
                     },
                     TagEnd::MetadataBlock(_) => {
                         if let Some(metadata) = self.text_collector.take() {
-                            tracing::info!("Metadata: {metadata}");
                             let mut it = metadata.split(':');
                             while let Some(chunk) = it.next() {
                                 if chunk.eq_ignore_ascii_case("plugin") {
                                     if let Some(plugin) = it.next() {
-                                        tracing::info!("Plugin: {plugin:?}");
-                                        self.plugins.push(plugin.trim().to_string());
+                                        let plugin = plugin.trim();
+                                        tracing::debug!("Plugin: {plugin:?}");
+                                        self.plugins.push(plugin.to_string());
                                     }
                                     else {
                                         break;
