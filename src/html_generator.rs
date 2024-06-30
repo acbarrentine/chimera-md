@@ -26,6 +26,7 @@ struct MarkdownVars {
     body: String,
     title: String,
     code_js: String,
+    plugin_js: String,
     doclinks: String,
     peers: String,
     breadcrumbs: String,
@@ -133,7 +134,8 @@ impl HtmlGenerator {
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
         let html_content = add_anchors_to_headings(html_content, &scraper.doclinks, !scraper.starts_with_heading);
-        let code_js = get_language_blob(&scraper, self.highlight_style.as_str());
+        let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
+        let plugin_js = get_plugins(&scraper);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
                 name.to_string_lossy().to_string()
@@ -154,6 +156,7 @@ impl HtmlGenerator {
             site_title: self.site_title.clone(),
             version: self.version.to_string(),
             code_js,
+            plugin_js,
             doclinks_len: doclinks_html.len(),
             doclinks: doclinks_html,
             peers_len: peers_html.len(),
@@ -324,38 +327,27 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_to
     new_html
 }
 
-fn get_language_blob(scraper: &DocumentScraper, highlight_style: &str) -> String {
-    if scraper.has_code_blocks {
-        if scraper.code_languages.is_empty() {
-            if scraper.has_strong {
-                get_dialog_blob()
-            }
-            else {
-                String::new()
-            }
-        }
-        else {
-            get_code_blob(&scraper.code_languages, highlight_style)
-        }
+fn get_plugins(scraper: &DocumentScraper) -> String {
+    tracing::info!("Plugins: {:?}", scraper.plugins);
+    let mut plugins = String::with_capacity(1024);
+    if !scraper.plugins.is_empty() {
+        plugins.push_str("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js\"></script>\n");
     }
-    else {
-        String::new()
+    for plugin in scraper.plugins.iter() {
+        plugins.push_str("<script src=\"/home/script/");
+        plugins.push_str(plugin.as_str());
+        plugins.push_str(".js\"></script>\n");
     }
+    plugins
 }
 
-fn get_dialog_blob() -> String {
-    r#"<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script>
-      $(document).ready(function(){
-        $("pre>code").addClass("language-dialog").parent().prev("p").children("strong").addClass("speaker");
-      });
-    </script>"#.to_string()
-}
-
-fn get_code_blob(langs: &[&str], highlight_style: &str) -> String {
+fn get_code_blob(scraper: &DocumentScraper, highlight_style: &str) -> String {
+    if !scraper.has_code_blocks {
+        return String::new()
+    }
     let lang_prefix = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
     let lang_suffix = ".min.js\"></script>\n";
-    let lang_len = langs.iter().fold(0, |len, el| {
+    let lang_len = scraper.code_languages.iter().fold(0, |len, el| {
         len + el.len() + lang_prefix.len() + lang_suffix.len()
     });
 
@@ -370,7 +362,7 @@ fn get_code_blob(langs: &[&str], highlight_style: &str) -> String {
     buffer.push_str(highlight_style);
     buffer.push_str(highlight_style_suffix);
     buffer.push_str(highlight_js);
-    for lang in langs {
+    for lang in scraper.code_languages.iter() {
         buffer.push_str(lang_prefix);
         buffer.push_str(lang);
         buffer.push_str(lang_suffix);

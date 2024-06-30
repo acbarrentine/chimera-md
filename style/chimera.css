@@ -103,32 +103,21 @@ pre code {
     border-left: 5px solid var(--border-color);
 }
 
-.speaker {
-    color: #af89e8;
-    font-size: 1.7rem;
-    background-color: #1e1d1d;
-    border-radius: 5px;
-    position: relative;
-    top: 27px;
-    left: 20px;
-    padding: 8px 16px;
-}
-
-pre code.language-dialog {
-    font-family: "Gill Sans", sans-serif;
-    font-size: 1.7rem;
-    white-space: break-spaces;
-}
-
 blockquote {
-    margin: 0;
+    font-size: 1.8rem;
+    margin: 5px 5px 2rem 5px;
+    background: var(--block-color);
+    border-left: 5px solid var(--border-color);
+    border-radius: 5px;
+    padding: 10px;
 }
 
 blockquote p {
-    padding: 10px;
-    background: var(--block-color);
-    border-radius: 5px;
-    border-left: 5px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+
+blockquote p:last-child {
+    margin-bottom: 5px;
 }
 
 hr {

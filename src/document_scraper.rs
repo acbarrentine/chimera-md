@@ -24,13 +24,14 @@ pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub doclinks: Vec<Doclink>,
     pub code_languages: Vec<&'static str>,
+    pub plugins: Vec<String>,
     pub title: Option<String>,
     heading_re: Regex,
     id_re: Regex,
-    heading_text: Option<String>,
+    text_collector: Option<String>,
     pub has_code_blocks: bool,
-    pub has_strong: bool,
     pub starts_with_heading: bool,
+    has_readable_text: bool,
 }
 
 fn get_munged_anchor(anchor: &str) -> String {
@@ -49,37 +50,50 @@ impl DocumentScraper {
             ]),
             doclinks: Vec::new(),
             code_languages: Vec::new(),
+            plugins: Vec::new(),
             title: None,
             heading_re,
             id_re,
-            heading_text: None,
+            text_collector: None,
             has_code_blocks: false,
-            has_strong: false,
             starts_with_heading: false,
+            has_readable_text: false,
         }
     }
 
     pub fn check_event(&mut self, ev: &Event, range: Range<usize>) {
-        tracing::debug!("md-event: {ev:?} - {range:?}");
+        tracing::info!("md-event: {ev:?} - {range:?}");
         match ev {
-            Event::Start(Tag::Heading{level: _, id: _, classes: _, attrs: _}) => {
-                if range.start == 0 {
-                    self.starts_with_heading = true;
-                }
-                self.heading_text = Some(String::with_capacity(64));
-            },
-            Event::Start(Tag::CodeBlock(kind)) => {
-                self.has_code_blocks = true;
-                if let pulldown_cmark::CodeBlockKind::Fenced(lang) = kind {
-                    let lang = lang.to_ascii_lowercase();
-                    if let Some(js) = self.language_map.get(lang.as_str()) {
-                        self.code_languages.push(js);
+            Event::Start(tag) => {
+                match tag {
+                    Tag::MetadataBlock(_) => {
+                        self.text_collector = Some(String::with_capacity(128));
+                    },
+                    Tag::Heading { level: _, id: _, classes: _, attrs: _ } => {
+                        if !self.has_readable_text {
+                            self.starts_with_heading = true;
+                            self.has_readable_text = true;
+                        }
+                        self.text_collector = Some(String::with_capacity(64));
+                    },
+                    Tag::BlockQuote(_) => {
+                        tracing::info!("Blockquote");
+                        self.has_readable_text = true;
+                    },
+                    Tag::CodeBlock(kind) => {
+                        self.has_code_blocks = true;
+                        if let pulldown_cmark::CodeBlockKind::Fenced(lang) = kind {
+                            let lang = lang.to_ascii_lowercase();
+                            if let Some(js) = self.language_map.get(lang.as_str()) {
+                                self.code_languages.push(js);
+                            }
+                        }
+                    },
+                    _ => {
+                        self.has_readable_text = true;
                     }
                 }
-            }
-            Event::Start(Tag::Strong) => {
-                self.has_strong = true;
-            }
+            },
             Event::Html(text) => {
                 // <h3 id="the-middle">The middle</h3>
                 if let Some(captures) = self.heading_re.captures(text) {
@@ -122,21 +136,44 @@ impl DocumentScraper {
                 }
             },
             Event::Text(t) => {
-                if let Some(name) = self.heading_text.as_mut() {
+                if let Some(name) = self.text_collector.as_mut() {
                     name.push_str(t);
                 }
             },
-            Event::End(TagEnd::Heading(level)) => {
-                if let Some(name) = self.heading_text.take() {
-                    // first heading is also the title
-                    if self.title.is_none() {
-                        self.title = Some(name.clone());
+            Event::End(tag) => {
+                match tag {
+                    TagEnd::Heading(level) => {
+                        if let Some(name) = self.text_collector.take() {
+                            // first heading is also the title
+                            if self.title.is_none() {
+                                self.title = Some(name.clone());
+                            }
+                            let link = Doclink::new(
+                                get_munged_anchor(name.to_lowercase().as_str()), 
+                                name, *level as u8);
+                            tracing::debug!("Doclink found: {link:?}");
+                            self.doclinks.push(link);
+                        }
+                    },
+                    TagEnd::MetadataBlock(_) => {
+                        if let Some(metadata) = self.text_collector.take() {
+                            tracing::info!("Metadata: {metadata}");
+                            let mut it = metadata.split(':');
+                            while let Some(chunk) = it.next() {
+                                if chunk.eq_ignore_ascii_case("plugin") {
+                                    if let Some(plugin) = it.next() {
+                                        tracing::info!("Plugin: {plugin:?}");
+                                        self.plugins.push(plugin.trim().to_string());
+                                    }
+                                    else {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    _ => {
                     }
-                    let link = Doclink::new(
-                        get_munged_anchor(name.to_lowercase().as_str()), 
-                        name, *level as u8);
-                    tracing::debug!("Doclink found: {link:?}");
-                    self.doclinks.push(link);
                 }
             },
             _ => {}
@@ -147,8 +184,10 @@ impl DocumentScraper {
 pub fn parse_markdown(md: &str) -> (DocumentScraper, String) {
     let mut scraper = DocumentScraper::new();
     let parser = pulldown_cmark::Parser::new_ext(
-        md, pulldown_cmark::Options::ENABLE_TABLES
-        ).into_offset_iter().map(|(ev, range)| {
+        md, pulldown_cmark::Options::ENABLE_TABLES |
+        pulldown_cmark::Options::ENABLE_SMART_PUNCTUATION |
+        pulldown_cmark::Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
+    ).into_offset_iter().map(|(ev, range)| {
         scraper.check_event(&ev, range);
         ev
     });

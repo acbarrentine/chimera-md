@@ -135,6 +135,7 @@ async fn main() -> Result<(), ChimeraError> {
         .route("/", get(handle_root))
         .route(HOME_DIR, get(handle_root))
         .route(format!("{HOME_DIR}*path").as_str(), get(handle_path))
+        .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state);
 

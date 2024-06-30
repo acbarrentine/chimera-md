@@ -24,3 +24,21 @@ nav {
     background-position: center center;
 }
 */
+
+.speaker {
+  color: #af89e8;
+  font-size: 1.7rem;
+  font-weight: bold;
+  background-color: #1e1d1d;
+  border-radius: 5px;
+  position: relative;
+  top: 1.9em;
+  left: 20px;
+  padding: 8px 16px;
+  width: fit-content;
+  margin-top: -2em;
+}
+
+.dialog {
+  font-family: "Gill Sans", sans-serif;
+}
