@@ -29,7 +29,8 @@ pub struct DocumentScraper {
     id_re: Regex,
     heading_text: Option<String>,
     pub has_code_blocks: bool,
-    starts_with_heading: bool,
+    pub has_strong: bool,
+    pub starts_with_heading: bool,
 }
 
 fn get_munged_anchor(anchor: &str) -> String {
@@ -53,6 +54,7 @@ impl DocumentScraper {
             id_re,
             heading_text: None,
             has_code_blocks: false,
+            has_strong: false,
             starts_with_heading: false,
         }
     }
@@ -74,6 +76,9 @@ impl DocumentScraper {
                         self.code_languages.push(js);
                     }
                 }
+            }
+            Event::Start(Tag::Strong) => {
+                self.has_strong = true;
             }
             Event::Html(text) => {
                 // <h3 id="the-middle">The middle</h3>

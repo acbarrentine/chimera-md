@@ -132,15 +132,8 @@ impl HtmlGenerator {
         peers: Option<Vec<Doclink>>,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let html_content = add_anchors_to_headings(html_content, &scraper.doclinks);
-
-        let code_js = if scraper.has_code_blocks {
-            get_language_blob(&scraper.code_languages, self.highlight_style.as_str())
-        }
-        else {
-            String::new()
-        };
-
+        let html_content = add_anchors_to_headings(html_content, &scraper.doclinks, !scraper.starts_with_heading);
+        let code_js = get_language_blob(&scraper, self.highlight_style.as_str());
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
                 name.to_string_lossy().to_string()
@@ -291,12 +284,13 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
     html
 }
 
-fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
+fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_top: bool) -> String {
+    let start_index = if inserted_top { 1 } else { 0 };
     let num_links = links.len();
-    if num_links == 1 {
+    if num_links == start_index {
         return original_html;
     }
-    let mut link_index = 1;
+    let mut link_index = start_index;
     let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
     let mut char_iter = original_html.char_indices();
     while let Some((i, c)) = char_iter.next() {
@@ -330,7 +324,35 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink]) -> String {
     new_html
 }
 
-fn get_language_blob(langs: &[&str], highlight_style: &str) -> String {
+fn get_language_blob(scraper: &DocumentScraper, highlight_style: &str) -> String {
+    if scraper.has_code_blocks {
+        if scraper.code_languages.is_empty() {
+            if scraper.has_strong {
+                get_dialog_blob()
+            }
+            else {
+                String::new()
+            }
+        }
+        else {
+            get_code_blob(&scraper.code_languages, highlight_style)
+        }
+    }
+    else {
+        String::new()
+    }
+}
+
+fn get_dialog_blob() -> String {
+    r#"<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
+      $(document).ready(function(){
+        $("pre>code").addClass("language-dialog").parent().prev("p").children("strong").addClass("speaker");
+      });
+    </script>"#.to_string()
+}
+
+fn get_code_blob(langs: &[&str], highlight_style: &str) -> String {
     let lang_prefix = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
     let lang_suffix = ".min.js\"></script>\n";
     let lang_len = langs.iter().fold(0, |len, el| {

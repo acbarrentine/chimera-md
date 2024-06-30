@@ -93,7 +93,7 @@ img {
 code {
     font-family: monospace;
     font-size: 100%;
-    background-color: rgb(45, 53, 73);
+    background-color: #2b2b2b;
     border: 1px solid rgb(102, 120, 162);
 }
 
@@ -101,6 +101,23 @@ pre code {
     border-radius: 5px;
     border: none;
     border-left: 5px solid var(--border-color);
+}
+
+.speaker {
+    color: #af89e8;
+    font-size: 1.7rem;
+    background-color: #1e1d1d;
+    border-radius: 5px;
+    position: relative;
+    top: 27px;
+    left: 20px;
+    padding: 8px 16px;
+}
+
+pre code.language-dialog {
+    font-family: "Gill Sans", sans-serif;
+    font-size: 1.7rem;
+    white-space: break-spaces;
 }
 
 blockquote {
