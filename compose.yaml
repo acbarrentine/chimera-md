@@ -29,6 +29,9 @@ services:
       # Similarly, you can map additional image directories
       # - /usr/data/user1/icons:/data/www/images/icons:ro
 
+      # If you use plug-ins, scripts for them will be loaded from /data/www/script
+      # - /volume1/docker/chimera-md/script:/data/www/script:ro
+
     environment:
       # Chimera provides a number of environment variable-based configuration options. Only a few
       # are relevant to Docker installations
