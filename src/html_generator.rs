@@ -1,14 +1,14 @@
-use std::{cmp::Ordering, collections::BTreeMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}, sync::Arc};
-use tokio::sync::RwLock;
+use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
 use crate::{chimera_error::ChimeraError,
     document_scraper::{Doclink, DocumentScraper},
-    full_text_index::SearchResult, FileManager, HOME_DIR
+    result_cache::ResultCache,
+    full_text_index::SearchResult,
+    FileManager,
+    HOME_DIR
 };
-
-type CachedResults = Arc<RwLock<BTreeMap<PathBuf, String>>>;
 
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
@@ -16,7 +16,7 @@ pub struct HtmlGenerator {
     highlight_style: String,
     index_file: OsString,
     version: &'static str,
-    cached_results: CachedResults,
+    result_cache: ResultCache,
 }
 
 #[derive(Serialize)]
@@ -70,6 +70,7 @@ impl HtmlGenerator {
         index_file: &str,
         highlight_style: String,
         version: &'static str,
+        result_cache: ResultCache,
         file_manager: &mut FileManager
     ) -> Result<HtmlGenerator, ChimeraError> {
         let mut handlebars = Handlebars::new();
@@ -85,9 +86,8 @@ impl HtmlGenerator {
             }
         }
 
-        let cached_results = Arc::new(RwLock::new(BTreeMap::new()));
         let rx = file_manager.subscribe();
-        tokio::spawn(listen_for_changes(rx, cached_results.clone()));
+        tokio::spawn(listen_for_changes(rx, result_cache.clone()));
 
         Ok(HtmlGenerator {
             handlebars,
@@ -95,7 +95,7 @@ impl HtmlGenerator {
             highlight_style,
             index_file: OsString::from(index_file),
             version,
-            cached_results,
+            result_cache,
         })
     }
 
@@ -166,11 +166,7 @@ impl HtmlGenerator {
 
         let html = self.handlebars.render("markdown", &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
-
-        {
-            let mut cache = self.cached_results.write().await;
-            cache.insert(path.to_path_buf(), html.clone());
-        }
+        self.result_cache.add(path, html.as_str()).await;
 
         Ok(html)
     }
@@ -202,16 +198,8 @@ impl HtmlGenerator {
             breadcrumbs,
         };
         let html = self.handlebars.render("index", &vars)?;
-        {
-            let mut cache = self.cached_results.write().await;
-            cache.insert(path.to_path_buf(), html.clone());
-        }
+        self.result_cache.add(path, html.as_str()).await;
         Ok(html)
-    }
-
-    pub async fn get_cached_result(&self, path: &std::path::Path) -> Option<String> {
-        let cache = self.cached_results.read().await;
-        cache.get(path).cloned()
     }
 }
 
@@ -449,15 +437,14 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
 
 async fn listen_for_changes(
     mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
-    cache: CachedResults,
+    cache: ResultCache,
 ) {
     while let Ok(path) = rx.recv().await {
         tracing::info!("HG change event {}", path.display());
         if let Some(ext) = path.extension() {
             if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
                 tracing::info!("Discarding cached HTML results");
-                let mut map = cache.write().await;
-                map.clear()
+                cache.clear().await;
             }
         }
     }

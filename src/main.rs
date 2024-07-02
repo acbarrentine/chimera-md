@@ -3,9 +3,11 @@ mod document_scraper;
 mod full_text_index;
 mod html_generator;
 mod file_manager;
+mod result_cache;
 
 use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router};
+use result_cache::ResultCache;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::Deserialize;
@@ -61,6 +63,9 @@ struct Config {
     #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
     log_level: Option<tracing::Level>,
 
+    #[arg(long, env("CHIMERA_MAX_CACHE_SIZE"), default_value_t = 50 * 1024 * 1024)]
+    max_cache_size: usize,
+
     #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..), default_value_t = 8080)]
     port: u16,
 }
@@ -72,6 +77,7 @@ struct AppState {
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
     file_manager: FileManager,
+    result_cache: ResultCache,
 }
 
 impl AppState {
@@ -87,12 +93,15 @@ impl AppState {
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
+        let result_cache = ResultCache::new(config.max_cache_size);
+
         let html_generator = HtmlGenerator::new(
             template_root.as_path(),
             config.site_title,
             config.index_file.as_str(),
             config.highlight_style,
             VERSION,
+            result_cache.clone(),
             &mut file_manager)?;
         let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
@@ -105,6 +114,7 @@ impl AppState {
             full_text_index,
             html_generator,
             file_manager,
+            result_cache,
         })
     }
 }
@@ -242,7 +252,7 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
-    if let Some(result) = app_state.html_generator.get_cached_result(path).await {
+    if let Some(result) = app_state.result_cache.get(path).await {
         tracing::debug!("Returning cached response for {}", path.display());
         return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
     }
@@ -301,7 +311,7 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            if let Some(result) = app_state.html_generator.get_cached_result(path).await {
+            if let Some(result) = app_state.result_cache.get(path).await {
                 tracing::debug!("Returning cached index for {}", path.display());
                 return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
             }

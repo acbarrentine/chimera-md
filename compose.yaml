@@ -55,4 +55,8 @@ services:
       # If a directory doesn't contain an index.md file, should we generate one?
       - CHIMERA_GENERATE_INDEX=true
 
+      # Maximum size (in bytes) for the HTML page cache
+      # Default is 50 MBs
+      - CHIMERA_MAX_CACHE_SIZE=52428800
+
     restart: unless-stopped

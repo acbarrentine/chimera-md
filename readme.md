@@ -94,6 +94,10 @@ services:
       # If a directory doesn't contain an index.md file, should we generate one?
       - CHIMERA_GENERATE_INDEX=true
 
+      # Maximum size (in bytes) for the HTML page cache
+      # Default is 50 MBs
+      - CHIMERA_MAX_CACHE_SIZE=52428800
+
     restart: unless-stopped
 ```
 
@@ -278,6 +282,7 @@ but odds are good you'll want to override at least a few of them.
     export CHIMERA_HIGHLIGHT_STYLE=a11y-dark
     export CHIMERA_GENERATE_INDEX=false
     export CHIMERA_LOG_LEVEL=INFO
+    export CHIMERA_MAX_CACHE_SIZE=52428800
     export CHIMERA_PORT=8080
 
     # And then run the program unadorned
@@ -292,7 +297,7 @@ but odds are good you'll want to override at least a few of them.
     # Or you can do it all on the command line
     cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
       --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --highlight-style
-      a11y-dark --generate-index=true --log-level DEBUG --port 8080
+      a11y-dark --generate-index=true --log-level DEBUG --max-cache-size 52428800 --port 8080
 ```
 
 Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)

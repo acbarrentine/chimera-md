@@ -136,6 +136,7 @@ td, th {
     margin: 10px;
     border: none;
     box-shadow: 0 0 0 1px var(--shade-color);
+    vertical-align: top;
 }
 
 th {
