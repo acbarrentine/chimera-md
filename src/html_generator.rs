@@ -138,10 +138,10 @@ impl HtmlGenerator {
         let plugin_js = get_plugins(&scraper);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
-                name.to_string_lossy().to_string()
+                name.to_string_lossy().into_owned()
             }
             else {
-                path.to_string_lossy().to_string()
+                path.to_string_lossy().into_owned()
             }
         });
 
@@ -188,7 +188,7 @@ impl HtmlGenerator {
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
-        let path_str = path_os_str.to_string_lossy().to_string();
+        let path_str = path_os_str.to_string_lossy().into_owned();
         let vars = IndexVars {
             title: format!("{}: {}", self.site_title, path_str),
             site_title: self.site_title.clone(),
@@ -432,7 +432,7 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
     }
     debug_assert_eq!(breadcrumbs.len(), breadcrumb_len);
     debug_assert_eq!(url.len(), url_len);
-    breadcrumbs.to_string_lossy().to_string()
+    breadcrumbs.to_string_lossy().into_owned()
 }
 
 async fn listen_for_changes(

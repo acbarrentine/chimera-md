@@ -38,7 +38,7 @@ impl FileManager {
                                     continue;
                                 }
                             }
-                            let name_string = file_name.to_string_lossy().to_string();
+                            let name_string = file_name.to_string_lossy().into_owned();
                             tracing::debug!("Peer: {}", name_string);
                             files.push(Doclink {
                                 anchor: urlencoding::encode(name_string.as_str()).into_owned(),

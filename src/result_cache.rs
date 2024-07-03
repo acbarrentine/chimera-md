@@ -44,7 +44,6 @@ impl ResultCache {
             lock.current_size -= prev.html.len();
         }
         lock.current_size += html.len();
-        tracing::info!("Current cache size: {} kb", lock.current_size as f64 / 1024.0);
         if lock.current_size > lock.max_size {
             if let Err(e) = lock.compact_tx.send(()).await {
                 tracing::warn!("Failed to send cache compact message: {e}");
