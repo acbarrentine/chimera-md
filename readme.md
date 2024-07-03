@@ -76,26 +76,30 @@ services:
       # named .env, placed next to this compose.yaml file
 
       # Site title appears in the <title> tags of served pages
+      # Default is "Chimera-md"
       - CHIMERA_SITE_TITLE=Chimera-md
 
       # What is the name of the index file to serve for a folder URL?
+      # Default is "index.md"
       - CHIMERA_INDEX_FILE=index.md
 
       # What code block highlight style should we use?
       # Syntax highlighting provided by highlight.js
       # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
-      # Default is "a11y-dark", a dark theme
+      # Default is "a11y-dark"
       - CHIMERA_HIGHLIGHT_STYLE=a11y-dark
 
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters
+      # Default is INFO
       - CHIMERA_LOG_LEVEL=INFO
 
       # If a directory doesn't contain an index.md file, should we generate one?
+      # Default is false
       - CHIMERA_GENERATE_INDEX=true
 
       # Maximum size (in bytes) for the HTML page cache
-      # Default is 50 MBs
+      # Default is 52428800 (50 MBs)
       - CHIMERA_MAX_CACHE_SIZE=52428800
 
     restart: unless-stopped
