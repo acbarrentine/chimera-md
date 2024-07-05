@@ -323,11 +323,9 @@ and [flag bugs](https://github.com/acbarrentine/chimera-md/issues). It takes a v
 What does the future hold? It's hard to say. Some possible future directions include:
 
 1. Progressive search results
-2. Optionally generating index.md files on demand
-3. A custom "dialog" blockquote style for screenplay-style speech
-4. User authentication and restricting content to particular users
-5. Additional navigation customization options
-6. Editing or uploading of Markdown files
+2. User authentication and restricting content to particular users
+3. Additional navigation customization options
+4. Editing or uploading of Markdown files
 
 It all depends on you. What do you want to see?
 

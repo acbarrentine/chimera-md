@@ -2,7 +2,6 @@ version: '3.8'
 services:
   chimera-md:
     container_name: chimera-md
-    platform: linux/amd64
     image: acbarrentine/chimera-md:latest
     ports:
       - "8080:8080"
