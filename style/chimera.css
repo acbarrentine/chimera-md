@@ -47,20 +47,26 @@ nav {
     cursor: pointer;
     fill: var(--text-color);
     vertical-align: top;
-}
-
-section {
     z-index: 1;
 }
 
-section.title {
+div.title {
     margin-left: 10px;
     font-weight: 500;
     font-size: 5rem;
     text-wrap: nowrap;
+    z-index: 1;
 }
 
-section.search button {
+div.search {
+    z-index: 1;
+}
+
+div.mobile-search {
+    z-index: 1;
+}
+
+div.search button {
     fill: var(--text-color);
     vertical-align: top;
     padding: none;
@@ -176,10 +182,10 @@ tr:nth-child(odd) {
     nav {
         padding: 0 1em 0 1em;
     }
-    section.title {
+    div.title {
         font-size: 3rem;
     }
-    section.search {
+    div.search {
         display: none;
     }
     .breadcrumbs {
@@ -197,7 +203,7 @@ tr:nth-child(odd) {
     .linkbox {
         width: 100%;
     }
-    section.mobile-search {
+    div.mobile-search {
         display: none;
     }
 }

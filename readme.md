@@ -83,6 +83,12 @@ services:
       # Default is "index.md"
       - CHIMERA_INDEX_FILE=index.md
 
+      # HTML lang tag
+      # Used as <html lang="site_lang">
+      # See <https://www.w3.org/International/questions/qa-html-language-declarations> for details
+      # Default is "en"
+      - CHIMERA_SITE_LANG=en
+
       # What code block highlight style should we use?
       # Syntax highlighting provided by highlight.js
       # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
@@ -241,14 +247,14 @@ increasing complexity, these are:
 4.  Override the Handlebars files
 
     The Markdown files Chimera-md serves are assembled from your Markdown content
-    folded into three different template files: `/data/templates/header.hb`,
-    `/data/templates/footer.hb`, and `/data/templates/markdown.hb`. Here, again, you
+    folded into four template files: `/data/templates/header.hbs`, `/data/templates/footer.hbs`,
+    `/data/templates/sidebar.hbs`, and `/data/templates/markdown.hbs`. Here, again, you
     could make local customized copies of [these files](https://github.com/acbarrentine/chimera-md/tree/main/templates)
     and use volume mapping to have your container serve your copies. Three additional
     templates for index, error, and search are also in there. As with the style
     files, though, changes here have a decent chance of conflicting with changes I
     might make. I suggest using the partials system to isolate your changes, if
-    possible. See how `markdown.hb` links to the other two.
+    possible. See how `markdown.hbs` links to the other two.
 
     Special note: the [Rust Handlebars library](https://docs.rs/handlebars/5.1.2/handlebars/index.html)
     is not a complete implementation of the Javascript original, so you may have to do
@@ -283,6 +289,7 @@ but odds are good you'll want to override at least a few of them.
     export CHIMERA_SEARCH_INDEX_DIR=/data/search
     export CHIMERA_SITE_TITLE=Chimera-md
     export CHIMERA_INDEX_FILE=index.md
+    export CHIMERA_SITE_LANG=en
     export CHIMERA_HIGHLIGHT_STYLE=a11y-dark
     export CHIMERA_GENERATE_INDEX=false
     export CHIMERA_LOG_LEVEL=INFO
@@ -300,8 +307,9 @@ but odds are good you'll want to override at least a few of them.
 
     # Or you can do it all on the command line
     cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
-      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --highlight-style
-      a11y-dark --generate-index=true --log-level DEBUG --max-cache-size 52428800 --port 8080
+      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --site-lang en
+      --highlight-style a11y-dark --generate-index=true --log-level DEBUG --max-cache-size 52428800
+      --port 8080
 ```
 
 Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)

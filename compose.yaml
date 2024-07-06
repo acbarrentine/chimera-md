@@ -44,6 +44,12 @@ services:
       # Default is "index.md"
       - CHIMERA_INDEX_FILE=index.md
 
+      # HTML lang tag
+      # Used as <html lang="site_lang">
+      # See <https://www.w3.org/International/questions/qa-html-language-declarations> for details
+      # Default is "en"
+      - CHIMERA_SITE_LANG=en
+
       # What code block highlight style should we use?
       # Syntax highlighting provided by highlight.js
       # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles

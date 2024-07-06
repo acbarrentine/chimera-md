@@ -7,6 +7,7 @@ mod result_cache;
 
 use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router};
+use html_generator::HtmlGeneratorCfg;
 use result_cache::ResultCache;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -57,6 +58,9 @@ struct Config {
     #[arg(long, env("CHIMERA_HIGHLIGHT_STYLE"), default_value_t = String::from("a11y-dark"))]
     highlight_style: String,
 
+    #[arg(long, env("CHIMERA_LANG"), default_value_t = String::from("en"))]
+    site_lang: String,
+
     #[arg(long, env("CHIMERA_GENERATE_INDEX"))]
     generate_index: Option<bool>,
 
@@ -95,14 +99,18 @@ impl AppState {
 
         let result_cache = ResultCache::new(config.max_cache_size);
 
-        let html_generator = HtmlGenerator::new(
+        let cfg = HtmlGeneratorCfg {
             template_root,
-            config.site_title,
-            config.index_file.as_str(),
-            config.highlight_style,
-            VERSION,
-            result_cache.clone(),
-            &mut file_manager)?;
+            site_title: config.site_title,
+            index_file: config.index_file.as_str(),
+            site_lang: config.site_lang,
+            highlight_style: config.highlight_style,
+            version: VERSION,
+            result_cache: result_cache.clone(),
+            file_manager: &mut file_manager,
+        };
+        let html_generator = HtmlGenerator::new(cfg)?;
+        
         let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
 

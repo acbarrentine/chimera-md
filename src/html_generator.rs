@@ -10,9 +10,21 @@ use crate::{chimera_error::ChimeraError,
     HOME_DIR
 };
 
+pub struct HtmlGeneratorCfg<'a, 'b> {
+    pub template_root: PathBuf,
+    pub site_title: String,
+    pub index_file: &'a str,
+    pub site_lang: String,
+    pub highlight_style: String,
+    pub version: &'static str,
+    pub result_cache: ResultCache,
+    pub file_manager: &'b mut FileManager
+}
+
 pub struct HtmlGenerator {
     handlebars: Handlebars<'static>,
     site_title: String,
+    site_lang: String,
     highlight_style: String,
     index_file: OsString,
     version: &'static str,
@@ -22,6 +34,7 @@ pub struct HtmlGenerator {
 #[derive(Serialize)]
 struct MarkdownVars<'a> {
     site_title: &'a str,
+    site_lang: &'a str,
     version: String,
     body: String,
     title: String,
@@ -65,37 +78,32 @@ struct IndexVars<'a> {
 
 impl HtmlGenerator {
     pub fn new(
-        template_root: PathBuf,
-        site_title: String,
-        index_file: &str,
-        highlight_style: String,
-        version: &'static str,
-        result_cache: ResultCache,
-        file_manager: &mut FileManager
+        cfg: HtmlGeneratorCfg
     ) -> Result<HtmlGenerator, ChimeraError> {
         let mut handlebars = Handlebars::new();
 
         handlebars.set_dev_mode(true);
-        handlebars.register_templates_directory(template_root.as_path(), DirectorySourceOptions::default())?;
+        handlebars.register_templates_directory(cfg.template_root.as_path(), DirectorySourceOptions::default())?;
         let required_templates = ["markdown", "error", "search"];
         for name in required_templates {
             if !handlebars.has_template(name) {
                 let template_name = format!("{name}.hbs");
-                tracing::error!("Missing required template: {}{template_name}", template_root.display());
+                tracing::error!("Missing required template: {}{template_name}", cfg.template_root.display());
                 return Err(ChimeraError::MissingMarkdownTemplate);
             }
         }
 
-        let rx = file_manager.subscribe();
-        tokio::spawn(listen_for_changes(rx, result_cache.clone()));
+        let rx = cfg.file_manager.subscribe();
+        tokio::spawn(listen_for_changes(rx, cfg.result_cache.clone()));
 
         Ok(HtmlGenerator {
             handlebars,
-            site_title,
-            highlight_style,
-            index_file: OsString::from(index_file),
-            version,
-            result_cache,
+            site_title: cfg.site_title,
+            site_lang: cfg.site_lang,
+            highlight_style: cfg.highlight_style,
+            index_file: OsString::from(cfg.index_file),
+            version: cfg.version,
+            result_cache: cfg.result_cache,
         })
     }
 
@@ -154,6 +162,7 @@ impl HtmlGenerator {
             body: html_content,
             title: format!("{}: {}", self.site_title, title),
             site_title: self.site_title.as_str(),
+            site_lang: self.site_lang.as_str(),
             version: self.version.to_string(),
             code_js,
             plugin_js,
@@ -244,9 +253,10 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
     let list_suffix = "</ul>\n";
     let item_prefix = if anchors_are_local {"<li><a href=\"#"} else {"<li><a href=\""};
     let item_middle = "\">";
-    let item_suffix = "</a></li>\n";
+    let item_suffix = "</a>\n";
+    let list_item_end = "</li>\n";
     let expected_size = (num_indents * (list_prefix.len() + list_suffix.len())) +
-        (doclinks.len() * (item_prefix.len() + item_middle.len() + item_suffix.len())) +
+        (doclinks.len() * (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len())) +
         text_len;
     let mut last_level = 0;
     let mut html = String::with_capacity(expected_size);
@@ -256,6 +266,7 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
             last_level = link.level;
         }
         else {
+            html.push_str(list_item_end);
             while last_level != link.level {
                 html.push_str(list_suffix);
                 last_level -= 1;
@@ -268,6 +279,7 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
         html.push_str(item_suffix);
     }
     while last_level > 0 {
+        html.push_str(list_item_end);
         html.push_str(list_suffix);
         last_level -= 1;
     }
