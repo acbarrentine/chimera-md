@@ -20,8 +20,8 @@ pub struct HtmlGenerator {
 }
 
 #[derive(Serialize)]
-struct MarkdownVars {
-    site_title: String,
+struct MarkdownVars<'a> {
+    site_title: &'a str,
     version: String,
     body: String,
     title: String,
@@ -35,9 +35,9 @@ struct MarkdownVars {
 }
 
 #[derive(Serialize)]
-struct SearchVars {
+struct SearchVars<'a> {
     title: String,
-    site_title: String,
+    site_title: &'a str,
     query: String,
     placeholder: String,
     num_results: usize,
@@ -45,18 +45,18 @@ struct SearchVars {
 }
 
 #[derive(Serialize)]
-struct ErrorVars {
+struct ErrorVars<'a> {
     title: String,
-    site_title: String,
+    site_title: &'a str,
     error_code: String,
     heading: String,
     message: String,
 }
 
 #[derive(Serialize)]
-struct IndexVars {
+struct IndexVars<'a> {
     title: String,
-    site_title: String,
+    site_title: &'a str,
     path: String,
     peers: String,
     breadcrumbs: String,
@@ -65,7 +65,7 @@ struct IndexVars {
 
 impl HtmlGenerator {
     pub fn new(
-        template_root: &Path,
+        template_root: PathBuf,
         site_title: String,
         index_file: &str,
         highlight_style: String,
@@ -76,7 +76,7 @@ impl HtmlGenerator {
         let mut handlebars = Handlebars::new();
 
         handlebars.set_dev_mode(true);
-        handlebars.register_templates_directory(template_root, DirectorySourceOptions::default())?;
+        handlebars.register_templates_directory(template_root.as_path(), DirectorySourceOptions::default())?;
         let required_templates = ["markdown", "error", "search"];
         for name in required_templates {
             if !handlebars.has_template(name) {
@@ -103,7 +103,7 @@ impl HtmlGenerator {
         tracing::debug!("Got {} search results", results.len());
         let vars = SearchVars {
             title: format!("{}: Search results", self.site_title),
-            site_title: self.site_title.clone(),
+            site_title: self.site_title.as_str(),
             query: query.to_string(),
             placeholder: query.to_string(),
             num_results: results.len(),
@@ -116,7 +116,7 @@ impl HtmlGenerator {
         tracing::debug!("No query, generating blank search page");
         let vars = SearchVars {
             title: format!("{}: Search", self.site_title),
-            site_title: self.site_title.clone(),
+            site_title: self.site_title.as_str(),
             query: "".to_string(),
             placeholder: "Search...".to_string(),
             num_results: 0,
@@ -153,7 +153,7 @@ impl HtmlGenerator {
         let vars = MarkdownVars {
             body: html_content,
             title: format!("{}: {}", self.site_title, title),
-            site_title: self.site_title.clone(),
+            site_title: self.site_title.as_str(),
             version: self.version.to_string(),
             code_js,
             plugin_js,
@@ -174,7 +174,7 @@ impl HtmlGenerator {
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
         let vars = ErrorVars {
             title: format!("{}: Error", self.site_title),
-            site_title: self.site_title.clone(),
+            site_title: self.site_title.as_str(),
             error_code: error_code.to_string(),
             heading: heading.to_string(),
             message: message.to_string(),
@@ -191,7 +191,7 @@ impl HtmlGenerator {
         let path_str = path_os_str.to_string_lossy().into_owned();
         let vars = IndexVars {
             title: format!("{}: {}", self.site_title, path_str),
-            site_title: self.site_title.clone(),
+            site_title: self.site_title.as_str(),
             path: path_str,
             peers_len: peers_html.len(),
             peers: peers_html,

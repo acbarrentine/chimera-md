@@ -96,7 +96,7 @@ impl AppState {
         let result_cache = ResultCache::new(config.max_cache_size);
 
         let html_generator = HtmlGenerator::new(
-            template_root.as_path(),
+            template_root,
             config.site_title,
             config.index_file.as_str(),
             config.highlight_style,
@@ -178,7 +178,7 @@ async fn handle_search(
     if let Some(query) = search.query {
         if !query.is_empty() {
             tracing::debug!("Search for {}", query);
-            if let Ok(results) = app_state.full_text_index.search(query.as_str()).await {
+            if let Ok(results) = app_state.full_text_index.search(query.as_str()) {
                 if let Ok(html) = app_state.html_generator.gen_search(query.as_str(), results) {
                     return axum::response::Html(html).into_response();
                 }
@@ -248,7 +248,7 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
 }
 
 async fn serve_markdown_file(
-    app_state: AppStateType,
+    app_state: &AppStateType,
     path: &std::path::Path,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
@@ -289,7 +289,7 @@ async fn serve_static_file(
 }
 
 async fn get_response(
-    app_state: AppStateType,
+    app_state: &AppStateType,
     path: &std::path::Path,
     headers: HeaderMap
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
@@ -331,7 +331,7 @@ async fn handle_response(
     path: &std::path::Path,
     headers: HeaderMap,
 ) -> axum::response::Response {
-    match get_response(app_state.clone(), path, headers).await {
+    match get_response(&app_state, path, headers).await {
         Ok((cached, resp)) => {
             let status = resp.status();
             tracing::info!("{}: {} ({:?})", status, path.display(), cached);

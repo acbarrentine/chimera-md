@@ -136,7 +136,7 @@ impl FullTextIndex {
         Ok(())
     }
 
-    pub async fn search(&self, query_str: &str) -> Result<Vec<SearchResult>, ChimeraError> {
+    pub fn search(&self, query_str: &str) -> Result<Vec<SearchResult>, ChimeraError> {
         let searcher = self.index_reader.searcher();
         let query_parser = QueryParser::for_index(&self.index, vec![self.body_field]);
         let query = query_parser.parse_query(query_str)?;
