@@ -387,7 +387,8 @@ fn get_breadcrumb_name_and_url_len(parts: &[&OsStr]) -> (usize, usize, usize) {
     let mut it = parts.iter().peekable();
     while let Some(p) = it.next() {
         if it.peek().is_some() {
-            let new_url_len = prev_url_len + p.len() + 1;
+            let p_len = urlencoding::encode(&p.to_string_lossy()).len();
+            let new_url_len = prev_url_len + p_len + 1;
             url_len += new_url_len;
             prev_url_len = new_url_len;
             name_len += p.len();
@@ -418,33 +419,33 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
         el != &skip
     }).collect();
     let (breadcrumb_len, url_len) = get_breadcrumbs_len(&parts);
-    let mut breadcrumbs = OsString::with_capacity(breadcrumb_len);
-    let mut url = OsString::with_capacity(url_len);
-    url.push(HOME_DIR);
-    breadcrumbs.push(HOME_PREFIX);
-    breadcrumbs.push(url.as_os_str());
-    breadcrumbs.push(HOME_SUFFIX);
+    let mut breadcrumbs = String::with_capacity(breadcrumb_len);
+    let mut url = String::with_capacity(url_len);
+    url.push_str(HOME_DIR);
+    breadcrumbs.push_str(HOME_PREFIX);
+    breadcrumbs.push_str(url.as_str());
+    breadcrumbs.push_str(HOME_SUFFIX);
 
     let mut it = parts.iter().peekable();
     while let Some(p) = it.next() {
         if it.peek().is_some() {
-            url.push(p);
-            url.push("/");
-            breadcrumbs.push(CRUMB_PREFIX);
-            breadcrumbs.push(url.as_os_str());
-            breadcrumbs.push(CRUMB_MIDDLE);
-            breadcrumbs.push(p);
-            breadcrumbs.push(CRUMB_SUFFIX);
+            url.push_str(&urlencoding::encode(&p.to_string_lossy()));
+            url.push('/');
+            breadcrumbs.push_str(CRUMB_PREFIX);
+            breadcrumbs.push_str(url.as_str());
+            breadcrumbs.push_str(CRUMB_MIDDLE);
+            breadcrumbs.push_str(&p.to_string_lossy());
+            breadcrumbs.push_str(CRUMB_SUFFIX);
         }
         else {
-            breadcrumbs.push(FINAL_PREFIX);
-            breadcrumbs.push(p);
-            breadcrumbs.push(FINAL_SUFFIX);
+            breadcrumbs.push_str(FINAL_PREFIX);
+            breadcrumbs.push_str(&p.to_string_lossy());
+            breadcrumbs.push_str(FINAL_SUFFIX);
         }
     }
     debug_assert_eq!(breadcrumbs.len(), breadcrumb_len);
     debug_assert_eq!(url.len(), url_len);
-    breadcrumbs.to_string_lossy().into_owned()
+    breadcrumbs
 }
 
 async fn listen_for_changes(

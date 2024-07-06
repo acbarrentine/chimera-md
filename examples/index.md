@@ -26,7 +26,7 @@ document you are looking at.
 * [Index (this document)](index.md)
 * [Example 1](example1.md)
 * [Example 2](example2.md)
-* [Something](no-index/something.md)
+* [Something](no%20index/something.md)
 * [Dialog test 1](dialog-test-1.md)
 * [Dialog test 2](dialog-test-2.md)
 
