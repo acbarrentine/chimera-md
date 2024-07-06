@@ -457,7 +457,7 @@ async fn listen_for_changes(
         if let Some(ext) = path.extension() {
             if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
                 tracing::info!("Discarding cached HTML results");
-                cache.clear().await;
+                cache.clear();
             }
         }
     }

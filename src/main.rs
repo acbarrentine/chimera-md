@@ -260,7 +260,7 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
-    if let Some(result) = app_state.result_cache.get(path).await {
+    if let Some(result) = app_state.result_cache.get(path) {
         tracing::debug!("Returning cached response for {}", path.display());
         return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
     }
@@ -319,7 +319,7 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            if let Some(result) = app_state.result_cache.get(path).await {
+            if let Some(result) = app_state.result_cache.get(path) {
                 tracing::debug!("Returning cached index for {}", path.display());
                 return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
             }

@@ -1,6 +1,5 @@
 use std::fmt;
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc, time::SystemTime};
-use tokio::sync::RwLock;
+use std::{collections::BTreeMap, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
 
 struct CachedPage {
     when: SystemTime,
@@ -9,7 +8,6 @@ struct CachedPage {
 
 struct WrappedCache {
     cache: BTreeMap<PathBuf, CachedPage>,
-    compact_tx: tokio::sync::mpsc::Sender<()>,
     current_size: usize,
     max_size: usize,
 }
@@ -17,6 +15,7 @@ struct WrappedCache {
 #[derive(Clone)]
 pub struct ResultCache {
     lock: Arc<RwLock<WrappedCache>>,
+    signal_tx: tokio::sync::mpsc::Sender<()>,
 }
 
 impl ResultCache {
@@ -24,40 +23,50 @@ impl ResultCache {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let wrapped_cache = Arc::new(RwLock::new(WrappedCache {
             cache: BTreeMap::new(),
-            compact_tx: tx,
             current_size: 0,
             max_size,
         }));
-        tokio::spawn(cache_watcher(rx, wrapped_cache.clone()));
+        tokio::spawn(cache_compactor(rx, wrapped_cache.clone()));
         ResultCache {
-            lock: wrapped_cache
+            lock: wrapped_cache,
+            signal_tx: tx,
         }
     }
 
     pub async fn add(&self, path: &std::path::Path, html: &str) {
-        let mut lock = self.lock.write().await;
-        let prev = lock.cache.insert(path.to_path_buf(), CachedPage {
-            when: SystemTime::now(),
-            html: html.to_string(),
-        });
-        if let Some(prev) = prev {
-            lock.current_size -= prev.html.len();
-        }
-        lock.current_size += html.len();
-        if lock.current_size > lock.max_size {
-            if let Err(e) = lock.compact_tx.send(()).await {
+        let needs_compact =
+        {
+            let Ok(mut lock) = self.lock.write() else {
+                return;
+            };
+            let prev = lock.cache.insert(path.to_path_buf(), CachedPage {
+                when: SystemTime::now(),
+                html: html.to_string(),
+            });
+            if let Some(prev) = prev {
+                lock.current_size -= prev.html.len();
+            }
+            lock.current_size += html.len();
+            lock.current_size > lock.max_size
+        };
+        if needs_compact {
+            if let Err(e) = self.signal_tx.send(()).await {
                 tracing::warn!("Failed to send cache compact message: {e}");
             }
         }
     }
 
-    pub async fn get(&self, path: &std::path::Path) -> Option<String> {
-        let lock = self.lock.read().await;
+    pub fn get(&self, path: &std::path::Path) -> Option<String> {
+        let Ok(lock) = self.lock.read() else {
+            return None;
+        };
         lock.cache.get(path).map(|res| res.html.clone())
     }
 
-    pub async fn clear(&self) {
-        let mut lock = self.lock.write().await;
+    pub fn clear(&self) {
+        let Ok(mut lock) = self.lock.write() else {
+            return;
+        };
         lock.cache.clear();
         lock.current_size = 0;
     }
@@ -69,13 +78,15 @@ impl fmt::Debug for CachedPage {
     }
 }
 
-async fn cache_watcher(
-    mut cache_compactor: tokio::sync::mpsc::Receiver<()>,
+async fn cache_compactor(
+    mut go_signal: tokio::sync::mpsc::Receiver<()>,
     cache: Arc<RwLock<WrappedCache>>,
 ) {
-    while cache_compactor.recv().await.is_some() {
+    while go_signal.recv().await.is_some() {
         tracing::debug!("Compacting HTML result cache");
-        let mut lock = cache.write().await;
+        let Ok(mut lock) = cache.write() else {
+            return;
+        };
         let mut v: Vec<(PathBuf, SystemTime, usize)> = lock.cache.iter().map(|(path, page)| {
             (path.clone(), page.when, path.as_os_str().len() + page.html.len())
         }).collect();
