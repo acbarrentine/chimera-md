@@ -1,11 +1,9 @@
 [package]
 name = "chimera-md"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 authors = ["Alexander Barrentine", "Alexander Barrentine <acbarrentine@gmail.com>"]
-description = "A markdown-aware web server"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A Markdown-aware web server"
 
 [dependencies]
 pulldown-cmark = "0.11.0"

@@ -440,7 +440,7 @@ async fn listen_for_changes(
     cache: ResultCache,
 ) {
     while let Ok(path) = rx.recv().await {
-        tracing::info!("HG change event {}", path.display());
+        tracing::debug!("HG change event {}", path.display());
         if let Some(ext) = path.extension() {
             if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
                 tracing::info!("Discarding cached HTML results");

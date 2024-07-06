@@ -109,7 +109,7 @@ async fn directory_watcher(
 ) ->Result<(), ChimeraError> {
     while let Some(Ok(events)) = file_events.recv().await {
         for e in events {
-            tracing::info!("File change event {e:?}");
+            tracing::debug!("File change event {e:?}");
             match e.event.kind {
                 EventKind::Create(f) => {
                     tracing::debug!("File change event: CREATE - {f:?}, {:?}", e.path);
