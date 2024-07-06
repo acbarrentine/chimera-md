@@ -249,12 +249,12 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
     };
     debug_assert_ne!(doclinks.len(), 0);
     let (num_indents, text_len) = normalize_headings(&mut doclinks);
-    let list_prefix = "<ul>\n";
-    let list_suffix = "</ul>\n";
-    let item_prefix = if anchors_are_local {"<li><a href=\"#"} else {"<li><a href=\""};
+    let list_prefix = "\n<ul>";
+    let list_suffix = "\n</ul>";
+    let item_prefix = if anchors_are_local {"\n<li><a href=\"#"} else {"\n<li><a href=\""};
     let item_middle = "\">";
-    let item_suffix = "</a>\n";
-    let list_item_end = "</li>\n";
+    let item_suffix = "</a>";
+    let list_item_end = "</li>";
     let expected_size = (num_indents * (list_prefix.len() + list_suffix.len())) +
         (doclinks.len() * (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len())) +
         text_len;
