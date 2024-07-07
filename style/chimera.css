@@ -89,7 +89,7 @@ div.search button {
     padding-left: 0;
 }
 
-img video {
+img, video {
     height: auto;
     width: auto;
     max-width: 100%;
