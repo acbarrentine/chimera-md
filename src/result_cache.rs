@@ -1,9 +1,15 @@
+use std::ffi::OsStr;
 use std::fmt;
+use std::path::Path;
 use std::{collections::BTreeMap, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
+
+use crate::document_scraper::DocumentScraper;
+use crate::file_manager::FileManager;
 
 struct CachedPage {
     when: SystemTime,
     html: String,
+    scraper: DocumentScraper,
 }
 
 struct WrappedCache {
@@ -16,10 +22,11 @@ struct WrappedCache {
 pub struct ResultCache {
     lock: Arc<RwLock<WrappedCache>>,
     signal_tx: tokio::sync::mpsc::Sender<()>,
+    root: PathBuf,
 }
 
 impl ResultCache {
-    pub fn new(max_size: usize) -> Self {
+    pub fn new(file_manager: &FileManager, max_size: usize, document_root: &Path) -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let wrapped_cache = Arc::new(RwLock::new(WrappedCache {
             cache: BTreeMap::new(),
@@ -27,26 +34,36 @@ impl ResultCache {
             max_size,
         }));
         tokio::spawn(cache_compactor(rx, wrapped_cache.clone()));
-        ResultCache {
+        let cache = ResultCache {
             lock: wrapped_cache,
             signal_tx: tx,
-        }
+            root: document_root.to_path_buf(),
+        };
+
+        let rx = file_manager.subscribe();
+        tokio::spawn(listen_for_changes(rx, cache.clone()));
+
+        cache
     }
 
-    pub async fn add(&self, path: &std::path::Path, html: &str) {
+    pub async fn add(&self, path: &std::path::Path, html: &str, scraper: DocumentScraper) {
         let needs_compact =
         {
             let Ok(mut lock) = self.lock.write() else {
+                tracing::warn!("Result cache lock poisoned error");
                 return;
             };
-            let prev = lock.cache.insert(path.to_path_buf(), CachedPage {
+            let page = CachedPage {
                 when: SystemTime::now(),
                 html: html.to_string(),
-            });
+                scraper,
+            };
+            let size = page.get_size();
+            let prev = lock.cache.insert(path.to_path_buf(), page);
             if let Some(prev) = prev {
-                lock.current_size -= prev.html.len();
+                lock.current_size -= prev.get_size();
             }
-            lock.current_size += html.len();
+            lock.current_size += size;
             lock.current_size > lock.max_size
         };
         if needs_compact {
@@ -56,19 +73,20 @@ impl ResultCache {
         }
     }
 
-    pub fn get(&self, path: &std::path::Path) -> Option<String> {
+    pub fn get(&self, path: &std::path::Path) -> Option<(String, DocumentScraper)> {
         let Ok(lock) = self.lock.read() else {
             return None;
         };
-        lock.cache.get(path).map(|res| res.html.clone())
+        lock.cache.get(path).map(|res| (res.html.clone(), res.scraper.clone()))
     }
 
-    pub fn clear(&self) {
+    pub fn remove(&self, path: &std::path::Path) {
         let Ok(mut lock) = self.lock.write() else {
             return;
         };
-        lock.cache.clear();
-        lock.current_size = 0;
+        if let Some(prev) = lock.cache.remove(path) {
+            lock.current_size -= prev.get_size();
+        }
     }
 }
 
@@ -106,5 +124,28 @@ async fn cache_compactor(
             }
         }
         tracing::debug!("New cache size: {} kb", lock.current_size as f64 / 1024.0);
+    }
+}
+
+async fn listen_for_changes(
+    mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
+    cache: ResultCache,
+) {
+    while let Ok(path) = rx.recv().await {
+        tracing::debug!("RC change event {}", path.display());
+        if let Some(ext) = path.extension() {
+            if ext == OsStr::new("md") {
+                if let Ok(relative_path) = path.strip_prefix(cache.root.as_path()) {
+                    tracing::info!("Discarding cached HTML result for {}", relative_path.display());
+                    cache.remove(relative_path);
+                }
+            }
+        }
+    }
+}
+
+impl CachedPage {
+    fn get_size(&self) -> usize {
+        self.html.len() + self.scraper.get_size()
     }
 }

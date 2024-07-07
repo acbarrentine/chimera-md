@@ -23,7 +23,7 @@ async-watcher = "0.3.0"
 toml = "0.8.14"
 
 [features]
-default = []
+default = ["response-timing"]
 response-timing = []
 
 [profile.release]

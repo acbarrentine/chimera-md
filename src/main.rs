@@ -97,7 +97,7 @@ impl AppState {
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
-        let result_cache = ResultCache::new(config.max_cache_size);
+        let result_cache = ResultCache::new(&file_manager, config.max_cache_size, document_root.as_path());
 
         let cfg = HtmlGeneratorCfg {
             template_root,
@@ -106,8 +106,6 @@ impl AppState {
             site_lang: config.site_lang,
             highlight_style: config.highlight_style,
             version: VERSION,
-            result_cache: result_cache.clone(),
-            file_manager: &mut file_manager,
         };
         let html_generator = HtmlGenerator::new(cfg)?;
         
@@ -211,7 +209,7 @@ async fn handle_style(
     *req.headers_mut() = headers;
     match ServeDir::new(new_path.as_path()).try_call(req).await {
         Ok(resp) => {
-            tracing::info!("{}: {}", path, resp.status());
+            tracing::info!("{}: {}", resp.status(), path);
             resp.into_response()
         },
         Err(e) => {
@@ -260,22 +258,23 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
-    if let Some(result) = app_state.result_cache.get(path) {
-        tracing::debug!("Returning cached response for {}", path.display());
-        return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
+    let (html_content, scraper, cached_status) = 
+    if let Some((html_content, scraper)) = app_state.result_cache.get(path) {
+        (html_content, scraper, CachedStatus::Cached)
     }
-    tracing::debug!("Not cached, building {}", path.display());
-    let md_content = tokio::fs::read_to_string(path).await?;
-    let (scraper, html_content) = parse_markdown(md_content.as_str());
+    else {
+        let md_content = tokio::fs::read_to_string(path).await?;
+        let (html_content, scraper) = parse_markdown(md_content.as_str());
+        app_state.result_cache.add(path, html_content.as_str(), scraper.clone()).await;
+        (html_content, scraper, CachedStatus::NotCached)
+    };
     let peers = match app_state.generate_index {
         true => {
             app_state.file_manager.find_peers(
                 path,
                 app_state.index_file.as_str()).await
         },
-        false => {
-            None
-        }
+        false => { None }
     };
     let html = app_state.html_generator.gen_markdown(
         path,
@@ -283,7 +282,7 @@ async fn serve_markdown_file(
         scraper,
         peers,
     ).await?;
-    Ok((CachedStatus::NotCached, (StatusCode::OK, Html(html)).into_response()))
+    Ok((cached_status, (StatusCode::OK, Html(html)).into_response()))
 }
 
 async fn serve_static_file(
@@ -319,10 +318,6 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            if let Some(result) = app_state.result_cache.get(path) {
-                tracing::debug!("Returning cached index for {}", path.display());
-                return Ok((CachedStatus::Cached, (StatusCode::OK, Html(result)).into_response()));
-            }
             tracing::info!("No file specified. Generating an index result at {}", path.display());
             let links = app_state.file_manager.find_files_in_directory(path, None).await;
             let html = app_state.html_generator.gen_index(path, links).await?;
