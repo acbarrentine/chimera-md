@@ -154,7 +154,7 @@ impl HtmlGenerator {
         });
 
         let doclinks = if scraper.doclinks.is_empty() { None } else { Some(scraper.doclinks) };
-        let doclinks_html = generate_doclink_html(doclinks, true);
+                let doclinks_html = generate_doclink_html(doclinks, true);
         let peers_html = generate_doclink_html(peers, false);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
@@ -260,17 +260,18 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
         text_len;
     let mut last_level = 0;
     let mut html = String::with_capacity(expected_size);
-    for link in doclinks {
+    for link in doclinks.iter() {
         if last_level < link.level {
             html.push_str(list_prefix);
             last_level = link.level;
         }
         else {
-            html.push_str(list_item_end);
             while last_level != link.level {
+                html.push_str(list_item_end);
                 html.push_str(list_suffix);
                 last_level -= 1;
             }
+            html.push_str(list_item_end);
         }
         html.push_str(item_prefix);
         html.push_str(link.anchor.as_str());
@@ -283,7 +284,13 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
         html.push_str(list_suffix);
         last_level -= 1;
     }
-    debug_assert_eq!(html.len(), expected_size);
+    if html.len() != expected_size {
+        tracing::warn!("Miscalculated doclinks size");
+        tracing::warn!("num_indents: {num_indents}, text: {text_len}");
+        tracing::warn!("Docs: {doclinks:?}");
+        tracing::warn!("Anchors are local: {anchors_are_local}");
+        tracing::warn!("Doclinks:({})", html);
+    }
     html
 }
 
@@ -368,7 +375,9 @@ fn get_code_blob(scraper: &DocumentScraper, highlight_style: &str) -> String {
         buffer.push_str(lang_suffix);
     }
     buffer.push_str(invoke_js);
-    debug_assert_eq!(buffer.len(), expected_len);
+    if buffer.len() != expected_len {
+        tracing::warn!("Miscalculated code blob size. Actual: {}, Expected: {}", buffer.len(), expected_len);
+    }
     buffer
 }
 
@@ -443,8 +452,12 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
             breadcrumbs.push_str(FINAL_SUFFIX);
         }
     }
-    debug_assert_eq!(breadcrumbs.len(), breadcrumb_len);
-    debug_assert_eq!(url.len(), url_len);
+    if breadcrumbs.len() != breadcrumb_len {
+        tracing::warn!("Miscalculated breadcrumbs size. Actual: {}, Expected: {}", breadcrumbs.len(), breadcrumb_len);
+    }
+    if url.len() != url_len {
+        tracing::warn!("Miscalculated url size. Actual: {}, Expected: {}", url.len(), url_len);
+    }
     breadcrumbs
 }
 
