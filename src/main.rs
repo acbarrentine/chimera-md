@@ -5,8 +5,8 @@ mod html_generator;
 mod file_manager;
 mod result_cache;
 
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
-use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, response::{Html, IntoResponse, Redirect}, routing::get, Form, Router};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use html_generator::HtmlGeneratorCfg;
 use result_cache::ResultCache;
 use tower_http::services::ServeDir;
@@ -22,14 +22,6 @@ use crate::full_text_index::FullTextIndex;
 use crate::html_generator::HtmlGenerator;
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use document_scraper::parse_markdown;
-
-#[derive(Debug)]
-enum CachedStatus {
-    Cached,
-    NotCached,
-    StaticFile,
-    Redirect,
-}
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
@@ -93,7 +85,7 @@ impl AppState {
         let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
         std::env::set_current_dir(document_root.as_path())?;
 
-        let mut file_manager = FileManager::new().await?;
+        let mut file_manager = FileManager::new(document_root.as_path()).await?;
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
@@ -145,7 +137,7 @@ async fn main() -> Result<(), ChimeraError> {
     let port = config.port;
     let state = Arc::new(AppState::new(config).await?);
 
-    let mut app = Router::new()
+    let app = Router::new()
         .route("/search", get(handle_search))
         .route("/style/*path", get(handle_style))
         .route("/", get(handle_root))
@@ -153,22 +145,23 @@ async fn main() -> Result<(), ChimeraError> {
         .route(format!("{HOME_DIR}*path").as_str(), get(handle_path))
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
-        .with_state(state);
-
-    if cfg!(feature="response-timing") {
-        tracing::info!("Response timing enabled");
-        app = app.layer(tower_http::trace::TraceLayer::new_for_http()
-            .on_response(
-            tower_http::trace::DefaultOnResponse::new()
-                .level(tracing::Level::INFO)
-                .latency_unit(tower_http::LatencyUnit::Micros)
-            )
-        );
-    }
+        .with_state(state)
+        .layer(middleware::from_fn(mw_response_time));
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app).await.unwrap();
     Ok(())
+}
+
+async fn mw_response_time(request: axum::extract::Request, next: Next) -> Response {
+    let start_time = Instant::now();
+    let path = match request.uri().path_and_query() {
+        Some(p_and_q) => { p_and_q.as_str().to_owned() },
+        None => { request.uri().path().to_string() }
+    };
+    let response = next.run(request).await;
+    tracing::info!("{}: {} ({} µs)", response.status(), path, start_time.elapsed().as_micros());
+    response
 }
 
 #[derive(Deserialize)]
@@ -209,7 +202,6 @@ async fn handle_style(
     *req.headers_mut() = headers;
     match ServeDir::new(new_path.as_path()).try_call(req).await {
         Ok(resp) => {
-            tracing::info!("{}: {}", resp.status(), path);
             resp.into_response()
         },
         Err(e) => {
@@ -256,17 +248,17 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
 async fn serve_markdown_file(
     app_state: &AppStateType,
     path: &std::path::Path,
-) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
+) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
-    let (html_content, scraper, cached_status) = 
+    let (html_content, scraper) = 
     if let Some((html_content, scraper)) = app_state.result_cache.get(path) {
-        (html_content, scraper, CachedStatus::Cached)
+        (html_content, scraper)
     }
     else {
         let md_content = tokio::fs::read_to_string(path).await?;
         let (html_content, scraper) = parse_markdown(md_content.as_str());
         app_state.result_cache.add(path, html_content.as_str(), scraper.clone()).await;
-        (html_content, scraper, CachedStatus::NotCached)
+        (html_content, scraper)
     };
     let peers = match app_state.generate_index {
         true => {
@@ -282,24 +274,24 @@ async fn serve_markdown_file(
         scraper,
         peers,
     ).await?;
-    Ok((cached_status, (StatusCode::OK, Html(html)).into_response()))
+    Ok((StatusCode::OK, Html(html)).into_response())
 }
 
 async fn serve_static_file(
     path: &std::path::Path,
     headers: HeaderMap,
-) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
+) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Static request {}", path.display());
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    Ok((CachedStatus::StaticFile, ServeDir::new(path).try_call(req).await?.into_response()))
+    Ok(ServeDir::new(path).try_call(req).await?.into_response())
 }
 
 async fn get_response(
     app_state: &AppStateType,
     path: &std::path::Path,
     headers: HeaderMap
-) -> Result<(CachedStatus, axum::response::Response), ChimeraError> {
+) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Chimera request {}", path.display());
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
@@ -310,7 +302,7 @@ async fn get_response(
         if !path_str.ends_with('/') {
             let path_with_slash = format!("{}/", path_str);
             tracing::debug!("Missing /, redirecting to {path_with_slash}");
-            return Ok((CachedStatus::Redirect, Redirect::permanent(path_with_slash.as_str()).into_response()));
+            return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
         }
         let path_with_index = path.join(app_state.index_file.as_str());
         if path_with_index.exists() {
@@ -321,7 +313,7 @@ async fn get_response(
             tracing::info!("No file specified. Generating an index result at {}", path.display());
             let links = app_state.file_manager.find_files_in_directory(path, None).await;
             let html = app_state.html_generator.gen_index(path, links).await?;
-            return Ok((CachedStatus::NotCached, Html(html).into_response()));
+            return Ok(Html(html).into_response());
         }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
@@ -335,9 +327,8 @@ async fn handle_response(
     headers: HeaderMap,
 ) -> axum::response::Response {
     match get_response(&app_state, path, headers).await {
-        Ok((cached, resp)) => {
+        Ok(resp) => {
             let status = resp.status();
-            tracing::info!("{}: {} ({:?})", status, path.display(), cached);
             if status.is_success() || status.is_redirection() {
                 resp.into_response()
             }
