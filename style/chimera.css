@@ -32,20 +32,6 @@ nav {
     padding: 0 8em 0 8rem;
 }
 
-footer {
-    border-top: 3px solid var(--rule-color);
-    padding: 0 8em 0 8rem;
-    background-color: var(--box-color);
-    margin: 0px -10px -10px -10px;
-}
-
-footer p {
-    font-size: small;
-    padding: 1em 0 0 1em;
-    margin-bottom: 0;
-    height: 30px;
-}
-
 .nav-overlay {
     position: absolute;
     background-color: black;

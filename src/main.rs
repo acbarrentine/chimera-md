@@ -160,12 +160,17 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         None => { request.uri().path().to_string() }
     };
     let response = next.run(request).await;
+    let headers = response.headers();
+    let cached_status = match headers.contains_key("cached") {
+        true => " (cached)",
+        false => "",
+    };
     let elapsed = start_time.elapsed().as_micros();
     if elapsed > 1000 {
-        tracing::info!("{}: {} ({:.3} ms)", response.status(), path, start_time.elapsed().as_micros() as f64 / 1000.0);
+        tracing::info!("{}: {} in {:.3} ms{}", response.status().as_u16(), path, start_time.elapsed().as_micros() as f64 / 1000.0, cached_status);
     }
     else {
-        tracing::info!("{}: {} ({} µs)", response.status(), path, start_time.elapsed().as_micros());
+        tracing::info!("{}: {} in {} µs{}", response.status().as_u16(), path, start_time.elapsed().as_micros(), cached_status);
     }
     response
 }
@@ -252,7 +257,7 @@ async fn handle_root(
     State(app_state): State<AppStateType>,
 ) -> axum::response::Response {
     let redirect_path = format!("{HOME_DIR}{}", app_state.index_file);
-    tracing::info!("Redirecting / => {redirect_path}");
+    tracing::debug!("Redirecting / => {redirect_path}");
     Redirect::permanent(redirect_path.as_str()).into_response()
 }
 
@@ -276,9 +281,8 @@ async fn serve_markdown_file(
     app_state: &AppStateType,
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
-    let start = Instant::now();
     tracing::debug!("Markdown request {}", path.display());
-    let (mut html, cached) = match app_state.result_cache.get(path) {
+    let (html, cached) = match app_state.result_cache.get(path) {
         Some(html) => { (html, true) },
         None => {
             let md_content = tokio::fs::read_to_string(path).await?;
@@ -301,19 +305,12 @@ async fn serve_markdown_file(
             (html, false)
         }
     };
-    let time_slot = "[CHIMERA-TIMING-INFO]";
-    if let Some(time_indicator) = html.rfind(time_slot) {
-        let time_string = format!("{:8} ms: {}",
-            start.elapsed().as_micros() as f64 / 1000.0,
-            if cached { "cached" } else { "new" }
-        );
-        tracing::info!("Timeinfo: {}/{}", time_string.len(), time_slot.len());
-        html.replace_range(time_indicator..time_indicator + time_slot.len(), &time_string);
+    if cached {
+        Ok((StatusCode::OK, [("cached", "yes")], Html(html)).into_response())
     }
     else {
-        tracing::info!("Didn't find time string");
+        Ok((StatusCode::OK, Html(html)).into_response())
     }
-Ok((StatusCode::OK, Html(html)).into_response())
 }
 
 async fn serve_static_file(
