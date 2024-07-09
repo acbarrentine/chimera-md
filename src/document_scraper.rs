@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range, mem::size_of_val};
+use std::{collections::HashSet, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
@@ -175,19 +175,6 @@ impl DocumentScraper {
             },
             _ => {}
         }
-    }
-
-    pub fn get_size(&self) -> usize {
-        size_of_val(&self.language_map) +
-        size_of_val(&self.doclinks) +
-        size_of_val(&self.code_languages) +
-        size_of_val(&self.title) +
-        size_of_val(&self.heading_re) +
-        size_of_val(&self.id_re) +
-        size_of_val(&self.text_collector) +
-        size_of_val(&self.has_code_blocks) +
-        size_of_val(&self.starts_with_heading) +
-        size_of_val(&self.has_readable_text)
     }
 }
 
