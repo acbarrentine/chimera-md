@@ -127,12 +127,12 @@ impl HtmlGenerator {
     pub async fn gen_markdown(
         &self,
         path: &std::path::Path,
-        html_content: String,
+        body: String,
         scraper: DocumentScraper,
         peers: Option<Vec<Doclink>>,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let html_content = add_anchors_to_headings(html_content, &scraper.doclinks, !scraper.starts_with_heading);
+        let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
         let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
         let plugin_js = get_plugins(&scraper);
         let title = scraper.title.unwrap_or_else(||{

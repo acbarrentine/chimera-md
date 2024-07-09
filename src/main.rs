@@ -160,7 +160,13 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         None => { request.uri().path().to_string() }
     };
     let response = next.run(request).await;
-    tracing::info!("{}: {} ({} µs)", response.status(), path, start_time.elapsed().as_micros());
+    let elapsed = start_time.elapsed().as_micros();
+    if elapsed > 1000 {
+        tracing::info!("{}: {} ({:.3} ms)", response.status(), path, start_time.elapsed().as_micros() as f64 / 1000.0);
+    }
+    else {
+        tracing::info!("{}: {} ({} µs)", response.status(), path, start_time.elapsed().as_micros());
+    }
     response
 }
 
@@ -218,7 +224,28 @@ async fn handle_path(
     headers: HeaderMap
 ) -> axum::response::Response {
     let path = PathBuf::from(path);
-    handle_response(app_state, path.as_path(), headers).await
+    match get_response(&app_state, path.as_path(), headers).await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() || status.is_redirection() {
+                resp.into_response()
+            }
+            else if status == StatusCode::NOT_FOUND {
+                handle_404(app_state).await.into_response()
+            }
+            else {
+                handle_err(app_state).await.into_response()
+            }
+        },
+        Err(ChimeraError::IOError(e)) => {
+            tracing::warn!("IOError processing request for {}: {e:?}", path.display());
+            handle_404(app_state).await.into_response()
+        }
+        Err(e) => {
+            tracing::warn!("Error processing request for {}: {e:?}", path.display());
+            handle_err(app_state).await.into_response()
+        }
+    }
 }
 
 async fn handle_root(
@@ -249,32 +276,44 @@ async fn serve_markdown_file(
     app_state: &AppStateType,
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
+    let start = Instant::now();
     tracing::debug!("Markdown request {}", path.display());
-    let (html_content, scraper) = 
-    if let Some((html_content, scraper)) = app_state.result_cache.get(path) {
-        (html_content, scraper)
+    let (mut html, cached) = match app_state.result_cache.get(path) {
+        Some(html) => { (html, true) },
+        None => {
+            let md_content = tokio::fs::read_to_string(path).await?;
+            let (body, scraper) = parse_markdown(md_content.as_str());
+            let peers = match app_state.generate_index {
+                true => {
+                    app_state.file_manager.find_peers(
+                        path,
+                        app_state.index_file.as_str()).await
+                },
+                false => { None }
+            };
+            let html = app_state.html_generator.gen_markdown(
+                path,
+                body,
+                scraper,
+                peers,
+            ).await?;
+            app_state.result_cache.add(path, html.as_str()).await;
+            (html, false)
+        }
+    };
+    let time_slot = "[CHIMERA-TIMING-INFO]";
+    if let Some(time_indicator) = html.rfind(time_slot) {
+        let time_string = format!("{:8} ms: {}",
+            start.elapsed().as_micros() as f64 / 1000.0,
+            if cached { "cached" } else { "new" }
+        );
+        tracing::info!("Timeinfo: {}/{}", time_string.len(), time_slot.len());
+        html.replace_range(time_indicator..time_indicator + time_slot.len(), &time_string);
     }
     else {
-        let md_content = tokio::fs::read_to_string(path).await?;
-        let (html_content, scraper) = parse_markdown(md_content.as_str());
-        app_state.result_cache.add(path, html_content.as_str(), scraper.clone()).await;
-        (html_content, scraper)
-    };
-    let peers = match app_state.generate_index {
-        true => {
-            app_state.file_manager.find_peers(
-                path,
-                app_state.index_file.as_str()).await
-        },
-        false => { None }
-    };
-    let html = app_state.html_generator.gen_markdown(
-        path,
-        html_content,
-        scraper,
-        peers,
-    ).await?;
-    Ok((StatusCode::OK, Html(html)).into_response())
+        tracing::info!("Didn't find time string");
+    }
+Ok((StatusCode::OK, Html(html)).into_response())
 }
 
 async fn serve_static_file(
@@ -317,35 +356,5 @@ async fn get_response(
         }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
-    let path = PathBuf::from(path);
-    serve_static_file(path.as_path(), headers).await
-}
-
-async fn handle_response(
-    app_state: AppStateType,
-    path: &std::path::Path,
-    headers: HeaderMap,
-) -> axum::response::Response {
-    match get_response(&app_state, path, headers).await {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() || status.is_redirection() {
-                resp.into_response()
-            }
-            else if status == StatusCode::NOT_FOUND {
-                handle_404(app_state).await.into_response()
-            }
-            else {
-                handle_err(app_state).await.into_response()
-            }
-        },
-        Err(ChimeraError::IOError(e)) => {
-            tracing::warn!("IOError processing request for {}: {e:?}", path.display());
-            handle_404(app_state).await.into_response()
-        }
-        Err(e) => {
-            tracing::warn!("Error processing request for {}: {e:?}", path.display());
-            handle_err(app_state).await.into_response()
-        }
-    }
+    serve_static_file(path, headers).await
 }

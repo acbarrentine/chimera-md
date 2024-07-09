@@ -3,13 +3,11 @@ use std::fmt;
 use std::path::Path;
 use std::{collections::BTreeMap, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
 
-use crate::document_scraper::DocumentScraper;
 use crate::file_manager::FileManager;
 
 struct CachedPage {
     when: SystemTime,
     html: String,
-    scraper: DocumentScraper,
 }
 
 struct WrappedCache {
@@ -46,7 +44,7 @@ impl ResultCache {
         cache
     }
 
-    pub async fn add(&self, path: &std::path::Path, html: &str, scraper: DocumentScraper) {
+    pub async fn add(&self, path: &std::path::Path, html: &str) {
         let needs_compact =
         {
             let Ok(mut lock) = self.lock.write() else {
@@ -56,12 +54,11 @@ impl ResultCache {
             let page = CachedPage {
                 when: SystemTime::now(),
                 html: html.to_string(),
-                scraper,
             };
-            let size = page.get_size();
+            let size = page.html.len();
             let prev = lock.cache.insert(path.to_path_buf(), page);
             if let Some(prev) = prev {
-                lock.current_size -= prev.get_size();
+                lock.current_size -= prev.html.len();
             }
             lock.current_size += size;
             lock.current_size > lock.max_size
@@ -73,11 +70,11 @@ impl ResultCache {
         }
     }
 
-    pub fn get(&self, path: &std::path::Path) -> Option<(String, DocumentScraper)> {
+    pub fn get(&self, path: &std::path::Path) -> Option<String> {
         let Ok(lock) = self.lock.read() else {
             return None;
         };
-        lock.cache.get(path).map(|res| (res.html.clone(), res.scraper.clone()))
+        lock.cache.get(path).map(|res| res.html.clone())
     }
 
     pub fn remove(&self, path: &std::path::Path) {
@@ -85,7 +82,7 @@ impl ResultCache {
             return;
         };
         if let Some(prev) = lock.cache.remove(path) {
-            lock.current_size -= prev.get_size();
+            lock.current_size -= prev.html.len();
         }
     }
 }
@@ -144,8 +141,3 @@ async fn listen_for_changes(
     }
 }
 
-impl CachedPage {
-    fn get_size(&self) -> usize {
-        self.html.len() + self.scraper.get_size()
-    }
-}

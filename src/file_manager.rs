@@ -35,7 +35,7 @@ impl FileManager {
                 let fname = entry.file_name().to_string_lossy();
                 if let Some((_stem, ext)) = fname.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
-                        tracing::info!("  Adding file {} to {}", p.display(), parent_clone.display());
+                        tracing::debug!("  Adding file {} to {}", p.display(), parent_clone.display());
                         parent_folder.files.push(p.to_path_buf());
                     }
                 }
