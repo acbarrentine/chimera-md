@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}, time::Instant};
+use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
@@ -69,6 +69,7 @@ struct IndexVars<'a> {
     folders: String,
     breadcrumbs: String,
     peers_len: usize,
+    folders_len: usize,
 }
 
 impl HtmlGenerator {
@@ -132,7 +133,6 @@ impl HtmlGenerator {
         peers: PeerInfo,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let start_time = Instant::now();
         let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
         let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
         let plugin_js = get_plugins(&scraper);
@@ -198,6 +198,7 @@ impl HtmlGenerator {
             peers_len: peers_html.len() + folders_html.len(),
             peers: peers_html,
             breadcrumbs,
+            folders_len: folders_html.len(),
             folders: folders_html,
         };
         let html = self.handlebars.render("index", &vars)?;

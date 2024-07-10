@@ -22,10 +22,11 @@ pub struct FileManager {
     broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
     debouncer: AsyncDebouncer<RecommendedWatcher>,
     document_root: PathBuf,
+    index_file: String,
 }
 
 impl FileManager {
-    pub async fn new(document_root: &Path) -> Result<FileManager, ChimeraError> {
+    pub async fn new(document_root: &Path, index_file: &str) -> Result<Self, ChimeraError> {
         let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(32);
         let (debouncer, file_events) =
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
@@ -58,11 +59,12 @@ impl FileManager {
             broadcast_tx,
             debouncer,
             document_root: document_root.to_path_buf(),
+            index_file: index_file.to_string(),
         })
     }
 
     pub async fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> PeerInfo {
-        tracing::info!("Find files in: {}", abs_path.display());
+        tracing::debug!("Find files in: {}", abs_path.display());
         let mut files = Vec::new();
         let mut folders = Vec::new();
         if let Some(folder_info) = self.folders.get(abs_path) {
@@ -74,7 +76,7 @@ impl FileManager {
                         }
                     }
                     let name_string = file_name.to_string_lossy().into_owned();
-                    tracing::debug!("Peer: {}", name_string);
+                    tracing::debug!("Peer: {name_string}");
                     files.push(Doclink {
                         anchor: urlencoding::encode(name_string.as_str()).into_owned(),
                         name: name_string,
@@ -86,8 +88,9 @@ impl FileManager {
             for folder in folder_info.folders.iter() {
                 if let Ok(relative_path) = folder.strip_prefix(self.document_root.as_path()) {
                     let name_string = relative_path.to_string_lossy();
+                    tracing::debug!("Folder: {name_string}");
                     folders.push(Doclink {
-                        anchor: urlencoding::encode(name_string.borrow()).into_owned(),
+                        anchor: format!("{}/", urlencoding::encode(name_string.borrow())),
                         name: name_string.into_owned(),
                         level: 1,
                     });
@@ -131,7 +134,7 @@ impl FileManager {
         //files
     }
 
-    pub async fn find_peers(&self, relative_path: &Path, index_file: &str) -> PeerInfo {
+    pub async fn find_peers(&self, relative_path: &Path) -> PeerInfo {
         tracing::info!("Finding peers of {}", relative_path.display());
         let Ok(abs_path) = relative_path.canonicalize() else {
             tracing::debug!("No canonical representation");
@@ -147,10 +150,10 @@ impl FileManager {
         };
         let mut peers = self.find_files_in_directory(parent_path, Some(original_file_name)).await;
         peers.files.sort_unstable_by(|a, b| {
-            if a.name.eq_ignore_ascii_case(index_file) {
+            if a.name.eq_ignore_ascii_case(self.index_file.as_str()) {
                 Ordering::Less
             }
-            else if b.name.eq_ignore_ascii_case(index_file) {
+            else if b.name.eq_ignore_ascii_case(self.index_file.as_str()) {
                 Ordering::Greater
             }
             else {

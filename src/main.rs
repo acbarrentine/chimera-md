@@ -84,7 +84,10 @@ impl AppState {
         let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
         std::env::set_current_dir(document_root.as_path())?;
 
-        let mut file_manager = FileManager::new(document_root.as_path()).await?;
+        let mut file_manager = FileManager::new(
+            document_root.as_path(),
+            config.index_file.as_str(),
+        ).await?;
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
@@ -289,8 +292,7 @@ async fn serve_markdown_file(
             let peers = match app_state.generate_index {
                 true => {
                     app_state.file_manager.find_peers(
-                        path,
-                        app_state.index_file.as_str()).await
+                        path).await
                 },
                 false => { PeerInfo::default() }
             };
@@ -346,7 +348,12 @@ async fn get_response(
         }
         else if app_state.generate_index {
             tracing::info!("No file specified. Generating an index result at {}", path.display());
-            let links = app_state.file_manager.find_files_in_directory(path, None).await;
+            let links = if let Ok(abs_path) = path.canonicalize() {
+                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None).await
+            }
+            else {
+                app_state.file_manager.find_files_in_directory(path, None).await
+            };
             let html = app_state.html_generator.gen_index(path, links).await?;
             return Ok(Html(html).into_response());
         }
