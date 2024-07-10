@@ -1,11 +1,8 @@
-use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}, time::Instant};
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
-use crate::{chimera_error::ChimeraError,
-    document_scraper::{Doclink, DocumentScraper},
-    full_text_index::SearchResult,
-    HOME_DIR
+use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR
 };
 
 pub struct HtmlGeneratorCfg<'a> {
@@ -38,8 +35,10 @@ struct MarkdownVars<'a> {
     doclinks: String,
     peers: String,
     breadcrumbs: String,
-    peers_len: usize,
+    folders: String,
     doclinks_len: usize,
+    peers_len: usize,
+    folders_len: usize,
 }
 
 #[derive(Serialize)]
@@ -67,6 +66,7 @@ struct IndexVars<'a> {
     site_title: &'a str,
     path: String,
     peers: String,
+    folders: String,
     breadcrumbs: String,
     peers_len: usize,
 }
@@ -129,9 +129,10 @@ impl HtmlGenerator {
         path: &std::path::Path,
         body: String,
         scraper: DocumentScraper,
-        peers: Option<Vec<Doclink>>,
+        peers: PeerInfo,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
+        let start_time = Instant::now();
         let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
         let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
         let plugin_js = get_plugins(&scraper);
@@ -143,10 +144,9 @@ impl HtmlGenerator {
                 path.to_string_lossy().into_owned()
             }
         });
-
-        let doclinks = if scraper.doclinks.is_empty() { None } else { Some(scraper.doclinks) };
-                let doclinks_html = generate_doclink_html(doclinks, true);
-        let peers_html = generate_doclink_html(peers, false);
+        let doclinks_html = generate_doclink_html(scraper.doclinks, true);
+        let peers_html = generate_doclink_html(peers.files, false);
+        let folders_html = generate_doclink_html(peers.folders, false);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let vars = MarkdownVars {
@@ -158,9 +158,11 @@ impl HtmlGenerator {
             code_js,
             plugin_js,
             doclinks_len: doclinks_html.len(),
-            doclinks: doclinks_html,
             peers_len: peers_html.len(),
+            folders_len: folders_html.len(),
+            doclinks: doclinks_html,
             peers: peers_html,
+            folders: folders_html,
             breadcrumbs,
         };
 
@@ -182,8 +184,9 @@ impl HtmlGenerator {
         Ok(html)
     }
 
-    pub async fn gen_index(&self, path: &Path, peers: Option<Vec<Doclink>>) -> Result<String, ChimeraError> {
-        let peers_html = generate_doclink_html(peers, false);
+    pub async fn gen_index(&self, path: &Path, peers: PeerInfo) -> Result<String, ChimeraError> {
+        let peers_html = generate_doclink_html(peers.files, false);
+        let folders_html = generate_doclink_html(peers.folders, false);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
@@ -192,9 +195,10 @@ impl HtmlGenerator {
             title: format!("{}: {}", self.site_title, path_str),
             site_title: self.site_title.as_str(),
             path: path_str,
-            peers_len: peers_html.len(),
+            peers_len: peers_html.len() + folders_html.len(),
             peers: peers_html,
             breadcrumbs,
+            folders: folders_html,
         };
         let html = self.handlebars.render("index", &vars)?;
         Ok(html)
@@ -232,8 +236,8 @@ fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
     (num_indents, text_len)
 }
 
-fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool) -> String {
-    let Some(mut doclinks) = doclinks else {
+fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) -> String {
+    if doclinks.is_empty() {
         return "".to_string()
     };
     debug_assert_ne!(doclinks.len(), 0);

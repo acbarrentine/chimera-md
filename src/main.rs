@@ -7,8 +7,6 @@ mod result_cache;
 
 use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
-use html_generator::HtmlGeneratorCfg;
-use result_cache::ResultCache;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use serde::Deserialize;
@@ -17,11 +15,12 @@ use clap::Parser;
 #[allow(unused_imports)]
 use axum::debug_handler;
 
-use crate::file_manager::FileManager;
+use crate::file_manager::{FileManager, PeerInfo};
 use crate::full_text_index::FullTextIndex;
-use crate::html_generator::HtmlGenerator;
+use crate::html_generator::{HtmlGenerator, HtmlGeneratorCfg};
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
-use document_scraper::parse_markdown;
+use crate::document_scraper::parse_markdown;
+use crate::result_cache::ResultCache;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
@@ -293,7 +292,7 @@ async fn serve_markdown_file(
                         path,
                         app_state.index_file.as_str()).await
                 },
-                false => { None }
+                false => { PeerInfo::default() }
             };
             let html = app_state.html_generator.gen_markdown(
                 path,

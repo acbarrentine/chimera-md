@@ -6,11 +6,17 @@
                         {{{doclinks}}}
                     </div>
                 <p>
-                    {{#if (gt peers_len 0)}}
+                    {{#if (or (gt peers_len 0) (gt folders_len 0))}}
                     <div class="linkbox">
+                        {{#if (gt folders_len 0)}}
+                        {{{folders}}}
+                        {{/if}}
+
+                        {{#if (gt peers_len 0)}}
                         <p>
                             <strong>Other documents:</strong>
                         </p>
                         {{{peers}}}
+                        {{/if}}
                     </div>
                     {{/if}}
