@@ -1,6 +1,5 @@
 use std::ffi::OsStr;
 use std::fmt;
-use std::path::Path;
 use std::{collections::BTreeMap, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
 
 use crate::file_manager::FileManager;
@@ -20,11 +19,10 @@ struct WrappedCache {
 pub struct ResultCache {
     lock: Arc<RwLock<WrappedCache>>,
     signal_tx: tokio::sync::mpsc::Sender<()>,
-    root: PathBuf,
 }
 
 impl ResultCache {
-    pub fn new(file_manager: &FileManager, max_size: usize, document_root: &Path) -> Self {
+    pub fn new(file_manager: &FileManager, max_size: usize) -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let wrapped_cache = Arc::new(RwLock::new(WrappedCache {
             cache: BTreeMap::new(),
@@ -35,7 +33,6 @@ impl ResultCache {
         let cache = ResultCache {
             lock: wrapped_cache,
             signal_tx: tx,
-            root: document_root.to_path_buf(),
         };
 
         let rx = file_manager.subscribe();
@@ -77,13 +74,20 @@ impl ResultCache {
         lock.cache.get(path).map(|res| res.html.clone())
     }
 
-    pub fn remove(&self, path: &std::path::Path) {
+    // pub fn remove(&self, path: &std::path::Path) {
+    //     let Ok(mut lock) = self.lock.write() else {
+    //         return;
+    //     };
+    //     if let Some(prev) = lock.cache.remove(path) {
+    //         lock.current_size -= prev.html.len();
+    //     }
+    // }
+
+    pub fn clear(&self) {
         let Ok(mut lock) = self.lock.write() else {
             return;
         };
-        if let Some(prev) = lock.cache.remove(path) {
-            lock.current_size -= prev.html.len();
-        }
+        lock.cache.clear();
     }
 }
 
@@ -131,11 +135,8 @@ async fn listen_for_changes(
     while let Ok(path) = rx.recv().await {
         tracing::debug!("RC change event {}", path.display());
         if let Some(ext) = path.extension() {
-            if ext == OsStr::new("md") {
-                if let Ok(relative_path) = path.strip_prefix(cache.root.as_path()) {
-                    tracing::info!("Discarding cached HTML result for {}", relative_path.display());
-                    cache.remove(relative_path);
-                }
+            if ext == OsStr::new("md") || ext == OsStr::new("hbs") {
+                cache.clear();
             }
         }
     }

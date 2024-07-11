@@ -32,30 +32,37 @@ impl FileManager {
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
         tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events));
 
-        tracing::info!("Walk: {}", document_root.display());
-        let mut folders = BTreeMap::new();
+        let mut map = BTreeMap::new();
+        let mut folders = Vec::new();
+
         for entry in walkdir::WalkDir::new(document_root).into_iter().flatten() {
             let p = entry.path();
             let parent = p.parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
-            let parent_clone = parent.clone();
-            let parent_folder = folders.entry(parent).or_insert(FolderInfo::default());
             if entry.file_type().is_file() {
                 let fname = entry.file_name().to_string_lossy();
                 if let Some((_stem, ext)) = fname.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
-                        tracing::debug!("  Adding file {} to {}", p.display(), parent_clone.display());
+                        let parent_folder = map.entry(parent).or_insert(FolderInfo::default());
                         parent_folder.files.push(p.to_path_buf());
                     }
                 }
             }
             else {
-                tracing::debug!("  Adding folder {} to {}", p.display(), parent_clone.display());
-                parent_folder.folders.push(p.to_path_buf());
+                folders.push((parent, p.to_path_buf()));
+            }
+        }
+
+        // We only want to remember folders that have markdown files in them
+        for (parent, folder) in folders {
+            if map.contains_key(folder.as_path()) {
+                if let Some(folder_info) = map.get_mut(parent.as_path()) {
+                    folder_info.folders.push(folder);
+                }
             }
         }
 
         Ok(FileManager{
-            folders,
+            folders: map,
             broadcast_tx,
             debouncer,
             document_root: document_root.to_path_buf(),
@@ -101,37 +108,6 @@ impl FileManager {
             files,
             folders
         }
-
-        // let mut files = Vec::new();
-        // if let Ok(mut read_dir) = tokio::fs::read_dir(abs_path.as_os_str()).await {
-        //     while let Ok(entry_opt) = read_dir.next_entry().await {
-        //         if let Some(entry) = entry_opt {
-        //             let path = entry.path();
-        //             let file_name = entry.file_name();
-        //             if let Some(extension) = path.extension() {
-        //                 tracing::debug!("Found {}", path.display());
-        //                 if extension.eq_ignore_ascii_case(OsStr::new("md")) {
-        //                     if let Some(skip) = skip {
-        //                         if file_name.eq(skip) {
-        //                             continue;
-        //                         }
-        //                     }
-        //                     let name_string = file_name.to_string_lossy().into_owned();
-        //                     tracing::debug!("Peer: {}", name_string);
-        //                     files.push(Doclink {
-        //                         anchor: urlencoding::encode(name_string.as_str()).into_owned(),
-        //                         name: name_string,
-        //                         level: 1,
-        //                     });
-        //                 }
-        //             }
-        //         }
-        //         else {
-        //             break;
-        //         }
-        //     }
-        // }
-        //files
     }
 
     pub async fn find_peers(&self, relative_path: &Path) -> PeerInfo {
