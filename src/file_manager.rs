@@ -118,7 +118,7 @@ impl FileManager {
     }
 
     pub async fn find_peers(&self, relative_path: &Path) -> PeerInfo {
-        tracing::info!("Finding peers of {}", relative_path.display());
+        tracing::debug!("Finding peers of {}", relative_path.display());
         let Ok(abs_path) = relative_path.canonicalize() else {
             tracing::debug!("No canonical representation");
             return PeerInfo::default();

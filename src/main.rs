@@ -347,7 +347,7 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            tracing::info!("No file specified. Generating an index result at {}", path.display());
+            tracing::debug!("No file specified. Generating an index result at {}", path.display());
             let links = if let Ok(abs_path) = path.canonicalize() {
                 app_state.file_manager.find_files_in_directory(abs_path.as_path(), None).await
             }

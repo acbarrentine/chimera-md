@@ -1,8 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -60 512 512">
   <title>folder</title>
   <style>path, line {fill:none;stroke:#aaa;stroke-linecap:round;stroke-linejoin:round;stroke-width:32px;}</style>
-  <g transform="translate(0,18)">
-    <path d="M440,432H72a40,40,0,0,1-40-40V120A40,40,0,0,1,72,80h75.89a40,40,0,0,1,22.19,6.72l27.84,18.56A40,40,0,0,0,220.11,112H440a40,40,0,0,1,40,40V392A40,40,0,0,1,440,432Z"/>
-    <line x1="32" y1="192" x2="480" y2="192"/>
-  </g>
+  <path d="M440,432H72a40,40,0,0,1-40-40V120A40,40,0,0,1,72,80h75.89a40,40,0,0,1,22.19,6.72l27.84,18.56A40,40,0,0,0,220.11,112H440a40,40,0,0,1,40,40V392A40,40,0,0,1,440,432Z"/>
+  <line x1="32" y1="192" x2="480" y2="192"/>
 </svg>

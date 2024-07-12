@@ -164,6 +164,7 @@ impl HtmlGenerator {
             peers: peers_html,
             folders: folders_html,
             breadcrumbs,
+            directory: "ggg".to_string(),
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
@@ -206,37 +207,6 @@ impl HtmlGenerator {
     }
 }
 
-// The indenting scheme requires that we not grow more than 1 step at a time
-// Unfortunately, because this depends on user data, we can easily be asked
-// to process an invalid setup. Eg: <h1> directly to <h3>
-// Outdents don't have the same problem
-// Renumber the link list so we don't violate that assumption
-fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
-    let mut last_used_level = 0;
-    let mut last_seen_level = 0;
-    let mut num_indents = 0;
-    let mut text_len = 0;
-    for link in doclinks {
-        match link.level.cmp(&last_seen_level) {
-            Ordering::Greater => {
-                num_indents += 1;
-                last_seen_level = link.level;
-                link.level = last_used_level + 1;
-                last_used_level = link.level;
-            },
-            Ordering::Less => {
-                last_used_level = link.level;
-                last_seen_level = link.level;
-            },
-            Ordering::Equal => {
-                link.level = last_used_level;
-            }
-        }
-        text_len += link.anchor.len() + link.name.len();
-    }
-    (num_indents, text_len)
-}
-
 fn generate_filelink_html(doclinks: &[Doclink]) -> String {
     if doclinks.is_empty() {
         return "".to_string()
@@ -245,9 +215,9 @@ fn generate_filelink_html(doclinks: &[Doclink]) -> String {
     let item_middle = "\">";
     let item_suffix = "</a>";
     let list_item_end = "</li>";
-    let text_len = doclinks.iter().fold(0, |v, link| {v + link.anchor.len() + link.name.len()});
-    let expected_size = (doclinks.len() *
-        (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len())) +
+    let text_len = doclinks.iter().fold(0, |acc, link| {acc + link.anchor.len() + link.name.len()});
+    let expected_size = doclinks.len() *
+        (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len()) +
         text_len;
     let mut html = String::with_capacity(expected_size);
     for link in doclinks.iter() {
@@ -256,9 +226,10 @@ fn generate_filelink_html(doclinks: &[Doclink]) -> String {
         html.push_str(item_middle);
         html.push_str(link.name.as_str());
         html.push_str(item_suffix);
+        html.push_str(list_item_end);
     }
     if html.len() != expected_size {
-        tracing::warn!("Miscalculated doclinks size");
+        tracing::warn!("Miscalculated file links size. Actual: {}, expected: {}", html.len(), expected_size);
         tracing::warn!("text_len: {text_len}");
         tracing::warn!("Docs: {doclinks:?}");
         tracing::warn!("Doclinks:({})", html);
@@ -308,12 +279,43 @@ fn generate_anchor_html(mut doclinks: Vec<Doclink>) -> String {
         last_level -= 1;
     }
     if html.len() != expected_size {
-        tracing::warn!("Miscalculated doclinks size");
+        tracing::warn!("Miscalculated anchor links size. Actual: {}, expected: {}", html.len(), expected_size);
         tracing::warn!("num_indents: {num_indents}, text: {text_len}");
         tracing::warn!("Docs: {doclinks:?}");
         tracing::warn!("Doclinks:({})", html);
     }
     html
+}
+
+// The indenting scheme requires that we not grow more than 1 step at a time
+// Unfortunately, because this depends on user data, we can easily be asked
+// to process an invalid setup. Eg: <h1> directly to <h3>
+// Outdents don't have the same problem
+// Renumber the link list so we don't violate that assumption
+fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
+    let mut last_used_level = 0;
+    let mut last_seen_level = 0;
+    let mut num_indents = 0;
+    let mut text_len = 0;
+    for link in doclinks {
+        match link.level.cmp(&last_seen_level) {
+            Ordering::Greater => {
+                num_indents += 1;
+                last_seen_level = link.level;
+                link.level = last_used_level + 1;
+                last_used_level = link.level;
+            },
+            Ordering::Less => {
+                last_used_level = link.level;
+                last_seen_level = link.level;
+            },
+            Ordering::Equal => {
+                link.level = last_used_level;
+            }
+        }
+        text_len += link.anchor.len() + link.name.len();
+    }
+    (num_indents, text_len)
 }
 
 fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_top: bool) -> String {
