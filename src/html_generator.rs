@@ -246,6 +246,7 @@ fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) ->
     let list_prefix = "\n<ul>";
     let list_suffix = "\n</ul>";
     let item_prefix = if anchors_are_local {"\n<li><a href=\"#"} else {"\n<li><a href=\""};
+
     let item_middle = "\">";
     let item_suffix = "</a>";
     let list_item_end = "</li>";

@@ -167,6 +167,18 @@ tr:nth-child(odd) {
     list-style: disc inside;
 }
 
+span.files li {
+    list-style-image: url("/home/assets/document.svg");
+}
+
+span.folders li {
+    list-style-image: url("/home/assets/folder.svg");
+}
+
+span.anchors li {
+    list-style-image: url("/home/assets/hash.svg");
+}
+
 .linkbox {
     border-radius: 5px;
     border-left: 5px solid var(--border-color);

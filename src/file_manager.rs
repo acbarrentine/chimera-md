@@ -18,8 +18,9 @@ pub struct PeerInfo {
 }
 
 pub struct FileManager {
-    folders: BTreeMap<PathBuf, FolderInfo>,
+    map: BTreeMap<PathBuf, FolderInfo>,
     broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
+    //broadcast_rx: tokio::sync::broadcast::Receiver<PathBuf>,
     debouncer: AsyncDebouncer<RecommendedWatcher>,
     document_root: PathBuf,
     index_file: String,
@@ -27,22 +28,36 @@ pub struct FileManager {
 
 impl FileManager {
     pub async fn new(document_root: &Path, index_file: &str) -> Result<Self, ChimeraError> {
-        let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(32);
+        let (broadcast_tx, broadcast_rx) = tokio::sync::broadcast::channel(32);
         let (debouncer, file_events) =
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
         tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events));
 
-        let mut map = BTreeMap::new();
+        let mut file_manager = FileManager{
+            map: BTreeMap::new(),
+            broadcast_tx,
+            debouncer,
+            document_root: document_root.to_path_buf(),
+            index_file: index_file.to_string(),
+        };
+        file_manager.build_index();
+    //    tokio::spawn(future)
+
+        Ok(file_manager)
+    }
+
+    fn build_index(&mut self) {
+        self.map = BTreeMap::new();
         let mut folders = Vec::new();
 
-        for entry in walkdir::WalkDir::new(document_root).into_iter().flatten() {
+        for entry in walkdir::WalkDir::new(self.document_root.as_path()).into_iter().flatten() {
             let p = entry.path();
             let parent = p.parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
             if entry.file_type().is_file() {
                 let fname = entry.file_name().to_string_lossy();
                 if let Some((_stem, ext)) = fname.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
-                        let parent_folder = map.entry(parent).or_insert(FolderInfo::default());
+                        let parent_folder = self.map.entry(parent).or_default();
                         parent_folder.files.push(p.to_path_buf());
                     }
                 }
@@ -54,27 +69,19 @@ impl FileManager {
 
         // We only want to remember folders that have markdown files in them
         for (parent, folder) in folders {
-            if map.contains_key(folder.as_path()) {
-                if let Some(folder_info) = map.get_mut(parent.as_path()) {
+            if self.map.contains_key(folder.as_path()) {
+                if let Some(folder_info) = self.map.get_mut(parent.as_path()) {
                     folder_info.folders.push(folder);
                 }
             }
         }
-
-        Ok(FileManager{
-            folders: map,
-            broadcast_tx,
-            debouncer,
-            document_root: document_root.to_path_buf(),
-            index_file: index_file.to_string(),
-        })
     }
 
     pub async fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> PeerInfo {
         tracing::debug!("Find files in: {}", abs_path.display());
         let mut files = Vec::new();
         let mut folders = Vec::new();
-        if let Some(folder_info) = self.folders.get(abs_path) {
+        if let Some(folder_info) = self.map.get(abs_path) {
             for file in folder_info.files.iter() {
                 if let Some(file_name) = file.file_name() {
                     if let Some(skip) = skip {

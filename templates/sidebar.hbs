@@ -1,25 +1,31 @@
                 <p>
                     <div class="linkbox">
                         <p>
-                            <strong>Within this document:</strong>
+                          <strong>Within this document:</strong>
                         </p>
+                        <span class="anchors">
                         {{{doclinks}}}
+                        </span>
                     </div>
                 <p>
                     {{#if (or (gt peers_len 0) (gt folders_len 0))}}
                     <div class="linkbox">
-                        {{#if (gt folders_len 0)}}
+                      {{#if (gt folders_len 0)}}
                         <p>
-                            <strong>Folders:</strong>
+                          <strong>Folders:</strong>
                         </p>
+                        <span class="folders">
                         {{{folders}}}
-                        {{/if}}
+                        </span>
+                      {{/if}}
 
-                        {{#if (gt peers_len 0)}}
+                      {{#if (gt peers_len 0)}}
                         <p>
-                            <strong>Other documents:</strong>
+                          <strong>Other documents:</strong>
                         </p>
+                        <span class="files">
                         {{{peers}}}
-                        {{/if}}
+                        </span>
+                      {{/if}}
                     </div>
                     {{/if}}
