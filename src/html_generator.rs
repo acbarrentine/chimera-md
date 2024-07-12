@@ -164,7 +164,6 @@ impl HtmlGenerator {
             peers: peers_html,
             folders: folders_html,
             breadcrumbs,
-            directory: "ggg".to_string(),
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
