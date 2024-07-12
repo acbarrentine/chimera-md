@@ -92,8 +92,8 @@ services:
       # What code block highlight style should we use?
       # Syntax highlighting provided by highlight.js
       # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
-      # Default is "a11y-dark"
-      - CHIMERA_HIGHLIGHT_STYLE=a11y-dark
+      # Default is "an-old-hope"
+      - CHIMERA_HIGHLIGHT_STYLE=an-old-hope
 
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters

@@ -46,7 +46,7 @@ struct Config {
     #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
     index_file: String,
 
-    #[arg(long, env("CHIMERA_HIGHLIGHT_STYLE"), default_value_t = String::from("a11y-dark"))]
+    #[arg(long, env("CHIMERA_HIGHLIGHT_STYLE"), default_value_t = String::from("an-old-hope"))]
     highlight_style: String,
 
     #[arg(long, env("CHIMERA_LANG"), default_value_t = String::from("en"))]

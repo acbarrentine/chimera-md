@@ -110,12 +110,15 @@ pre code {
 }
 
 blockquote {
-    font-size: 1.8rem;
     margin: 5px 5px 2rem 5px;
     background: var(--block-color);
     border-left: 5px solid var(--border-color);
     border-radius: 5px;
     padding: 10px;
+}
+
+blockquote.dialog {
+    font-size: 1.8rem;
 }
 
 blockquote p {
@@ -167,15 +170,16 @@ tr:nth-child(odd) {
     list-style: disc inside;
 }
 
-span.files li {
+.sidebar ul.files {
     list-style-image: url("/home/assets/document.svg");
 }
 
-span.folders li {
+.sidebar ul.folders {
     list-style-image: url("/home/assets/folder.svg");
+    margin-bottom: 1em;
 }
 
-span.anchors li {
+.sidebar span.anchors ul {
     list-style-image: url("/home/assets/hash.svg");
 }
 

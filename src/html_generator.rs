@@ -144,9 +144,9 @@ impl HtmlGenerator {
                 path.to_string_lossy().into_owned()
             }
         });
-        let doclinks_html = generate_doclink_html(scraper.doclinks, true);
-        let peers_html = generate_doclink_html(peers.files, false);
-        let folders_html = generate_doclink_html(peers.folders, false);
+        let doclinks_html = generate_anchor_html(scraper.doclinks);
+        let peers_html = generate_filelink_html(&peers.files);
+        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let vars = MarkdownVars {
@@ -185,8 +185,8 @@ impl HtmlGenerator {
     }
 
     pub async fn gen_index(&self, path: &Path, peers: PeerInfo) -> Result<String, ChimeraError> {
-        let peers_html = generate_doclink_html(peers.files, false);
-        let folders_html = generate_doclink_html(peers.folders, false);
+        let peers_html = generate_filelink_html(&peers.files);
+        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
@@ -237,15 +237,43 @@ fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
     (num_indents, text_len)
 }
 
-fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) -> String {
+fn generate_filelink_html(doclinks: &[Doclink]) -> String {
     if doclinks.is_empty() {
         return "".to_string()
     };
-    debug_assert_ne!(doclinks.len(), 0);
+    let item_prefix = "\n<li><a href=\"";
+    let item_middle = "\">";
+    let item_suffix = "</a>";
+    let list_item_end = "</li>";
+    let text_len = doclinks.iter().fold(0, |v, link| {v + link.anchor.len() + link.name.len()});
+    let expected_size = (doclinks.len() *
+        (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len())) +
+        text_len;
+    let mut html = String::with_capacity(expected_size);
+    for link in doclinks.iter() {
+        html.push_str(item_prefix);
+        html.push_str(link.anchor.as_str());
+        html.push_str(item_middle);
+        html.push_str(link.name.as_str());
+        html.push_str(item_suffix);
+    }
+    if html.len() != expected_size {
+        tracing::warn!("Miscalculated doclinks size");
+        tracing::warn!("text_len: {text_len}");
+        tracing::warn!("Docs: {doclinks:?}");
+        tracing::warn!("Doclinks:({})", html);
+    }
+    html
+}
+
+fn generate_anchor_html(mut doclinks: Vec<Doclink>) -> String {
+    if doclinks.is_empty() {
+        return "".to_string()
+    };
     let (num_indents, text_len) = normalize_headings(&mut doclinks);
     let list_prefix = "\n<ul>";
     let list_suffix = "\n</ul>";
-    let item_prefix = if anchors_are_local {"\n<li><a href=\"#"} else {"\n<li><a href=\""};
+    let item_prefix = "\n<li><a href=\"#";
 
     let item_middle = "\">";
     let item_suffix = "</a>";
@@ -283,7 +311,6 @@ fn generate_doclink_html(mut doclinks: Vec<Doclink>, anchors_are_local: bool) ->
         tracing::warn!("Miscalculated doclinks size");
         tracing::warn!("num_indents: {num_indents}, text: {text_len}");
         tracing::warn!("Docs: {doclinks:?}");
-        tracing::warn!("Anchors are local: {anchors_are_local}");
         tracing::warn!("Doclinks:({})", html);
     }
     html
