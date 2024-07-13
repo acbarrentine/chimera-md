@@ -108,7 +108,7 @@ impl AppState {
         };
         let html_generator = HtmlGenerator::new(cfg)?;
         
-        let mut full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
+        let full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
 
         let generate_index = config.generate_index.map_or(false, |v| v);
@@ -250,12 +250,12 @@ async fn handle_style(
 
 //#[debug_handler]
 async fn handle_path(
-    State(app_state): State<AppStateType>,
+    State(mut app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
     let path = PathBuf::from(path);
-    match get_response(&app_state, path.as_path(), headers).await {
+    match get_response(&mut app_state, path.as_path(), headers).await {
         Ok(resp) => {
             let status = resp.status();
             if status.is_success() || status.is_redirection() {
@@ -304,7 +304,7 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
 }
 
 async fn serve_markdown_file(
-    app_state: &AppStateType,
+    app_state: &mut AppStateType,
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
@@ -349,7 +349,7 @@ async fn serve_static_file(
 }
 
 async fn get_response(
-    app_state: &AppStateType,
+    app_state: &mut AppStateType,
     path: &std::path::Path,
     headers: HeaderMap
 ) -> Result<axum::response::Response, ChimeraError> {

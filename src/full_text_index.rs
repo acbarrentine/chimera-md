@@ -90,7 +90,7 @@ impl FullTextIndex {
     }
     
     pub async fn scan_directory(
-        &mut self,
+        &self,
         root_directory: PathBuf,
         search_index_dir: PathBuf,
         file_manager: &FileManager
@@ -109,7 +109,7 @@ impl FullTextIndex {
         };
         tokio::spawn(scanner.scan());
 
-        let md_files = file_manager.get_markdown_files();
+        let md_files = file_manager.get_markdown_files().await;
         for md in md_files {
             tx.send(md).await?;
         }

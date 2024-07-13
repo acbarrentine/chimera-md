@@ -1,15 +1,9 @@
-use std::{borrow::Borrow, cmp::Ordering, collections::BTreeMap, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
 use crate::{chimera_error::ChimeraError, document_scraper::Doclink};
 
 type NotifyError = async_watcher::notify::Error;
-
-#[derive(Default, Debug)]
-struct FolderInfo {
-    folders: Vec<PathBuf>,
-    files: Vec<PathBuf>,
-}
 
 #[derive(Default, Debug)]
 pub struct PeerInfo {
@@ -18,9 +12,7 @@ pub struct PeerInfo {
 }
 
 pub struct FileManager {
-    map: BTreeMap<PathBuf, FolderInfo>,
     broadcast_tx: tokio::sync::broadcast::Sender<PathBuf>,
-    //broadcast_rx: tokio::sync::broadcast::Receiver<PathBuf>,
     debouncer: AsyncDebouncer<RecommendedWatcher>,
     document_root: PathBuf,
     index_file: String,
@@ -33,91 +25,69 @@ impl FileManager {
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
         tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events));
 
-        let mut file_manager = FileManager{
-            map: BTreeMap::new(),
+        let file_manager = FileManager{
             broadcast_tx,
             debouncer,
             document_root: document_root.to_path_buf(),
             index_file: index_file.to_string(),
         };
-        file_manager.build_index();
-    //    tokio::spawn(future)
-
         Ok(file_manager)
     }
 
-    fn build_index(&mut self) {
-        self.map = BTreeMap::new();
-        let mut folders = Vec::new();
-
+    pub async fn get_markdown_files(&self) -> Vec<PathBuf> {
+        let mut files = Vec::new();
         for entry in walkdir::WalkDir::new(self.document_root.as_path()).into_iter().flatten() {
             let p = entry.path();
-            let parent = p.parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
             if entry.file_type().is_file() {
                 let fname = entry.file_name().to_string_lossy();
                 if let Some((_stem, ext)) = fname.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
-                        let parent_folder = self.map.entry(parent).or_default();
-                        parent_folder.files.push(p.to_path_buf());
+                        files.push(p.to_owned());
                     }
                 }
             }
-            else {
-                folders.push((parent, p.to_path_buf()));
-            }
         }
-
-        // We only want to remember folders that have markdown files in them
-        for (parent, folder) in folders {
-            if self.map.contains_key(folder.as_path()) {
-                if let Some(folder_info) = self.map.get_mut(parent.as_path()) {
-                    folder_info.folders.push(folder);
-                }
-            }
-        }
-    }
-
-    pub fn get_markdown_files(&self) -> Vec<PathBuf> {
-        let files: Vec<PathBuf> = self.map.values().flat_map(|folder| {
-            folder.files.clone()
-        }).collect();
         files
     }
 
     pub async fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> PeerInfo {
         tracing::debug!("Find files in: {}", abs_path.display());
+        let mut folder_set = HashSet::new();
         let mut files = Vec::new();
-        let mut folders = Vec::new();
-        if let Some(folder_info) = self.map.get(abs_path) {
-            for file in folder_info.files.iter() {
-                if let Some(file_name) = file.file_name() {
-                    if let Some(skip) = skip {
-                        if file_name.eq(skip) {
-                            continue;
+        for entry in walkdir::WalkDir::new(abs_path).max_depth(2).into_iter().flatten() {
+            let parent = entry.path().parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
+            if entry.file_type().is_file() {
+                let fname = entry.file_name();
+                let fname_str = fname.to_string_lossy();
+                if let Some((_stem, ext)) = fname_str.rsplit_once('.') {
+                    if ext.eq_ignore_ascii_case("md") {
+                        if let Some(skip) = skip {
+                            if fname.eq(skip) {
+                                continue;
+                            }
+                        }
+                        if parent.as_os_str().len() == abs_path.as_os_str().len() {
+                            files.push(Doclink {
+                                anchor: urlencoding::encode(&fname_str).into_owned(),
+                                name: fname_str.into_owned(),
+                                level: 1,
+                            });
+                        }
+                        else if let Ok(parent) = parent.strip_prefix(abs_path) {
+                            folder_set.insert(parent.to_owned());
                         }
                     }
-                    let name_string = file_name.to_string_lossy().into_owned();
-                    tracing::debug!("Peer: {name_string}");
-                    files.push(Doclink {
-                        anchor: urlencoding::encode(name_string.as_str()).into_owned(),
-                        name: name_string,
-                        level: 1,
-                    });
-                }
-            }
-
-            for folder in folder_info.folders.iter() {
-                if let Ok(relative_path) = folder.strip_prefix(self.document_root.as_path()) {
-                    let name_string = relative_path.to_string_lossy();
-                    tracing::debug!("Folder: {name_string}");
-                    folders.push(Doclink {
-                        anchor: format!("{}/", urlencoding::encode(name_string.borrow())),
-                        name: name_string.into_owned(),
-                        level: 1,
-                    });
                 }
             }
         }
+
+        let folders:Vec<Doclink> = folder_set.into_iter().map(|folder| {
+            Doclink {
+                anchor: format!("{}/", urlencoding::encode(folder.to_string_lossy().borrow())),
+                name: folder.to_string_lossy().into_owned(),
+                level: 1,
+            }
+        }).collect();
         PeerInfo {
             files,
             folders
