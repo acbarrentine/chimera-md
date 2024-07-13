@@ -3,6 +3,7 @@ use std::fmt;
 use std::{path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
 use indexmap::IndexMap;
 
+#[cfg(test)]
 use crate::chimera_error::ChimeraError;
 use crate::file_manager::FileManager;
 

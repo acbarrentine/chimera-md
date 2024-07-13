@@ -37,6 +37,9 @@ struct Config {
     #[arg(long, env("CHIMERA_STYLE_ROOT"), default_value_t = String::from("/data/style"))]
     style_root: String,
 
+    #[arg(long, env("CHIMERA_ICON_ROOT"), default_value_t = String::from("/data/icon"))]
+    icon_root: String,
+
     #[arg(long, env("CHIMERA_SEARCH_INDEX_DIR"), default_value_t = String::from("/data/search"))]
     search_index_dir: String,
 
@@ -68,6 +71,7 @@ struct Config {
 struct AppState {
     index_file: String,
     style_root: PathBuf,
+    icon_root: PathBuf,
     generate_index: bool,
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
@@ -111,6 +115,7 @@ impl AppState {
         Ok(AppState {
             index_file: config.index_file,
             style_root: PathBuf::from(config.style_root),
+            icon_root: PathBuf::from(config.icon_root),
             generate_index,
             full_text_index,
             html_generator,
@@ -143,6 +148,7 @@ async fn main() -> Result<(), ChimeraError> {
     let app = Router::new()
         .route("/search", get(handle_search))
         .route("/style/*path", get(handle_style))
+        .route("/icon/*path", get(handle_icon))
         .route("/", get(handle_root))
         .route(HOME_DIR, get(handle_root))
         .route(format!("{HOME_DIR}*path").as_str(), get(handle_path))
@@ -204,6 +210,33 @@ async fn handle_search(
     handle_err(app_state).await.into_response()
 }
 
+async fn handle_internal_file(
+    app_state: AppStateType,
+    path: PathBuf,
+    headers: HeaderMap) -> axum::response::Response {
+    let mut req = Request::new(axum::body::Body::empty());
+    *req.headers_mut() = headers;
+    match ServeDir::new(path.as_path()).try_call(req).await {
+        Ok(resp) => {
+            resp.into_response()
+        },
+        Err(e) => {
+            tracing::warn!("Error serving style {}: {e}", path.display());
+            handle_404(app_state).await.into_response()
+        }
+    }
+}
+
+async fn handle_icon(
+    State(app_state): State<AppStateType>,
+    axum::extract::Path(path): axum::extract::Path<String>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    let new_path = app_state.icon_root.join(path.as_str());
+    tracing::debug!("Icon request {path} => {}", new_path.display());
+    handle_internal_file(app_state, new_path, headers).await
+}
+
 //#[debug_handler]
 async fn handle_style(
     State(app_state): State<AppStateType>,
@@ -212,17 +245,7 @@ async fn handle_style(
 ) -> axum::response::Response {
     let new_path = app_state.style_root.join(path.as_str());
     tracing::debug!("Style request {path} => {}", new_path.display());
-    let mut req = Request::new(axum::body::Body::empty());
-    *req.headers_mut() = headers;
-    match ServeDir::new(new_path.as_path()).try_call(req).await {
-        Ok(resp) => {
-            resp.into_response()
-        },
-        Err(e) => {
-            tracing::warn!("Error serving style {}: {e}", new_path.display());
-            handle_404(app_state).await.into_response()
-        }
-    }
+    handle_internal_file(app_state, new_path, headers).await
 }
 
 //#[debug_handler]
