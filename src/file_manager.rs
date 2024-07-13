@@ -28,7 +28,7 @@ pub struct FileManager {
 
 impl FileManager {
     pub async fn new(document_root: &Path, index_file: &str) -> Result<Self, ChimeraError> {
-        let (broadcast_tx, broadcast_rx) = tokio::sync::broadcast::channel(32);
+        let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(32);
         let (debouncer, file_events) =
             AsyncDebouncer::new_with_channel(Duration::from_secs(1), Some(Duration::from_secs(1))).await?;
         tokio::spawn(directory_watcher(broadcast_tx.clone(), file_events));
@@ -75,6 +75,13 @@ impl FileManager {
                 }
             }
         }
+    }
+
+    pub fn get_markdown_files(&self) -> Vec<PathBuf> {
+        let files: Vec<PathBuf> = self.map.values().flat_map(|folder| {
+            folder.files.clone()
+        }).collect();
+        files
     }
 
     pub async fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> PeerInfo {
