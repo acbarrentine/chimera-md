@@ -91,7 +91,8 @@ impl AppState {
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
-        let result_cache = ResultCache::new(&file_manager, config.max_cache_size);
+        let result_cache = ResultCache::new(config.max_cache_size);
+        result_cache.listen_for_changes(&file_manager);
 
         let cfg = HtmlGeneratorCfg {
             template_root,

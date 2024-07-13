@@ -298,6 +298,7 @@ dependencies = [
  "axum",
  "clap",
  "handlebars",
+ "indexmap",
  "pulldown-cmark",
  "regex",
  "serde",

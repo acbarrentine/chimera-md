@@ -2,7 +2,7 @@ use axum::{http::StatusCode, response::IntoResponse};
 
 use crate::AppStateType;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ChimeraError {
     MissingMarkdownTemplate,
     TemplateRender,
