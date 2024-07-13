@@ -61,12 +61,13 @@ impl FileManager {
                 let fname_str = fname.to_string_lossy();
                 if let Some((_stem, ext)) = fname_str.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
-                        if let Some(skip) = skip {
-                            if fname.eq(skip) {
-                                continue;
+                        let direct_child = parent.as_os_str().len() == abs_path.as_os_str().len();
+                        if direct_child {
+                            if let Some(skip) = skip {
+                                if fname.eq(skip) {
+                                    continue;
+                                }
                             }
-                        }
-                        if parent.as_os_str().len() == abs_path.as_os_str().len() {
                             files.push(Doclink {
                                 anchor: urlencoding::encode(&fname_str).into_owned(),
                                 name: fname_str.into_owned(),
