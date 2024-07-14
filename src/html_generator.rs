@@ -2,8 +2,11 @@ use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR
-};
+use crate::{chimera_error::ChimeraError,
+    document_scraper::{Doclink, DocumentScraper},
+    file_manager::PeerInfo,
+    full_text_index::SearchResult,
+    HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: PathBuf,
@@ -97,6 +100,22 @@ impl HtmlGenerator {
             index_file: OsString::from(cfg.index_file),
             version: cfg.version,
         })
+    }
+
+    pub fn preprocess_markdown(&self, path: &Path, raw_md: String, peers: &PeerInfo) -> Result<String, ChimeraError> {
+        #[derive(Serialize)]
+        struct PreprocessVars<'a> {
+            path: &'a Path,
+            files: &'a [Doclink],
+            folders: &'a [Doclink],
+        }
+        let md_vars = PreprocessVars {
+            path,
+            files: &peers.files,
+            folders: &peers.folders,
+        };
+        let res = self.handlebars.render_template(raw_md.as_str(), &md_vars)?;
+        Ok(res)
     }
 
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {

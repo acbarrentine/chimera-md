@@ -18,19 +18,19 @@ and can handle ordinary files, but with special processing for markdown files.
 
 A chimera is a mythical creature with two heads from different beasts, most commonly a
 lion and a goat. It was the differing perspectives that suggested the name for this
-project. It is a webserver that presents an alternative view depending on the kind of
+project. It is a web server that presents an alternative view depending on the kind of
 document you are looking at.
 
-## Example documents
+## Index of {{path}}
 
-* [Index (this document)](index.md)
-* [Example 1](example1.md)
-* [Example 2](example2.md)
-* [Something](no%20index/something.md)
-* [Dialog test 1](dialog-test-1.md)
-* [Dialog test 2](dialog-test-2.md)
+### Files
 
-## Other folders
+{{#each files}}
+* [{{this.name}}]({{this.anchor}})
+{{/each}}
 
-* [Subfolder](subfolder/)
-* [Gruber test suite](tests/)
+### Folders
+
+{{#each folders}}
+* [{{this.name}}]({{this.anchor}})
+{{/each}}
