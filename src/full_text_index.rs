@@ -194,7 +194,37 @@ async fn get_modtime(path: &std::path::Path) -> Option<SystemTime> {
 }
 
 impl DocumentScanner {
+    async fn prune_deleted_documents(&mut self) -> Result<(), ChimeraError> {
+        // look for deleted documents since we last ran
+        let mut deleted = Vec::new();
+        self.file_times.files.retain(|path, _time| {
+            if !path.exists() {
+                deleted.push(path.clone());
+                false
+            }
+            else {
+                true
+            }
+        });
+        if !deleted.is_empty()
+        {
+            let mut index = self.index_writer.write()?;
+            for del in deleted {
+                if let Ok(relative_path) = del.strip_prefix(self.document_root.as_path()) {
+                    let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
+                    tracing::info!("Removing deleted document {} from full text index", del.display());
+                    let doc_term = Term::from_field_text(self.link, &anchor_string);
+                    index.delete_term(doc_term);
+                }
+            }
+            index.commit()?;
+        }
+        Ok(())
+    }
+
     async fn scan(mut self) -> Result<(), ChimeraError> {
+        self.prune_deleted_documents().await?;
+
         let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
             let modtime = get_modtime(path.as_path()).await;
