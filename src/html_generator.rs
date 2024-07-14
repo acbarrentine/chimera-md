@@ -55,6 +55,8 @@ impl HtmlGenerator {
         let title = format!("{}: Search results", self.site_title);
         vars.insert("title", title.as_str());
         vars.insert("site_title", self.site_title.as_str());
+        vars.insert("site_lang", self.site_lang.as_str());
+        vars.insert("version", self.version);
         vars.insert("query", query);
         vars.insert("placeholder", query);
         vars.insert("results", &results);
@@ -67,6 +69,8 @@ impl HtmlGenerator {
         let title = format!("{}: Search results", self.site_title);
         vars.insert("title", title.as_str());
         vars.insert("site_title", self.site_title.as_str());
+        vars.insert("site_lang", self.site_lang.as_str());
+        vars.insert("version", self.version);
         vars.insert("query", "");
         vars.insert("placeholder", "Search...");
         let results: Vec<&str> = Vec::new();
@@ -124,6 +128,8 @@ impl HtmlGenerator {
         let mut vars = tera::Context::new();
         vars.insert("title", title.as_str());
         vars.insert("site_title", self.site_title.as_str());
+        vars.insert("site_lang", self.site_lang.as_str());
+        vars.insert("version", self.version);
         vars.insert("error_code", error_code);
         vars.insert("heading", heading);
         vars.insert("message", message);
@@ -137,10 +143,14 @@ impl HtmlGenerator {
         let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
-        let title = format!("{}: {}", self.site_title, path_os_str.to_string_lossy());
+        let path_str = path_os_str.to_string_lossy().to_string();
+        let title = format!("{}: {}", self.site_title, path_str);
         let mut vars = tera::Context::new();
         vars.insert("title", title.as_str());
-        vars.insert("path", path_os_str);
+        vars.insert("site_title", self.site_title.as_str());
+        vars.insert("site_lang", self.site_lang.as_str());
+        vars.insert("version", self.version);
+        vars.insert("path", path_str.as_str());
         vars.insert("peers", peers_html.as_str());
         vars.insert("breadcrumbs", breadcrumbs.as_str());
         vars.insert("folders", folders_html.as_str());

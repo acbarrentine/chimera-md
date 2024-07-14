@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use axum::{http::StatusCode, response::IntoResponse};
 
 use crate::AppStateType;
@@ -16,6 +18,10 @@ pub enum ChimeraError {
 
 impl From<tera::Error> for ChimeraError {
     fn from(err: tera::Error) -> Self {
+        tracing::warn!("Tera error: {err}");
+        if let Some(src) = err.source() {
+            tracing::warn!("  > {}", src.to_string());
+        }
         ChimeraError::TemplateParsing(err.to_string())
     }
 }

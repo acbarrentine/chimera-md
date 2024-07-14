@@ -23,24 +23,23 @@
                 <p><a href="{{result.link}}">{{result.title}}</a></p>
                 <p>{{result.snippet}}</p>
             </li>
-            {% endfor %}
             </ol>
-            {% if results %}
-                <p>
-                    {% if query %}
-                    No results found. You can try using operators to refine your query:
-                    {% endif %}
-                    <ul>
-                        <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
-                        <li>Required terms: <b>+cookie +monster</b></li>
-                        <li>Excluded terms: <b>cookie -monster</b></li>
-                        <li>Phrases: <b>"cookie monster"</b></li>
-                    </ul>
-                </p>
-            {% endif %}
+            {% else %}
+            <p>
+                {% if query %}
+                No results found. You can try using operators to refine your query:
+                {% endif %}
+                <ul>
+                    <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
+                    <li>Required terms: <b>+cookie +monster</b></li>
+                    <li>Excluded terms: <b>cookie -monster</b></li>
+                    <li>Phrases: <b>"cookie monster"</b></li>
+                </ul>
+            </p>
+            {% endfor %}
         </div>
         <div class="three columns">
         </div>
     </div>
 </div>
-{% include "header.html" %}
+{% include "footer.html" %}
