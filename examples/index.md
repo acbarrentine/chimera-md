@@ -23,11 +23,13 @@ document you are looking at.
 
 ## Index of {{path}}
 
+{{#if (gt files_len 0)}}
 ### Files
 
 {{#each files}}
 * [{{this.name}}]({{this.anchor}})
 {{/each}}
+{{/if}}
 
 ### Folders
 

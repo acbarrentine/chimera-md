@@ -105,14 +105,22 @@ impl HtmlGenerator {
     pub fn preprocess_markdown(&self, path: &Path, raw_md: String, peers: &PeerInfo) -> Result<String, ChimeraError> {
         #[derive(Serialize)]
         struct PreprocessVars<'a> {
-            path: &'a Path,
+            path: String,
             files: &'a [Doclink],
             folders: &'a [Doclink],
+            files_len: usize,
+            folders_len: usize,
         }
+        let slash = OsString::from("/");
+        let path_os_str = path.iter().last().unwrap_or(&slash);
+        let path_str = path_os_str.to_string_lossy().into_owned();
+
         let md_vars = PreprocessVars {
-            path,
+            path: path_str,
             files: &peers.files,
             folders: &peers.folders,
+            files_len: peers.files.len(),
+            folders_len: peers.folders.len(),
         };
         let res = self.handlebars.render_template(raw_md.as_str(), &md_vars)?;
         Ok(res)
