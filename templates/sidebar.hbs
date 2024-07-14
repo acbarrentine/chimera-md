@@ -13,15 +13,18 @@
                       <p>
                         <strong>Other documents:</strong>
                       </p>
-                      <ul class="folders">
                       {{#if (gt folders_len 0)}}
+                      <ul class="folders">
                         {{{folders}}}
-                      {{/if}}
                       </ul>
-                      <ul class="files">
+                      {{/if}}
+                      {{#if (and (gt peers_len 0) (gt folders_len 0))}}
+                      <hr/>
+                      {{/if}}
                       {{#if (gt peers_len 0)}}
+                      <ul class="files">
                         {{{peers}}}
-                      {{/if}}
                       </ul>
+                      {{/if}}
                     </div>
                     {{/if}}
