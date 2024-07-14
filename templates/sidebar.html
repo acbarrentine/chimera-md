@@ -38,7 +38,7 @@
                       {% if peer_folders -%}
                       <ul class="folders">
                         {% for folder in peer_folders -%}
-                          <li><a href="{{folder.anchor | urlencode}}">{{folder.name}}</a></li>
+                          <li><a href="{{folder.url | urlencode}}">{{folder.name}}</a></li>
                         {% endfor -%}
                       </ul>
                       {% endif -%}
@@ -49,7 +49,7 @@
                       {% if peer_files -%}
                       <ul class="files">
                         {% for file in peer_files -%}
-                          <li><a href="{{file.anchor | urlencode}}">{{file.name}}</a></li>
+                          <li><a href="{{file.url | urlencode}}">{{file.name}}</a></li>
                         {% endfor -%}
                       </ul>
                       {% endif -%}

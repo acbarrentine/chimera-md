@@ -1,7 +1,7 @@
 use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InteralLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -88,7 +88,7 @@ impl HtmlGenerator {
         peers: PeerInfo,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
+        let html_content = add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
                 name.to_string_lossy().into_owned()
@@ -102,7 +102,7 @@ impl HtmlGenerator {
 
         let mut vars = self.get_vars(title.as_str(), scraper.has_code_blocks);
         vars.insert("body", html_content.as_str());
-        vars.insert("doclinks", &scraper.doclinks);
+        vars.insert("doclinks", &scraper.internal_links);
         if !peers.files.is_empty() {
             vars.insert("peer_files", &peers.files);
         }
@@ -154,7 +154,7 @@ impl HtmlGenerator {
     }
 }
 
-fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_top: bool) -> String {
+fn add_anchors_to_headings(original_html: String, links: &[InteralLink], inserted_top: bool) -> String {
     let start_index = if inserted_top { 1 } else { 0 };
     let num_links = links.len();
     if num_links == start_index {
@@ -194,7 +194,7 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_to
     new_html
 }
 
-fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<Doclink> {
+fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {
     let parts: Vec<&OsStr> = path.iter().filter(|el| {
         el != &skip
     }).collect();
@@ -202,12 +202,12 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<Doclink> {
     let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
     url.push_str(HOME_DIR);
 
-    crumbs.push(Doclink::new(url.clone(), "Home".to_string(), 1));
+    crumbs.push(ExternalLink::new(url.clone(), "Home".to_string()));
 
     for p in parts {
         url.push_str(&urlencoding::encode(&p.to_string_lossy()));
         url.push('/');
-        crumbs.push(Doclink::new(url.clone(), p.to_string_lossy().into_owned(), 1));
+        crumbs.push(ExternalLink::new(url.clone(), p.to_string_lossy().into_owned()));
     }
     crumbs
 }

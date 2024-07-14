@@ -18,7 +18,7 @@ and can handle ordinary files, but with special processing for markdown files.
 
 A chimera is a mythical creature with two heads from different beasts, most commonly a
 lion and a goat. It was the differing perspectives that suggested the name for this
-project. It is a webserver that presents an alternative view depending on the kind of
+project. It is a web server that presents an alternative view depending on the kind of
 document you are looking at.
 
 ## Example documents
@@ -34,3 +34,4 @@ document you are looking at.
 
 * [Subfolder](Subfolder/)
 * [Gruber test suite](Tests/)
+* [No index](No%20index/)

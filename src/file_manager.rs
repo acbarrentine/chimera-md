@@ -1,14 +1,14 @@
 use std::{cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
-use crate::{chimera_error::ChimeraError, document_scraper::Doclink};
+use crate::{chimera_error::ChimeraError, document_scraper::ExternalLink};
 
 type NotifyError = async_watcher::notify::Error;
 
 #[derive(Default, Debug)]
 pub struct PeerInfo {
-    pub files: Vec<Doclink>,
-    pub folders: Vec<Doclink>,
+    pub files: Vec<ExternalLink>,
+    pub folders: Vec<ExternalLink>,
 }
 
 pub struct FileManager {
@@ -68,11 +68,7 @@ impl FileManager {
                                     continue;
                                 }
                             }
-                            files.push(Doclink {
-                                anchor: fname_str.to_string(),
-                                name: stem.to_string(),
-                                level: 1,
-                            });
+                            files.push(ExternalLink::new(fname_str.to_string(), stem.to_string()));
                         }
                         else if let Ok(parent) = parent.strip_prefix(abs_path) {
                             folder_set.insert(parent.to_owned());
@@ -82,12 +78,8 @@ impl FileManager {
             }
         }
 
-        let folders:Vec<Doclink> = folder_set.into_iter().map(|folder| {
-            Doclink {
-                anchor: format!("{}/", folder.to_string_lossy()),
-                name: folder.to_string_lossy().into_owned(),
-                level: 1,
-            }
+        let folders:Vec<ExternalLink> = folder_set.into_iter().map(|folder| {
+            ExternalLink::new(format!("{}/", folder.to_string_lossy()), folder.to_string_lossy().into_owned())
         }).collect();
         PeerInfo {
             files,
@@ -111,10 +103,10 @@ impl FileManager {
         };
         let mut peers = self.find_files_in_directory(parent_path, Some(original_file_name)).await;
         peers.files.sort_unstable_by(|a, b| {
-            if a.name.eq_ignore_ascii_case(self.index_file.as_str()) {
+            if a.url.eq_ignore_ascii_case(self.index_file.as_str()) {
                 Ordering::Less
             }
-            else if b.name.eq_ignore_ascii_case(self.index_file.as_str()) {
+            else if b.url.eq_ignore_ascii_case(self.index_file.as_str()) {
                 Ordering::Greater
             }
             else {

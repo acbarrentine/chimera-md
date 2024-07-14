@@ -4,15 +4,21 @@ use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
-pub struct Doclink {
+pub struct InteralLink {
     pub anchor: String,
     pub name: String,
     pub level: u8,
 }
 
-impl Doclink {
+#[derive(Serialize, Debug)]
+pub struct ExternalLink {
+    pub url: String,
+    pub name: String,
+}
+
+impl InteralLink {
     pub fn new(anchor: String, name: String, level: u8) -> Self {
-        Doclink {
+        InteralLink {
             anchor,
             name,
             level,
@@ -20,10 +26,19 @@ impl Doclink {
     }
 }
 
+impl ExternalLink {
+    pub fn new(url: String, name: String) -> Self {
+        ExternalLink {
+            url,
+            name,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
-    pub doclinks: Vec<Doclink>,
+    pub internal_links: Vec<InteralLink>,
     pub code_languages: Vec<&'static str>,
     pub plugins: Vec<String>,
     pub title: Option<String>,
@@ -45,7 +60,7 @@ impl DocumentScraper {
                 "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
                 "python", "r", "rust", "sql", "text", "xml", "yaml",
             ]),
-            doclinks: Vec::new(),
+            internal_links: Vec::new(),
             code_languages: Vec::new(),
             plugins: Vec::new(),
             title: None,
@@ -125,7 +140,7 @@ impl DocumentScraper {
                         }
                     };
                     tracing::debug!("Found doclink: {anchor} -> {heading_text}");
-                    self.doclinks.push(Doclink::new(anchor.to_string(), heading_text.to_string(), level));
+                    self.internal_links.push(InteralLink::new(anchor.to_string(), heading_text.to_string(), level));
                 }
             },
             Event::Text(t) => {
@@ -141,11 +156,11 @@ impl DocumentScraper {
                             if self.title.is_none() {
                                 self.title = Some(name.clone());
                             }
-                            let link = Doclink::new(
+                            let link = InteralLink::new(
                                 name.clone(), 
                                 name, *level as u8);
                             tracing::debug!("Doclink found: {link:?}");
-                            self.doclinks.push(link);
+                            self.internal_links.push(link);
                         }
                     },
                     TagEnd::MetadataBlock(_) => {
@@ -181,7 +196,7 @@ impl DocumentScraper {
     fn normalize_headings(&mut self) {
         let mut last_used_level = 0;
         let mut last_seen_level = 0;
-        for link in self.doclinks.iter_mut() {
+        for link in self.internal_links.iter_mut() {
             match link.level.cmp(&last_seen_level) {
                 Ordering::Greater => {
                     last_seen_level = link.level;
@@ -213,7 +228,7 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     let mut html_content = String::with_capacity(md.len() * 3 / 2);
     pulldown_cmark::html::push_html(&mut html_content, parser);
     if !scraper.starts_with_heading {
-        scraper.doclinks.insert(0, Doclink::new("top".to_string(), "Top".to_string(), 1));
+        scraper.internal_links.insert(0, InteralLink::new("top".to_string(), "Top".to_string(), 1));
     }
     scraper.normalize_headings();
     (html_content, scraper)
@@ -227,37 +242,40 @@ mod tests {
     fn test_link_in_md_heading() {
         let md = "# / [Home](/index.md) / [Documents](/Documents/index.md) / [Work](index.md)";
         let (_html_content, scraper) = parse_markdown(md);
-        assert_eq!(scraper.doclinks.len(), 1);
-        assert_eq!(scraper.doclinks[0], Doclink::new(
+        assert_eq!(scraper.internal_links.len(), 1);
+        assert_eq!(scraper.internal_links[0], InteralLink::new(
             "/-home-/-documents-/-work".to_string(),
             "/ Home / Documents / Work".to_string(),
-            1));
+            1
+        ));
     }
 
     #[test]
     fn test_heart_in_md_heading() {
         let md = "### Kisses <3!";
         let (_html_content, scraper) = parse_markdown(md);
-        assert_eq!(scraper.doclinks.len(), 1);
-        assert_eq!(scraper.doclinks[0], Doclink::new(
+        assert_eq!(scraper.internal_links.len(), 1);
+        assert_eq!(scraper.internal_links[0], InteralLink::new(
             "kisses-<3!".to_string(),
             "Kisses <3!".to_string(),
-            3));
+            3
+        ));
     }
 
     #[test]
     fn test_first_heading_is_also_title() {
         let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
         let (_html_content, scraper) = parse_markdown(md);
-        assert_eq!(scraper.doclinks.len(), 2);
-        assert_eq!(scraper.doclinks[0], Doclink::new(
+        assert_eq!(scraper.internal_links.len(), 2);
+        assert_eq!(scraper.internal_links[0], InteralLink::new(
             "the-title".to_string(),
             "The title".to_string(),
             1));
-        assert_eq!(scraper.doclinks[1], Doclink::new(
+        assert_eq!(scraper.internal_links[1], InteralLink::new(
             "subhead".to_string(),
             "Subhead".to_string(),
-            2));
+            2
+        ));
         assert_eq!(scraper.title, Some("The title".to_string()));
     }
 }

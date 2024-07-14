@@ -1,11 +1,11 @@
 <div class="breadcrumbs">
   {%for crumb in breadcrumbs-%}
     {%if loop.first-%}
-    <span class="home"><a href="{{crumb.anchor}}">{{crumb.name}}</a></span>
+    <span class="home"><a href="{{crumb.url}}">{{crumb.name}}</a></span>
     {%elif loop.last-%}
     <span class="crumb">{{crumb.name}}</span>
     {%else-%}
-    <span class="crumb"><a href="{{crumb.anchor}}">{{crumb.name}}</a>
+    <span class="crumb"><a href="{{crumb.url}}">{{crumb.name}}</a>
     {%endif-%}
   {%endfor-%}
 </div>
