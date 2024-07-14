@@ -4,7 +4,29 @@
                           <strong>Within this document:</strong>
                         </p>
                         <span class="anchors">
-                        {{doclinks}}
+                          <ul>
+                            {% set_global last_level = 0 -%}
+                            {% for link in doclinks -%}
+                              {% if last_level < link.level -%}
+                                <ul>
+                                {% set_global last_level = link.level -%}
+                              {% else -%}
+                                {% for i in [1,2,3,4,5,6] -%}
+                                  {% if last_level == link.level %}{% break %}{% endif -%}
+                                  </li>
+                                  </ul>
+                                  {% set_global last_level = last_level - 1 -%}
+                                {% endfor -%}
+                                </li>
+                              {% endif -%}
+                              <li><a href="#{{link.anchor | slugify}}">{{link.name}}</a>
+                            {% endfor -%}
+                            {% for i in [1,2,3,4,5,6] -%}
+                              {% if last_level == 0 %}{% break %}{% endif -%}
+                                </li></ul>
+                              {% set_global last_level = last_level - 1 -%}
+                            {% endfor -%}
+                        </ul>
                         </span>
                     </div>
                 <p>

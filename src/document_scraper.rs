@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range};
+use std::{cmp::Ordering, collections::HashSet, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
@@ -172,6 +172,32 @@ impl DocumentScraper {
             _ => {}
         }
     }
+
+    // The indenting scheme requires that we not grow more than 1 step at a time
+    // Unfortunately, because this depends on user data, we can easily be asked
+    // to process an invalid setup. Eg: <h1> directly to <h3>
+    // Outdents don't have the same problem
+    // Renumber the link list so we don't violate that assumption
+    fn normalize_headings(&mut self) {
+        let mut last_used_level = 0;
+        let mut last_seen_level = 0;
+        for link in self.doclinks.iter_mut() {
+            match link.level.cmp(&last_seen_level) {
+                Ordering::Greater => {
+                    last_seen_level = link.level;
+                    link.level = last_used_level + 1;
+                    last_used_level = link.level;
+                },
+                Ordering::Less => {
+                    last_used_level = link.level;
+                    last_seen_level = link.level;
+                },
+                Ordering::Equal => {
+                    link.level = last_used_level;
+                }
+            }
+        }
+    }
 }
 
 pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
@@ -189,6 +215,7 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     if !scraper.starts_with_heading {
         scraper.doclinks.insert(0, Doclink::new("top".to_string(), "Top".to_string(), 1));
     }
+    scraper.normalize_headings();
     (html_content, scraper)
 }
 
