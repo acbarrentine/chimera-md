@@ -49,19 +49,21 @@ impl HtmlGenerator {
         })
     }
 
-    fn get_vars(&self, title: &str) -> tera::Context {
+    fn get_vars(&self, title: &str, has_code: bool) -> tera::Context {
         let mut vars = tera::Context::new();
         vars.insert("title", title);
         vars.insert("site_title", self.site_title.as_str());
         vars.insert("site_lang", self.site_lang.as_str());
         vars.insert("version", self.version);
+        vars.insert("highlight_style", self.highlight_style.as_str());
+        vars.insert("has_code", &has_code);
         vars
     }
 
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
         tracing::debug!("Got {} search results", results.len());
         let title = format!("{}: Search results", self.site_title);
-        let mut vars = self.get_vars(title.as_str());
+        let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("query", query);
         vars.insert("placeholder", query);
         vars.insert("results", &results);
@@ -71,7 +73,7 @@ impl HtmlGenerator {
     pub fn gen_search_blank(&self) -> Result<String, ChimeraError> {
         tracing::debug!("No query, generating blank search page");
         let title = format!("{}: Search results", self.site_title);
-        let mut vars = self.get_vars(title.as_str());
+        let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("query", "");
         vars.insert("placeholder", "Search...");
         let results: Vec<&str> = Vec::new();
@@ -88,8 +90,6 @@ impl HtmlGenerator {
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
         let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
-        let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
-        let plugin_js = get_plugins(&scraper);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
                 name.to_string_lossy().into_owned()
@@ -101,16 +101,20 @@ impl HtmlGenerator {
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let title = format!("{}: {}", self.site_title, title);
 
-        let mut vars = self.get_vars(title.as_str());
+        let mut vars = self.get_vars(title.as_str(), scraper.has_code_blocks);
         vars.insert("body", html_content.as_str());
-        vars.insert("code_js", code_js.as_str());
-        vars.insert("plugin_js", plugin_js.as_str());
         vars.insert("doclinks", &scraper.doclinks);
         if !peers.files.is_empty() {
             vars.insert("peer_files", &peers.files);
         }
         if !peers.folders.is_empty() {
             vars.insert("peer_folders", &peers.folders);
+        }
+        if !scraper.plugins.is_empty() {
+            vars.insert("plugins", &scraper.plugins);
+        }
+        if !scraper.code_languages.is_empty() {
+            vars.insert("code_languages", &scraper.code_languages);
         }
         vars.insert("breadcrumbs", breadcrumbs.as_str());
 
@@ -123,7 +127,7 @@ impl HtmlGenerator {
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
         let title = format!("{}: Error", self.site_title);
 
-        let mut vars = self.get_vars(title.as_str());
+        let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("error_code", error_code);
         vars.insert("heading", heading);
         vars.insert("message", message);
@@ -137,7 +141,7 @@ impl HtmlGenerator {
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
         let title = format!("{}: {}", self.site_title, path_str);
-        let mut vars = self.get_vars(title.as_str());
+        let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("path", path_str.as_str());
         vars.insert("breadcrumbs", breadcrumbs.as_str());
         if !peers.files.is_empty() {
@@ -189,53 +193,6 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_to
         new_html.push(c);
     }
     new_html
-}
-
-fn get_plugins(scraper: &DocumentScraper) -> String {
-    tracing::debug!("Including plugins: {:?}", scraper.plugins);
-    let mut plugins = String::with_capacity(1024);
-    if !scraper.plugins.is_empty() {
-        plugins.push_str("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js\"></script>\n");
-    }
-    for plugin in scraper.plugins.iter() {
-        plugins.push_str("<script src=\"/home/script/");
-        plugins.push_str(plugin.as_str());
-        plugins.push_str(".js\"></script>\n");
-    }
-    plugins
-}
-
-fn get_code_blob(scraper: &DocumentScraper, highlight_style: &str) -> String {
-    if !scraper.has_code_blocks {
-        return String::new()
-    }
-    let lang_prefix = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/";
-    let lang_suffix = ".min.js\"></script>\n";
-    let lang_len = scraper.code_languages.iter().fold(0, |len, el| {
-        len + el.len() + lang_prefix.len() + lang_suffix.len()
-    });
-
-    let highlight_style_prefix = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/";
-    let highlight_style_suffix = ".min.css\">\n";
-    let highlight_js = "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n";
-    let invoke_js = "    <script>hljs.highlightAll();</script>";
-    let expected_len = highlight_style_prefix.len() + highlight_style.len() + highlight_style_suffix.len() +
-        highlight_js.len() + lang_len + invoke_js.len();
-    let mut buffer = String::with_capacity(expected_len);
-    buffer.push_str(highlight_style_prefix);
-    buffer.push_str(highlight_style);
-    buffer.push_str(highlight_style_suffix);
-    buffer.push_str(highlight_js);
-    for lang in scraper.code_languages.iter() {
-        buffer.push_str(lang_prefix);
-        buffer.push_str(lang);
-        buffer.push_str(lang_suffix);
-    }
-    buffer.push_str(invoke_js);
-    if buffer.len() != expected_len {
-        tracing::warn!("Miscalculated code blob size. Actual: {}, Expected: {}", buffer.len(), expected_len);
-    }
-    buffer
 }
 
 const HOME_PREFIX: &str = r#"<span class="home"><a href=""#;
