@@ -45,8 +45,6 @@ nav {
 
 .search-icon {
     cursor: pointer;
-    fill: var(--text-color);
-    vertical-align: top;
     z-index: 1;
 }
 
@@ -81,7 +79,7 @@ div.search button {
 }
 
 .breadcrumbs .crumb::before {
-    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none' stroke='%23969696' stroke-width='2' stroke-linecap='round' stroke-linejoin='round%5C'%3E%3Cpolyline points='9 18 15 12 9 6'%3E%3C/polyline%3E%3C/svg%3E");
+    content: url("/icon/chevron.svg");
     padding: 10px;
 }
 
@@ -110,12 +108,15 @@ pre code {
 }
 
 blockquote {
-    font-size: 1.8rem;
     margin: 5px 5px 2rem 5px;
     background: var(--block-color);
     border-left: 5px solid var(--border-color);
     border-radius: 5px;
     padding: 10px;
+}
+
+blockquote.dialog {
+    font-size: 1.8rem;
 }
 
 blockquote p {
@@ -165,6 +166,25 @@ tr:nth-child(odd) {
 
 .sidebar ul {
     list-style: disc inside;
+}
+
+.sidebar ul.files {
+    list-style-image: url("/icon/document.svg");
+}
+
+.sidebar ul.folders {
+    list-style-image: url("/icon/folder.svg");
+    margin-bottom: 1em;
+}
+
+.sidebar hr {
+    width: 50%;
+    border-color: #aaa;
+    margin: 1em 0;
+}
+
+.sidebar span.anchors ul {
+    list-style-image: url("/icon/hash.svg");
 }
 
 .linkbox {

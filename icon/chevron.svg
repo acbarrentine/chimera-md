@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 -80 512 512">
+  <title>chevron</title>
+  <style>polyline {fill:none;stroke:#aaa;stroke-linecap:round;stroke-linejoin:round;stroke-width:64px;}</style>
+  <polyline points="184 112 328 256 184 400"/>
+</svg>

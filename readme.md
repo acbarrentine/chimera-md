@@ -92,8 +92,8 @@ services:
       # What code block highlight style should we use?
       # Syntax highlighting provided by highlight.js
       # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
-      # Default is "a11y-dark"
-      - CHIMERA_HIGHLIGHT_STYLE=a11y-dark
+      # Default is "an-old-hope"
+      - CHIMERA_HIGHLIGHT_STYLE=an-old-hope
 
       # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
       # Case matters
@@ -286,6 +286,7 @@ but odds are good you'll want to override at least a few of them.
     export CHIMERA_DOCUMENT_ROOT=/data/www
     export CHIMERA_TEMPLATE_ROOT=/data/templates
     export CHIMERA_STYLE_ROOT=/data/style
+    export CHIMERA_STYLE_ROOT=/data/icon
     export CHIMERA_SEARCH_INDEX_DIR=/data/search
     export CHIMERA_SITE_TITLE=Chimera-md
     export CHIMERA_INDEX_FILE=index.md
@@ -307,9 +308,9 @@ but odds are good you'll want to override at least a few of them.
 
     # Or you can do it all on the command line
     cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
-      --style-root ~/Source/chimera-md/style --site-title "My journal" --index-file index.md --site-lang en
-      --highlight-style a11y-dark --generate-index=true --log-level DEBUG --max-cache-size 52428800
-      --port 8080
+      --style-root ~/Source/chimera-md/style --icon-root ~/Source/chimera-md/icon --site-title "My journal"
+      --index-file index.md --site-lang en --highlight-style a11y-dark --generate-index=true
+      --log-level DEBUG --max-cache-size 52428800 --port 8080
 ```
 
 Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)
@@ -361,6 +362,7 @@ Chimera-md uses the following open source libraries:
 * [walkdir](https://crates.io/crates/walkdir)
 * [async-watcher](https://crates.io/crates/async-watcher)
 * [toml](https://crates.io/crates/toml)
+* [indexmap](https://crates.io/crates/indexmap)
 
 ## License
 

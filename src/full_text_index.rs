@@ -50,13 +50,6 @@ struct DocumentScanner {
     body: Field,
 }
 
-fn is_hidden(entry: &walkdir::DirEntry) -> bool {
-    entry.file_name()
-         .to_str()
-         .map(|s| s.starts_with('.'))
-         .unwrap_or(false)
-}
-
 impl FullTextIndex {
     pub fn new(index_path: &std::path::Path) -> Result<Self, ChimeraError> {
         let text_field_indexing = TextFieldIndexing::default()
@@ -97,7 +90,8 @@ impl FullTextIndex {
     }
     
     pub async fn scan_directory(
-        &mut self, root_directory: PathBuf,
+        &self,
+        root_directory: PathBuf,
         search_index_dir: PathBuf,
         file_manager: &FileManager
     ) -> Result<(), ChimeraError> {
@@ -115,19 +109,9 @@ impl FullTextIndex {
         };
         tokio::spawn(scanner.scan());
 
-        for entry in walkdir::WalkDir::new(root_directory)
-            .follow_links(true)
-            .into_iter()
-            .filter_entry(|e| !is_hidden(e))
-            .flatten() {
-            if entry.file_type().is_file() {
-                let path = entry.path();
-                if let Some(ext) = path.extension() {
-                    if ext.eq_ignore_ascii_case("md") {
-                        tx.send(entry.path().to_owned()).await?;
-                    }
-                }
-            }
+        let md_files = file_manager.get_markdown_files().await;
+        for md in md_files {
+            tx.send(md).await?;
         }
 
         let change_rx = file_manager.subscribe();

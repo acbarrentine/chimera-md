@@ -5,9 +5,13 @@
 <div class="container">
     <div class="row">
         <div class="nine columns">
+          <h1>Index of {{path}}</strong></h1>
+          {{#if (gt folders_len 0)}}
+          {{{folders}}}
+          {{/if}}
+
           {{#if (gt peers_len 0)}}
-            <h1>Index of {{path}}</strong></h1>
-            {{{peers}}}
+          {{{peers}}}
           {{/if}}
         </div>
     </div>

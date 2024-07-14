@@ -2,23 +2,16 @@ use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use handlebars::{DirectorySourceOptions, Handlebars};
 use serde::Serialize;
 
-use crate::{chimera_error::ChimeraError,
-    document_scraper::{Doclink, DocumentScraper},
-    result_cache::ResultCache,
-    full_text_index::SearchResult,
-    FileManager,
-    HOME_DIR
+use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR
 };
 
-pub struct HtmlGeneratorCfg<'a, 'b> {
+pub struct HtmlGeneratorCfg<'a> {
     pub template_root: PathBuf,
     pub site_title: String,
     pub index_file: &'a str,
     pub site_lang: String,
     pub highlight_style: String,
     pub version: &'static str,
-    pub result_cache: ResultCache,
-    pub file_manager: &'b mut FileManager
 }
 
 pub struct HtmlGenerator {
@@ -28,7 +21,6 @@ pub struct HtmlGenerator {
     highlight_style: String,
     index_file: OsString,
     version: &'static str,
-    result_cache: ResultCache,
 }
 
 #[derive(Serialize)]
@@ -43,8 +35,10 @@ struct MarkdownVars<'a> {
     doclinks: String,
     peers: String,
     breadcrumbs: String,
-    peers_len: usize,
+    folders: String,
     doclinks_len: usize,
+    peers_len: usize,
+    folders_len: usize,
 }
 
 #[derive(Serialize)]
@@ -72,8 +66,10 @@ struct IndexVars<'a> {
     site_title: &'a str,
     path: String,
     peers: String,
+    folders: String,
     breadcrumbs: String,
     peers_len: usize,
+    folders_len: usize,
 }
 
 impl HtmlGenerator {
@@ -93,9 +89,6 @@ impl HtmlGenerator {
             }
         }
 
-        let rx = cfg.file_manager.subscribe();
-        tokio::spawn(listen_for_changes(rx, cfg.result_cache.clone()));
-
         Ok(HtmlGenerator {
             handlebars,
             site_title: cfg.site_title,
@@ -103,7 +96,6 @@ impl HtmlGenerator {
             highlight_style: cfg.highlight_style,
             index_file: OsString::from(cfg.index_file),
             version: cfg.version,
-            result_cache: cfg.result_cache,
         })
     }
 
@@ -136,12 +128,12 @@ impl HtmlGenerator {
     pub async fn gen_markdown(
         &self,
         path: &std::path::Path,
-        html_content: String,
+        body: String,
         scraper: DocumentScraper,
-        peers: Option<Vec<Doclink>>,
+        peers: PeerInfo,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let html_content = add_anchors_to_headings(html_content, &scraper.doclinks, !scraper.starts_with_heading);
+        let html_content = add_anchors_to_headings(body, &scraper.doclinks, !scraper.starts_with_heading);
         let code_js = get_code_blob(&scraper, self.highlight_style.as_str());
         let plugin_js = get_plugins(&scraper);
         let title = scraper.title.unwrap_or_else(||{
@@ -152,10 +144,9 @@ impl HtmlGenerator {
                 path.to_string_lossy().into_owned()
             }
         });
-
-        let doclinks = if scraper.doclinks.is_empty() { None } else { Some(scraper.doclinks) };
-                let doclinks_html = generate_doclink_html(doclinks, true);
-        let peers_html = generate_doclink_html(peers, false);
+        let doclinks_html = generate_anchor_html(scraper.doclinks);
+        let peers_html = generate_filelink_html(&peers.files);
+        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let vars = MarkdownVars {
@@ -167,15 +158,16 @@ impl HtmlGenerator {
             code_js,
             plugin_js,
             doclinks_len: doclinks_html.len(),
-            doclinks: doclinks_html,
             peers_len: peers_html.len(),
+            folders_len: folders_html.len(),
+            doclinks: doclinks_html,
             peers: peers_html,
+            folders: folders_html,
             breadcrumbs,
         };
 
         let html = self.handlebars.render("markdown", &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
-        self.result_cache.add(path, html.as_str()).await;
 
         Ok(html)
     }
@@ -192,8 +184,9 @@ impl HtmlGenerator {
         Ok(html)
     }
 
-    pub async fn gen_index(&self, path: &Path, peers: Option<Vec<Doclink>>) -> Result<String, ChimeraError> {
-        let peers_html = generate_doclink_html(peers, false);
+    pub async fn gen_index(&self, path: &Path, peers: PeerInfo) -> Result<String, ChimeraError> {
+        let peers_html = generate_filelink_html(&peers.files);
+        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
 
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
@@ -202,56 +195,56 @@ impl HtmlGenerator {
             title: format!("{}: {}", self.site_title, path_str),
             site_title: self.site_title.as_str(),
             path: path_str,
-            peers_len: peers_html.len(),
+            peers_len: peers_html.len() + folders_html.len(),
             peers: peers_html,
             breadcrumbs,
+            folders_len: folders_html.len(),
+            folders: folders_html,
         };
         let html = self.handlebars.render("index", &vars)?;
-        self.result_cache.add(path, html.as_str()).await;
         Ok(html)
     }
 }
 
-// The indenting scheme requires that we not grow more than 1 step at a time
-// Unfortunately, because this depends on user data, we can easily be asked
-// to process an invalid setup. Eg: <h1> directly to <h3>
-// Outdents don't have the same problem
-// Renumber the link list so we don't violate that assumption
-fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
-    let mut last_used_level = 0;
-    let mut last_seen_level = 0;
-    let mut num_indents = 0;
-    let mut text_len = 0;
-    for link in doclinks {
-        match link.level.cmp(&last_seen_level) {
-            Ordering::Greater => {
-                num_indents += 1;
-                last_seen_level = link.level;
-                link.level = last_used_level + 1;
-                last_used_level = link.level;
-            },
-            Ordering::Less => {
-                last_used_level = link.level;
-                last_seen_level = link.level;
-            },
-            Ordering::Equal => {
-                link.level = last_used_level;
-            }
-        }
-        text_len += link.anchor.len() + link.name.len();
-    }
-    (num_indents, text_len)
-}
-
-fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool) -> String {
-    let Some(mut doclinks) = doclinks else {
+fn generate_filelink_html(doclinks: &[Doclink]) -> String {
+    if doclinks.is_empty() {
         return "".to_string()
     };
-    debug_assert_ne!(doclinks.len(), 0);
+    let item_prefix = "\n<li><a href=\"";
+    let item_middle = "\">";
+    let item_suffix = "</a>";
+    let list_item_end = "</li>";
+    let text_len = doclinks.iter().fold(0, |acc, link| {acc + link.anchor.len() + link.name.len()});
+    let expected_size = doclinks.len() *
+        (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len()) +
+        text_len;
+    let mut html = String::with_capacity(expected_size);
+    for link in doclinks.iter() {
+        html.push_str(item_prefix);
+        html.push_str(link.anchor.as_str());
+        html.push_str(item_middle);
+        html.push_str(link.name.as_str());
+        html.push_str(item_suffix);
+        html.push_str(list_item_end);
+    }
+    if html.len() != expected_size {
+        tracing::warn!("Miscalculated file links size. Actual: {}, expected: {}", html.len(), expected_size);
+        tracing::warn!("text_len: {text_len}");
+        tracing::warn!("Docs: {doclinks:?}");
+        tracing::warn!("Doclinks:({})", html);
+    }
+    html
+}
+
+fn generate_anchor_html(mut doclinks: Vec<Doclink>) -> String {
+    if doclinks.is_empty() {
+        return "".to_string()
+    };
     let (num_indents, text_len) = normalize_headings(&mut doclinks);
     let list_prefix = "\n<ul>";
     let list_suffix = "\n</ul>";
-    let item_prefix = if anchors_are_local {"\n<li><a href=\"#"} else {"\n<li><a href=\""};
+    let item_prefix = "\n<li><a href=\"#";
+
     let item_middle = "\">";
     let item_suffix = "</a>";
     let list_item_end = "</li>";
@@ -285,13 +278,43 @@ fn generate_doclink_html(doclinks: Option<Vec<Doclink>>, anchors_are_local: bool
         last_level -= 1;
     }
     if html.len() != expected_size {
-        tracing::warn!("Miscalculated doclinks size");
+        tracing::warn!("Miscalculated anchor links size. Actual: {}, expected: {}", html.len(), expected_size);
         tracing::warn!("num_indents: {num_indents}, text: {text_len}");
         tracing::warn!("Docs: {doclinks:?}");
-        tracing::warn!("Anchors are local: {anchors_are_local}");
         tracing::warn!("Doclinks:({})", html);
     }
     html
+}
+
+// The indenting scheme requires that we not grow more than 1 step at a time
+// Unfortunately, because this depends on user data, we can easily be asked
+// to process an invalid setup. Eg: <h1> directly to <h3>
+// Outdents don't have the same problem
+// Renumber the link list so we don't violate that assumption
+fn normalize_headings(doclinks: &mut [Doclink]) -> (usize, usize) {
+    let mut last_used_level = 0;
+    let mut last_seen_level = 0;
+    let mut num_indents = 0;
+    let mut text_len = 0;
+    for link in doclinks {
+        match link.level.cmp(&last_seen_level) {
+            Ordering::Greater => {
+                num_indents += 1;
+                last_seen_level = link.level;
+                link.level = last_used_level + 1;
+                last_used_level = link.level;
+            },
+            Ordering::Less => {
+                last_used_level = link.level;
+                last_seen_level = link.level;
+            },
+            Ordering::Equal => {
+                link.level = last_used_level;
+            }
+        }
+        text_len += link.anchor.len() + link.name.len();
+    }
+    (num_indents, text_len)
 }
 
 fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_top: bool) -> String {
@@ -459,21 +482,6 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
         tracing::warn!("Miscalculated url size. Actual: {}, Expected: {}", url.len(), url_len);
     }
     breadcrumbs
-}
-
-async fn listen_for_changes(
-    mut rx: tokio::sync::broadcast::Receiver<PathBuf>,
-    cache: ResultCache,
-) {
-    while let Ok(path) = rx.recv().await {
-        tracing::debug!("HG change event {}", path.display());
-        if let Some(ext) = path.extension() {
-            if ext == OsStr::new("hbs") || ext == OsStr::new("md") {
-                tracing::info!("Discarding cached HTML results");
-                cache.clear();
-            }
-        }
-    }
 }
 
 #[cfg(test)]

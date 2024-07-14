@@ -20,6 +20,7 @@ impl Doclink {
     }
 }
 
+#[derive(Clone)]
 pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub doclinks: Vec<Doclink>,
@@ -177,7 +178,7 @@ impl DocumentScraper {
     }
 }
 
-pub fn parse_markdown(md: &str) -> (DocumentScraper, String) {
+pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     let mut scraper = DocumentScraper::new();
     let parser = pulldown_cmark::Parser::new_ext(
         md, pulldown_cmark::Options::ENABLE_TABLES |
@@ -192,7 +193,7 @@ pub fn parse_markdown(md: &str) -> (DocumentScraper, String) {
     if !scraper.starts_with_heading {
         scraper.doclinks.insert(0, Doclink::new("top".to_string(), "Top".to_string(), 1));
     }
-    (scraper, html_content)
+    (html_content, scraper)
 }
 
 #[cfg(test)]
@@ -202,7 +203,7 @@ mod tests {
     #[test]
     fn test_link_in_md_heading() {
         let md = "# / [Home](/index.md) / [Documents](/Documents/index.md) / [Work](index.md)";
-        let (scraper, _html_content) = parse_markdown(md);
+        let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 1);
         assert_eq!(scraper.doclinks[0], Doclink::new(
             "/-home-/-documents-/-work".to_string(),
@@ -213,7 +214,7 @@ mod tests {
     #[test]
     fn test_heart_in_md_heading() {
         let md = "### Kisses <3!";
-        let (scraper, _html_content) = parse_markdown(md);
+        let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 1);
         assert_eq!(scraper.doclinks[0], Doclink::new(
             "kisses-<3!".to_string(),
@@ -224,7 +225,7 @@ mod tests {
     #[test]
     fn test_first_heading_is_also_title() {
         let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
-        let (scraper, _html_content) = parse_markdown(md);
+        let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.doclinks.len(), 2);
         assert_eq!(scraper.doclinks[0], Doclink::new(
             "the-title".to_string(),

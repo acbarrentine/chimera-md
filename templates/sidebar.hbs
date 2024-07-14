@@ -1,16 +1,30 @@
                 <p>
                     <div class="linkbox">
                         <p>
-                            <strong>Within this document:</strong>
+                          <strong>Within this document:</strong>
                         </p>
+                        <span class="anchors">
                         {{{doclinks}}}
+                        </span>
                     </div>
                 <p>
-                    {{#if (gt peers_len 0)}}
+                    {{#if (or (gt peers_len 0) (gt folders_len 0))}}
                     <div class="linkbox">
-                        <p>
-                            <strong>Other documents:</strong>
-                        </p>
+                      <p>
+                        <strong>Other documents:</strong>
+                      </p>
+                      {{#if (gt folders_len 0)}}
+                      <ul class="folders">
+                        {{{folders}}}
+                      </ul>
+                      {{/if}}
+                      {{#if (and (gt peers_len 0) (gt folders_len 0))}}
+                      <hr/>
+                      {{/if}}
+                      {{#if (gt peers_len 0)}}
+                      <ul class="files">
                         {{{peers}}}
+                      </ul>
+                      {{/if}}
                     </div>
                     {{/if}}
