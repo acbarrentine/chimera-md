@@ -1,8 +1,7 @@
 use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR
-};
+use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -116,7 +115,7 @@ impl HtmlGenerator {
         if !scraper.code_languages.is_empty() {
             vars.insert("code_languages", &scraper.code_languages);
         }
-        vars.insert("breadcrumbs", breadcrumbs.as_str());
+        vars.insert("breadcrumbs", &breadcrumbs);
 
         let html = self.tera.render("markdown.html", &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
@@ -143,7 +142,7 @@ impl HtmlGenerator {
         let title = format!("{}: {}", self.site_title, path_str);
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("path", path_str.as_str());
-        vars.insert("breadcrumbs", breadcrumbs.as_str());
+        vars.insert("breadcrumbs", &breadcrumbs);
         if !peers.files.is_empty() {
             vars.insert("peer_files", &peers.files);
         }
@@ -195,117 +194,20 @@ fn add_anchors_to_headings(original_html: String, links: &[Doclink], inserted_to
     new_html
 }
 
-const HOME_PREFIX: &str = r#"<span class="home"><a href=""#;
-const HOME_SUFFIX: &str = r#"">Home</a></span>"#;
-const CRUMB_PREFIX: &str = r#"<span class="crumb"><a href=""#;
-const CRUMB_MIDDLE: &str = r#"">"#;
-const CRUMB_SUFFIX: &str = r#"</a></span>"#;
-const FINAL_PREFIX: &str = r#"<span class="crumb">"#;
-const FINAL_SUFFIX: &str = r#"</span>"#;
-
-fn get_breadcrumb_name_and_url_len(parts: &[&OsStr]) -> (usize, usize, usize) {
-    let mut url_len = HOME_DIR.len();
-    let mut prev_url_len = url_len;
-    let mut name_len = 0;
-    let mut it = parts.iter().peekable();
-    while let Some(p) = it.next() {
-        if it.peek().is_some() {
-            let p_len = urlencoding::encode(&p.to_string_lossy()).len();
-            let new_url_len = prev_url_len + p_len + 1;
-            url_len += new_url_len;
-            prev_url_len = new_url_len;
-            name_len += p.len();
-        }
-        else {
-            name_len += parts[parts.len() - 1].len();
-        }
-    }
-    (name_len, url_len, prev_url_len)
-}
-
-fn get_breadcrumbs_len(parts: &[&OsStr]) -> (usize, usize) {
-    let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(parts);
-    let breadcrumb_len = (HOME_PREFIX.len() + HOME_SUFFIX.len()) +
-        if parts.is_empty() {
-            0
-        }
-        else {
-            (parts.len() - 1) * (CRUMB_PREFIX.len() + CRUMB_MIDDLE.len() + CRUMB_SUFFIX.len()) +
-            (FINAL_PREFIX.len() + FINAL_SUFFIX.len())
-        }
-        + url_len + name_len;
-    (breadcrumb_len, max_url_len)
-}
-
-fn get_breadcrumbs(path: &Path, skip: &OsStr) -> String {
+fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<Doclink> {
     let parts: Vec<&OsStr> = path.iter().filter(|el| {
         el != &skip
     }).collect();
-    let (breadcrumb_len, url_len) = get_breadcrumbs_len(&parts);
-    let mut breadcrumbs = String::with_capacity(breadcrumb_len);
-    let mut url = String::with_capacity(url_len);
+    let mut crumbs = Vec::with_capacity(parts.len());
+    let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
     url.push_str(HOME_DIR);
-    breadcrumbs.push_str(HOME_PREFIX);
-    breadcrumbs.push_str(url.as_str());
-    breadcrumbs.push_str(HOME_SUFFIX);
 
-    let mut it = parts.iter().peekable();
-    while let Some(p) = it.next() {
-        if it.peek().is_some() {
-            url.push_str(&urlencoding::encode(&p.to_string_lossy()));
-            url.push('/');
-            breadcrumbs.push_str(CRUMB_PREFIX);
-            breadcrumbs.push_str(url.as_str());
-            breadcrumbs.push_str(CRUMB_MIDDLE);
-            breadcrumbs.push_str(&p.to_string_lossy());
-            breadcrumbs.push_str(CRUMB_SUFFIX);
-        }
-        else {
-            breadcrumbs.push_str(FINAL_PREFIX);
-            breadcrumbs.push_str(&p.to_string_lossy());
-            breadcrumbs.push_str(FINAL_SUFFIX);
-        }
-    }
-    if breadcrumbs.len() != breadcrumb_len {
-        tracing::warn!("Miscalculated breadcrumbs size. Actual: {}, Expected: {}", breadcrumbs.len(), breadcrumb_len);
-    }
-    if url.len() != url_len {
-        tracing::warn!("Miscalculated url size. Actual: {}, Expected: {}", url.len(), url_len);
-    }
-    breadcrumbs
-}
+    crumbs.push(Doclink::new(url.clone(), "Home".to_string(), 1));
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_breadcrumbs_1() {
-        let path = PathBuf::from("Documents/Example/index.md");
-        let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
-        assert_eq!(name_len, 24);
-        assert_eq!(url_len, 46);
-        assert_eq!(max_url_len, 24);
+    for p in parts {
+        url.push_str(&urlencoding::encode(&p.to_string_lossy()));
+        url.push('/');
+        crumbs.push(Doclink::new(url.clone(), p.to_string_lossy().into_owned(), 1));
     }
-
-    #[test]
-    fn test_breadcrumbs_2() {
-        let path = PathBuf::from("Documents/Example/Recipes/pizza.md");
-        let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
-        assert_eq!(name_len, 31);
-        assert_eq!(url_len, 78);
-        assert_eq!(max_url_len, 32);
-    }
-
-    #[test]
-    fn test_breadcrumbs_3() {
-        let path = PathBuf::from("index.md");
-        let parts: Vec<&OsStr> = path.iter().collect();
-        let (name_len, url_len, max_url_len) = get_breadcrumb_name_and_url_len(&parts);
-        assert_eq!(name_len, 8);
-        assert_eq!(url_len, 6);
-        assert_eq!(max_url_len, 6);
-    }
+    crumbs
 }
