@@ -312,6 +312,7 @@ async fn serve_markdown_file(
         Some(html) => { (html, true) },
         None => {
             let md_content = tokio::fs::read_to_string(path).await?;
+            let (body, scraper) = parse_markdown(md_content.as_str());
             let peers = match app_state.generate_index {
                 true => {
                     app_state.file_manager.find_peers(
@@ -319,9 +320,6 @@ async fn serve_markdown_file(
                 },
                 false => { PeerInfo::default() }
             };
-
-            let md_content = app_state.html_generator.preprocess_markdown(path, md_content, &peers)?;
-            let (body, scraper) = parse_markdown(md_content.as_str());
             let html = app_state.html_generator.gen_markdown(
                 path,
                 body,

@@ -59,7 +59,7 @@ impl FileManager {
             if entry.file_type().is_file() {
                 let fname = entry.file_name();
                 let fname_str = fname.to_string_lossy();
-                if let Some((stem, ext)) = fname_str.rsplit_once('.') {
+                if let Some((_stem, ext)) = fname_str.rsplit_once('.') {
                     if ext.eq_ignore_ascii_case("md") {
                         let direct_child = parent.as_os_str().len() == abs_path.as_os_str().len();
                         if direct_child {
@@ -70,7 +70,7 @@ impl FileManager {
                             }
                             files.push(Doclink {
                                 anchor: urlencoding::encode(&fname_str).into_owned(),
-                                name: stem.to_string(),
+                                name: fname_str.into_owned(),
                                 level: 1,
                             });
                         }
