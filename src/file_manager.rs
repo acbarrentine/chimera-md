@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
 use crate::{chimera_error::ChimeraError, document_scraper::Doclink};
@@ -69,7 +69,7 @@ impl FileManager {
                                 }
                             }
                             files.push(Doclink {
-                                anchor: urlencoding::encode(&fname_str).into_owned(),
+                                anchor: fname_str.to_string(),
                                 name: stem.to_string(),
                                 level: 1,
                             });
@@ -84,7 +84,7 @@ impl FileManager {
 
         let folders:Vec<Doclink> = folder_set.into_iter().map(|folder| {
             Doclink {
-                anchor: format!("{}/", urlencoding::encode(folder.to_string_lossy().borrow())),
+                anchor: format!("{}/", folder.to_string_lossy()),
                 name: folder.to_string_lossy().into_owned(),
                 level: 1,
             }

@@ -49,14 +49,19 @@ impl HtmlGenerator {
         })
     }
 
-    pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
-        tracing::debug!("Got {} search results", results.len());
+    fn get_vars(&self, title: &str) -> tera::Context {
         let mut vars = tera::Context::new();
-        let title = format!("{}: Search results", self.site_title);
-        vars.insert("title", title.as_str());
+        vars.insert("title", title);
         vars.insert("site_title", self.site_title.as_str());
         vars.insert("site_lang", self.site_lang.as_str());
         vars.insert("version", self.version);
+        vars
+    }
+
+    pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
+        tracing::debug!("Got {} search results", results.len());
+        let title = format!("{}: Search results", self.site_title);
+        let mut vars = self.get_vars(title.as_str());
         vars.insert("query", query);
         vars.insert("placeholder", query);
         vars.insert("results", &results);
@@ -65,12 +70,8 @@ impl HtmlGenerator {
 
     pub fn gen_search_blank(&self) -> Result<String, ChimeraError> {
         tracing::debug!("No query, generating blank search page");
-        let mut vars = tera::Context::new();
         let title = format!("{}: Search results", self.site_title);
-        vars.insert("title", title.as_str());
-        vars.insert("site_title", self.site_title.as_str());
-        vars.insert("site_lang", self.site_lang.as_str());
-        vars.insert("version", self.version);
+        let mut vars = self.get_vars(title.as_str());
         vars.insert("query", "");
         vars.insert("placeholder", "Search...");
         let results: Vec<&str> = Vec::new();
@@ -98,22 +99,20 @@ impl HtmlGenerator {
             }
         });
         let doclinks_html = generate_anchor_html(scraper.doclinks);
-        let peers_html = generate_filelink_html(&peers.files);
-        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let title = format!("{}: {}", self.site_title, title);
 
-        let mut vars = tera::Context::new();
-        vars.insert("title", title.as_str());
+        let mut vars = self.get_vars(title.as_str());
         vars.insert("body", html_content.as_str());
-        vars.insert("site_title", self.site_title.as_str());
-        vars.insert("site_lang", self.site_lang.as_str());
-        vars.insert("version", self.version);
         vars.insert("code_js", code_js.as_str());
         vars.insert("plugin_js", plugin_js.as_str());
         vars.insert("doclinks", doclinks_html.as_str());
-        vars.insert("peers", peers_html.as_str());
-        vars.insert("folders", folders_html.as_str());
+        if !peers.files.is_empty() {
+            vars.insert("peer_files", &peers.files);
+        }
+        if !peers.folders.is_empty() {
+            vars.insert("peer_folders", &peers.folders);
+        }
         vars.insert("breadcrumbs", breadcrumbs.as_str());
 
         let html = self.tera.render("markdown.html", &vars)?;
@@ -125,11 +124,7 @@ impl HtmlGenerator {
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
         let title = format!("{}: Error", self.site_title);
 
-        let mut vars = tera::Context::new();
-        vars.insert("title", title.as_str());
-        vars.insert("site_title", self.site_title.as_str());
-        vars.insert("site_lang", self.site_lang.as_str());
-        vars.insert("version", self.version);
+        let mut vars = self.get_vars(title.as_str());
         vars.insert("error_code", error_code);
         vars.insert("heading", heading);
         vars.insert("message", message);
@@ -139,54 +134,22 @@ impl HtmlGenerator {
     }
 
     pub async fn gen_index(&self, path: &Path, peers: PeerInfo) -> Result<String, ChimeraError> {
-        let peers_html = generate_filelink_html(&peers.files);
-        let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
         let title = format!("{}: {}", self.site_title, path_str);
-        let mut vars = tera::Context::new();
-        vars.insert("title", title.as_str());
-        vars.insert("site_title", self.site_title.as_str());
-        vars.insert("site_lang", self.site_lang.as_str());
-        vars.insert("version", self.version);
+        let mut vars = self.get_vars(title.as_str());
         vars.insert("path", path_str.as_str());
-        vars.insert("peers", peers_html.as_str());
         vars.insert("breadcrumbs", breadcrumbs.as_str());
-        vars.insert("folders", folders_html.as_str());
+        if !peers.files.is_empty() {
+            vars.insert("peer_files", &peers.files);
+        }
+        if !peers.folders.is_empty() {
+            vars.insert("peer_folders", &peers.folders);
+        }
         let html = self.tera.render("index.html", &vars)?;
         Ok(html)
     }
-}
-
-fn generate_filelink_html(doclinks: &[Doclink]) -> String {
-    if doclinks.is_empty() {
-        return "".to_string()
-    };
-    let item_prefix = "\n<li><a href=\"";
-    let item_middle = "\">";
-    let item_suffix = "</a>";
-    let list_item_end = "</li>";
-    let text_len = doclinks.iter().fold(0, |acc, link| {acc + link.anchor.len() + link.name.len()});
-    let expected_size = doclinks.len() *
-        (item_prefix.len() + item_middle.len() + item_suffix.len() + list_item_end.len()) +
-        text_len;
-    let mut html = String::with_capacity(expected_size);
-    for link in doclinks.iter() {
-        html.push_str(item_prefix);
-        html.push_str(link.anchor.as_str());
-        html.push_str(item_middle);
-        html.push_str(link.name.as_str());
-        html.push_str(item_suffix);
-        html.push_str(list_item_end);
-    }
-    if html.len() != expected_size {
-        tracing::warn!("Miscalculated file links size. Actual: {}, expected: {}", html.len(), expected_size);
-        tracing::warn!("text_len: {text_len}");
-        tracing::warn!("Docs: {doclinks:?}");
-        tracing::warn!("Doclinks:({})", html);
-    }
-    html
 }
 
 fn generate_anchor_html(mut doclinks: Vec<Doclink>) -> String {

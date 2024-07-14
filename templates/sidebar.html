@@ -8,23 +8,28 @@
                         </span>
                     </div>
                 <p>
-                    {% if peers or folders %}
+                    {% if peer_files or peer_folders -%}
                     <div class="linkbox">
                       <p>
                         <strong>Other documents:</strong>
                       </p>
-                      {% if folders %}
+                      {% if peer_folders -%}
                       <ul class="folders">
-                        {{folders}}
+                        {% for folder in peer_folders -%}
+                          <li><a href="{{folder.anchor | urlencode}}">{{folder.name}}</a></li>
+                        {% endfor -%}
                       </ul>
-                      {% endif %}
-                      {% if peers and folders %}
+                      {% endif -%}
+                      {% if peer_files and peer_folders -%}
                       <hr/>
-                      {% endif %}
-                      {% if peers %}
+                      {% endif -%}
+
+                      {% if peer_files -%}
                       <ul class="files">
-                        {{peers}}
+                        {% for file in peer_files -%}
+                          <li><a href="{{file.anchor | urlencode}}">{{file.name}}</a></li>
+                        {% endfor -%}
                       </ul>
-                      {% endif %}
+                      {% endif -%}
                     </div>
-                    {% endif %}
+                    {% endif -%}

@@ -35,10 +35,6 @@ pub struct DocumentScraper {
     has_readable_text: bool,
 }
 
-fn get_munged_anchor(anchor: &str) -> String {
-    anchor.replace(' ', "-")
-}
-
 impl DocumentScraper {
     pub fn new() -> Self {
         let heading_re = Regex::new(r"<[hH](\d)\s*([^<]*)>([^<]*)</[hH]\d>").unwrap();
@@ -129,7 +125,7 @@ impl DocumentScraper {
                         }
                     };
                     tracing::debug!("Found doclink: {anchor} -> {heading_text}");
-                    self.doclinks.push(Doclink::new(get_munged_anchor(anchor), heading_text.to_string(), level));
+                    self.doclinks.push(Doclink::new(anchor.to_string(), heading_text.to_string(), level));
                 }
             },
             Event::Text(t) => {
@@ -146,7 +142,7 @@ impl DocumentScraper {
                                 self.title = Some(name.clone());
                             }
                             let link = Doclink::new(
-                                get_munged_anchor(name.to_lowercase().as_str()), 
+                                name.clone(), 
                                 name, *level as u8);
                             tracing::debug!("Doclink found: {link:?}");
                             self.doclinks.push(link);
