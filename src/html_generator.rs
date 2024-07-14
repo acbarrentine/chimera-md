@@ -1,12 +1,11 @@
 use std::{cmp::Ordering, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
-use handlebars::{DirectorySourceOptions, Handlebars};
-use serde::Serialize;
+use tera::Tera;
 
 use crate::{chimera_error::ChimeraError, document_scraper::{Doclink, DocumentScraper}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR
 };
 
 pub struct HtmlGeneratorCfg<'a> {
-    pub template_root: PathBuf,
+    pub template_root: &'a str,
     pub site_title: String,
     pub index_file: &'a str,
     pub site_lang: String,
@@ -15,7 +14,7 @@ pub struct HtmlGeneratorCfg<'a> {
 }
 
 pub struct HtmlGenerator {
-    handlebars: Handlebars<'static>,
+    tera: Tera,
     site_title: String,
     site_lang: String,
     highlight_style: String,
@@ -23,74 +22,25 @@ pub struct HtmlGenerator {
     version: &'static str,
 }
 
-#[derive(Serialize)]
-struct MarkdownVars<'a> {
-    site_title: &'a str,
-    site_lang: &'a str,
-    version: String,
-    body: String,
-    title: String,
-    code_js: String,
-    plugin_js: String,
-    doclinks: String,
-    peers: String,
-    breadcrumbs: String,
-    folders: String,
-    doclinks_len: usize,
-    peers_len: usize,
-    folders_len: usize,
-}
-
-#[derive(Serialize)]
-struct SearchVars<'a> {
-    title: String,
-    site_title: &'a str,
-    query: String,
-    placeholder: String,
-    num_results: usize,
-    results: Vec<SearchResult>,
-}
-
-#[derive(Serialize)]
-struct ErrorVars<'a> {
-    title: String,
-    site_title: &'a str,
-    error_code: String,
-    heading: String,
-    message: String,
-}
-
-#[derive(Serialize)]
-struct IndexVars<'a> {
-    title: String,
-    site_title: &'a str,
-    path: String,
-    peers: String,
-    folders: String,
-    breadcrumbs: String,
-    peers_len: usize,
-    folders_len: usize,
-}
-
 impl HtmlGenerator {
     pub fn new(
         cfg: HtmlGeneratorCfg
     ) -> Result<HtmlGenerator, ChimeraError> {
-        let mut handlebars = Handlebars::new();
-
-        handlebars.set_dev_mode(true);
-        handlebars.register_templates_directory(cfg.template_root.as_path(), DirectorySourceOptions::default())?;
-        let required_templates = ["markdown", "error", "search"];
+        let template_glob = format!("{}/*.html", cfg.template_root);
+        let mut tera = Tera::new(template_glob.as_str())?;
+        tera.autoescape_on(vec![]);
+        let required_templates = ["markdown.html", "error.html", "search.html"];
+        let found_templates = Vec::from_iter(tera.get_template_names());
         for name in required_templates {
-            if !handlebars.has_template(name) {
-                let template_name = format!("{name}.hbs");
-                tracing::error!("Missing required template: {}{template_name}", cfg.template_root.display());
+            if !found_templates.contains(&name) {
+                let path_to_template = PathBuf::from(cfg.template_root).join(name);
+                tracing::error!("Missing required template: {}", path_to_template.display());
                 return Err(ChimeraError::MissingMarkdownTemplate);
             }
         }
 
         Ok(HtmlGenerator {
-            handlebars,
+            tera,
             site_title: cfg.site_title,
             site_lang: cfg.site_lang,
             highlight_style: cfg.highlight_style,
@@ -101,28 +51,27 @@ impl HtmlGenerator {
 
     pub fn gen_search(&self, query: &str, results: Vec<SearchResult>) -> Result<String, ChimeraError> {
         tracing::debug!("Got {} search results", results.len());
-        let vars = SearchVars {
-            title: format!("{}: Search results", self.site_title),
-            site_title: self.site_title.as_str(),
-            query: query.to_string(),
-            placeholder: query.to_string(),
-            num_results: results.len(),
-            results,
-        };
-        Ok(self.handlebars.render("search", &vars)?)
+        let mut vars = tera::Context::new();
+        let title = format!("{}: Search results", self.site_title);
+        vars.insert("title", title.as_str());
+        vars.insert("site_title", self.site_title.as_str());
+        vars.insert("query", query);
+        vars.insert("placeholder", query);
+        vars.insert("results", &results);
+        Ok(self.tera.render("search.html", &vars)?)
     }
 
     pub fn gen_search_blank(&self) -> Result<String, ChimeraError> {
         tracing::debug!("No query, generating blank search page");
-        let vars = SearchVars {
-            title: format!("{}: Search", self.site_title),
-            site_title: self.site_title.as_str(),
-            query: "".to_string(),
-            placeholder: "Search...".to_string(),
-            num_results: 0,
-            results: Vec::new(),
-        };
-        Ok(self.handlebars.render("search", &vars)?)
+        let mut vars = tera::Context::new();
+        let title = format!("{}: Search results", self.site_title);
+        vars.insert("title", title.as_str());
+        vars.insert("site_title", self.site_title.as_str());
+        vars.insert("query", "");
+        vars.insert("placeholder", "Search...");
+        let results: Vec<&str> = Vec::new();
+        vars.insert("results", &results);
+        Ok(self.tera.render("search.html", &vars)?)
     }
 
     pub async fn gen_markdown(
@@ -148,39 +97,38 @@ impl HtmlGenerator {
         let peers_html = generate_filelink_html(&peers.files);
         let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
+        let title = format!("{}: {}", self.site_title, title);
 
-        let vars = MarkdownVars {
-            body: html_content,
-            title: format!("{}: {}", self.site_title, title),
-            site_title: self.site_title.as_str(),
-            site_lang: self.site_lang.as_str(),
-            version: self.version.to_string(),
-            code_js,
-            plugin_js,
-            doclinks_len: doclinks_html.len(),
-            peers_len: peers_html.len(),
-            folders_len: folders_html.len(),
-            doclinks: doclinks_html,
-            peers: peers_html,
-            folders: folders_html,
-            breadcrumbs,
-        };
+        let mut vars = tera::Context::new();
+        vars.insert("title", title.as_str());
+        vars.insert("body", html_content.as_str());
+        vars.insert("site_title", self.site_title.as_str());
+        vars.insert("site_lang", self.site_lang.as_str());
+        vars.insert("version", self.version);
+        vars.insert("code_js", code_js.as_str());
+        vars.insert("plugin_js", plugin_js.as_str());
+        vars.insert("doclinks", doclinks_html.as_str());
+        vars.insert("peers", peers_html.as_str());
+        vars.insert("folders", folders_html.as_str());
+        vars.insert("breadcrumbs", breadcrumbs.as_str());
 
-        let html = self.handlebars.render("markdown", &vars)?;
+        let html = self.tera.render("markdown.html", &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
 
         Ok(html)
     }
 
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
-        let vars = ErrorVars {
-            title: format!("{}: Error", self.site_title),
-            site_title: self.site_title.as_str(),
-            error_code: error_code.to_string(),
-            heading: heading.to_string(),
-            message: message.to_string(),
-        };
-        let html = self.handlebars.render("error", &vars)?;
+        let title = format!("{}: Error", self.site_title);
+
+        let mut vars = tera::Context::new();
+        vars.insert("title", title.as_str());
+        vars.insert("site_title", self.site_title.as_str());
+        vars.insert("error_code", error_code);
+        vars.insert("heading", heading);
+        vars.insert("message", message);
+
+        let html = self.tera.render("error.html", &vars)?;
         Ok(html)
     }
 
@@ -188,20 +136,15 @@ impl HtmlGenerator {
         let peers_html = generate_filelink_html(&peers.files);
         let folders_html = generate_filelink_html(&peers.folders);
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
-
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
-        let path_str = path_os_str.to_string_lossy().into_owned();
-        let vars = IndexVars {
-            title: format!("{}: {}", self.site_title, path_str),
-            site_title: self.site_title.as_str(),
-            path: path_str,
-            peers_len: peers_html.len() + folders_html.len(),
-            peers: peers_html,
-            breadcrumbs,
-            folders_len: folders_html.len(),
-            folders: folders_html,
-        };
-        let html = self.handlebars.render("index", &vars)?;
+        let title = format!("{}: {}", self.site_title, path_os_str.to_string_lossy());
+        let mut vars = tera::Context::new();
+        vars.insert("title", title.as_str());
+        vars.insert("path", path_os_str);
+        vars.insert("peers", peers_html.as_str());
+        vars.insert("breadcrumbs", breadcrumbs.as_str());
+        vars.insert("folders", folders_html.as_str());
+        let html = self.tera.render("index.html", &vars)?;
         Ok(html)
     }
 }

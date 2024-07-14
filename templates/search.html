@@ -1,35 +1,35 @@
-{{> header }}
+{% include "header.html" %}
 <div class="container">
     <div class="row">
         <div class="nine columns">
-            {{#if (ne query "")}}
+            {% if query %}
             <p>
                 <h1>Search results for: "{{query}}"</h1>
             </p>
-            {{/if}}
+            {% endif %}
             <p>
               <form action="/search" method="get" style="display: flex;flex-wrap: nowrap;">
                 <!-- id for javascript, name for form submit -->
-                {{#if (ne query "")}}
+                {% if query %}
                 <input id="query" name="query" type="search" value="{{query}}" style="width: 90%">
-                {{else}}
+                {% else %}
                 <input id="query" name="query" type="search" placeholder="{{placeholder}}" style="width: 90%">
-                {{/if}}
+                {% endif %}
               </form>
             </p>
             <ol>
-            {{#each results}}
-                <li>
-                    <p><a href="{{link}}">{{title}}</a></p>
-                    <p>{{{snippet}}}</p>
-                </li>
-            {{/each}}
+            {% for result in results %}
+            <li>
+                <p><a href="{{result.link}}">{{result.title}}</a></p>
+                <p>{{result.snippet}}</p>
+            </li>
+            {% endfor %}
             </ol>
-            {{#if (eq num_results 0)}}
+            {% if results %}
                 <p>
-                    {{#if (ne query "")}}
+                    {% if query %}
                     No results found. You can try using operators to refine your query:
-                    {{/if}}
+                    {% endif %}
                     <ul>
                         <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
                         <li>Required terms: <b>+cookie +monster</b></li>
@@ -37,10 +37,10 @@
                         <li>Phrases: <b>"cookie monster"</b></li>
                     </ul>
                 </p>
-            {{/if}}
+            {% endif %}
         </div>
         <div class="three columns">
         </div>
     </div>
 </div>
-{{> footer }}
+{% include "header.html" %}

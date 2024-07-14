@@ -5,7 +5,7 @@ use crate::AppStateType;
 #[derive(Debug, PartialEq)]
 pub enum ChimeraError {
     MissingMarkdownTemplate,
-    TemplateRender,
+    TemplateParsing(String),
     IOError(String),
     TantivyError,
     QueryError,
@@ -14,17 +14,9 @@ pub enum ChimeraError {
     NotifyError,
 }
 
-impl From<handlebars::TemplateError> for ChimeraError {
-    fn from(err: handlebars::TemplateError) -> Self {
-        tracing::warn!("handlebars::TemplateError: {err}");
-        ChimeraError::MissingMarkdownTemplate
-    }
-}
-
-impl From<handlebars::RenderError> for ChimeraError {
-    fn from(err: handlebars::RenderError) -> Self {
-        tracing::warn!("handlebars::RenderError: {err}");
-        ChimeraError::TemplateRender
+impl From<tera::Error> for ChimeraError {
+    fn from(err: tera::Error) -> Self {
+        ChimeraError::TemplateParsing(err.to_string())
     }
 }
 

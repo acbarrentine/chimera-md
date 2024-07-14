@@ -1,17 +1,17 @@
-{{> header }}
+{% include "header.html" %}
 <div class="breadcrumbs">
-    {{{breadcrumbs}}}
+    {{breadcrumbs}}
 </div>
 <div class="container">
     <div class="row">
         <div class="nine columns">
-            {{{body}}}
+            {{body}}
         </div>
         <div class="three columns">
             <div class="sidebar">
-                {{> sidebar }}
+                {% include "sidebar.html" %}
             </div>
         </div>
     </div>
 </div>
-{{> footer }}
+{% include "footer.html" %}

@@ -1,0 +1,19 @@
+{% include "header.html" %}
+<div class="breadcrumbs">
+    {{breadcrumbs}}
+</div>
+<div class="container">
+    <div class="row">
+        <div class="nine columns">
+          <h1>Index of {{path}}</strong></h1>
+          {% if folders %}
+          {{folders}}
+          {% endif %}
+
+          {% if peers %}
+          {{peers}}
+          {% endif %}
+        </div>
+    </div>
+</div>
+{% include "header.html" %}

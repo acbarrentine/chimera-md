@@ -4,27 +4,27 @@
                           <strong>Within this document:</strong>
                         </p>
                         <span class="anchors">
-                        {{{doclinks}}}
+                        {{doclinks}}
                         </span>
                     </div>
                 <p>
-                    {{#if (or (gt peers_len 0) (gt folders_len 0))}}
+                    {% if peers or folders %}
                     <div class="linkbox">
                       <p>
                         <strong>Other documents:</strong>
                       </p>
-                      {{#if (gt folders_len 0)}}
+                      {% if folders %}
                       <ul class="folders">
-                        {{{folders}}}
+                        {{folders}}
                       </ul>
-                      {{/if}}
-                      {{#if (and (gt peers_len 0) (gt folders_len 0))}}
+                      {% endif %}
+                      {% if peers and folders %}
                       <hr/>
-                      {{/if}}
-                      {{#if (gt peers_len 0)}}
+                      {% endif %}
+                      {% if peers %}
                       <ul class="files">
-                        {{{peers}}}
+                        {{peers}}
                       </ul>
-                      {{/if}}
+                      {% endif %}
                     </div>
-                    {{/if}}
+                    {% endif %}
