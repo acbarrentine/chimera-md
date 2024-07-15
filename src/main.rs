@@ -168,19 +168,23 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
         None => { request.uri().path().to_string() }
     };
-    let response = next.run(request).await;
-    let headers = response.headers();
-    let cached_status = match headers.contains_key("cached") {
-        true => " (cached)",
-        false => "",
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    let cached_status = match headers.remove("cached") {
+        Some(_) => " (cached)",
+        None => "",
     };
     let elapsed = start_time.elapsed().as_micros();
-    if elapsed > 1000 {
-        tracing::info!("{}: {} in {:.3} ms{}", response.status().as_u16(), path, start_time.elapsed().as_micros() as f64 / 1000.0, cached_status);
+    let time_str = if elapsed > 1000 {
+        format!("{:.3} ms{}", elapsed as f64 / 1000.0, cached_status)
     }
     else {
-        tracing::info!("{}: {} in {} µs{}", response.status().as_u16(), path, start_time.elapsed().as_micros(), cached_status);
+        format!("{} µs{}", elapsed, cached_status)
+    };
+    if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
+        headers.append("response-time", hval);
     }
+    tracing::info!("{}: {} in {}", response.status().as_u16(), path, time_str);
     response
 }
 
@@ -330,11 +334,9 @@ async fn serve_markdown_file(
             (html, false)
         }
     };
-    if cached {
-        Ok((StatusCode::OK, [("cached", "yes")], Html(html)).into_response())
-    }
-    else {
-        Ok((StatusCode::OK, Html(html)).into_response())
+    match cached {
+        true => Ok((StatusCode::OK, [("cached", "yes")], Html(html)).into_response()),
+        false => Ok((StatusCode::OK, Html(html)).into_response()),
     }
 }
 
