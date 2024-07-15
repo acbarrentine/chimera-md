@@ -17,12 +17,14 @@
                 {% endif %}
               </form>
             </p>
+            {% if results -%}
             <ol>
-            {% for result in results %}
-            <li>
-                <p><a href="{{result.link}}">{{result.title}}</a></p>
-                <p>{{result.snippet}}</p>
-            </li>
+              {% for result in results -%}
+                <li>
+                  <p><a href="{{result.link}}">{{result.title}}</a></p>
+                  <p>{{result.snippet}}</p>
+                </li>
+              {% endfor %}
             </ol>
             {% else %}
             <p>
@@ -36,7 +38,7 @@
                     <li>Phrases: <b>"cookie monster"</b></li>
                 </ul>
             </p>
-            {% endfor %}
+            {% endif -%}
         </div>
         <div class="three columns">
         </div>

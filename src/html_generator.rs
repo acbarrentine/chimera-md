@@ -65,7 +65,9 @@ impl HtmlGenerator {
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("query", query);
         vars.insert("placeholder", query);
-        vars.insert("results", &results);
+        if !results.is_empty() {
+            vars.insert("results", &results);
+        }
         Ok(self.tera.render("search.html", &vars)?)
     }
 
@@ -75,8 +77,6 @@ impl HtmlGenerator {
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("query", "");
         vars.insert("placeholder", "Search...");
-        let results: Vec<&str> = Vec::new();
-        vars.insert("results", &results);
         Ok(self.tera.render("search.html", &vars)?)
     }
 
