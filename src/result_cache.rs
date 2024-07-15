@@ -129,7 +129,7 @@ async fn listen_for_changes(
     while let Ok(path) = rx.recv().await {
         tracing::debug!("RC change event {}", path.display());
         if let Some(ext) = path.extension() {
-            if ext == OsStr::new("md") || ext == OsStr::new("hbs") {
+            if ext == OsStr::new("md") || ext == OsStr::new("html") {
                 cache.clear();
             }
         }
