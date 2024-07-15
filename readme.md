@@ -244,21 +244,17 @@ increasing complexity, these are:
     Note, however, that I probably won't be hands-off with these files as I make updates
     to the app, so grabbing new versions could cause instabilities with your local changes.
 
-4.  Override the Handlebars files
+4.  Override the html template files
 
-    The Markdown files Chimera-md serves are assembled from your Markdown content
-    folded into four template files: `/data/templates/header.hbs`, `/data/templates/footer.hbs`,
-    `/data/templates/sidebar.hbs`, and `/data/templates/markdown.hbs`. Here, again, you
-    could make local customized copies of [these files](https://github.com/acbarrentine/chimera-md/tree/main/templates)
-    and use volume mapping to have your container serve your copies. Three additional
-    templates for index, error, and search are also in there. As with the style
-    files, though, changes here have a decent chance of conflicting with changes I
-    might make. I suggest using the partials system to isolate your changes, if
-    possible. See how `markdown.hbs` links to the other two.
-
-    Special note: the [Rust Handlebars library](https://docs.rs/handlebars/5.1.2/handlebars/index.html)
-    is not a complete implementation of the Javascript original, so you may have to do
-    some trial and error when reaching for things like conditional behaviors.
+    The Markdown files Chimera-md serves are assembled from your content merged into
+    html template files using a tool called [Tera](https://keats.github.io/tera/). If you
+    are _really_ intent on hacking up Chimera-md, you can use Docker volume mappings to
+    replace my copies with your own. You should start with copies of my files, [found here]
+    (https://github.com/acbarrentine/chimera-md/tree/main/templates), and map them to
+    /data/templates. As with the style files, though, changes here have a decent chance
+    of conflicting with changes I might make as I release new versions. I suggest using
+    the partials system to isolate your changes, if possible. Look for `{% include %}`
+    in the templates for examples.
 
 ## Non-Docker installation
 
@@ -349,7 +345,7 @@ Chimera-md uses the following open source libraries:
 
 * [Skeleton CSS framework](http://getskeleton.com/)
 * [Axum web framework](https://github.com/tokio-rs/axum)
-* [Handlebars](https://github.com/sunng87/handlebars-rust)
+* [Tera](https://keats.github.io/tera/)
 * [pulldown-cmark](https://crates.io/crates/pulldown-cmark)
 * [Tantivy](https://crates.io/crates/tantivy)
 * [tokio](https://tokio.rs/)
