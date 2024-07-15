@@ -1,6 +1,5 @@
 use core::ops::Range;
 use std::{collections::BTreeMap, ffi::OsStr, path::PathBuf, sync::{Arc, RwLock}, time::SystemTime};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tantivy::{collector::TopDocs, directory::MmapDirectory, IndexReader};
 use tantivy::query::QueryParser;
@@ -26,10 +25,6 @@ struct FileTimes {
     files: FileMapType,
 }
 
-struct HtmlStripper {
-    html_tag_re: Regex,
-}
-
 pub struct FullTextIndex {
     index: Index,
     title_field: Field,
@@ -37,7 +32,6 @@ pub struct FullTextIndex {
     body_field: Field,
     index_writer: Arc<RwLock<IndexWriter>>,
     index_reader: IndexReader,
-    html_stripper: HtmlStripper,
 }
 
 struct DocumentScanner {
@@ -70,8 +64,6 @@ impl FullTextIndex {
         let index = Index::open_or_create(dir, schema.clone())?;
         let index_writer = Arc::new(RwLock::new(index.writer(50_000_000)?));
 
-        let html_stripper = HtmlStripper::new();
-
         let index_reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
@@ -84,7 +76,6 @@ impl FullTextIndex {
             body_field,
             index_writer,
             index_reader,
-            html_stripper,
         };
         Ok(fti)
     }
@@ -157,13 +148,13 @@ impl FullTextIndex {
         let mut start = 0_usize;
         let highlights = normalize_ranges(highlights);
         for blurb in highlights {
-            result.push_str(self.html_stripper.strip(&snippet[start..blurb.start]).as_str());
+            result.push_str(tera::escape_html(&snippet[start..blurb.start]).as_str());
             result.push_str(prefix);
             result.push_str(&snippet[blurb.start..blurb.end]);
             result.push_str(suffix);
             start = blurb.end;
         }
-        result.push_str(self.html_stripper.strip(&snippet[start..]).as_str());
+        result.push_str(tera::escape_html(&snippet[start..]).as_str());
         result
     }
 }
@@ -203,7 +194,37 @@ async fn get_modtime(path: &std::path::Path) -> Option<SystemTime> {
 }
 
 impl DocumentScanner {
+    async fn prune_deleted_documents(&mut self) -> Result<(), ChimeraError> {
+        // look for deleted documents since we last ran
+        let mut deleted = Vec::new();
+        self.file_times.files.retain(|path, _time| {
+            if !path.exists() {
+                deleted.push(path.clone());
+                false
+            }
+            else {
+                true
+            }
+        });
+        if !deleted.is_empty()
+        {
+            let mut index = self.index_writer.write()?;
+            for del in deleted {
+                if let Ok(relative_path) = del.strip_prefix(self.document_root.as_path()) {
+                    let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
+                    tracing::info!("Removing deleted document {} from full text index", del.display());
+                    let doc_term = Term::from_field_text(self.link, &anchor_string);
+                    index.delete_term(doc_term);
+                }
+            }
+            index.commit()?;
+        }
+        Ok(())
+    }
+
     async fn scan(mut self) -> Result<(), ChimeraError> {
+        self.prune_deleted_documents().await?;
+
         let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
             let modtime = get_modtime(path.as_path()).await;
@@ -262,28 +283,6 @@ async fn listen_for_changes(
                 let _ = tx.send(path).await;
             }
         }
-    }
-}
-
-impl HtmlStripper {
-    fn new() -> Self {
-        let html_tag_re = Regex::new(r"</?[a-zA-Z][^>]*>").unwrap();
-        HtmlStripper {
-            html_tag_re,
-        }
-    }
-
-    fn strip(&self, text: &str) -> String {
-        tracing::debug!("Snippet: \"{text}\"");
-        let mut i = 0_usize;
-        let mut buf = String::with_capacity(text.len());
-        for hit in self.html_tag_re.find_iter(text) {
-            tracing::debug!("Found hit: {}", &text[hit.start()..hit.end()]);
-            buf.push_str(&text[i..hit.start()]);
-            i = hit.end();
-        }
-        buf.push_str(&text[i..]);
-        buf
     }
 }
 
@@ -351,18 +350,5 @@ impl FileTimes {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::full_text_index::HtmlStripper;
-
-    #[test]
-    fn test_html_stripper() {
-        let stripper = HtmlStripper::new();
-        let html = "<h3>Kisses<3</h3>";
-        let plain = stripper.strip(html);
-        assert_eq!(plain, "Kisses<3".to_string());
     }
 }

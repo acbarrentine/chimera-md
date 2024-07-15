@@ -99,7 +99,7 @@ impl AppState {
         result_cache.listen_for_changes(&file_manager);
 
         let cfg = HtmlGeneratorCfg {
-            template_root,
+            template_root: config.template_root.as_str(),
             site_title: config.site_title,
             index_file: config.index_file.as_str(),
             site_lang: config.site_lang,

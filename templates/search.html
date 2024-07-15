@@ -1,0 +1,45 @@
+{% include "header.html" %}
+<div class="container">
+    <div class="row">
+        <div class="nine columns">
+            {% if query %}
+            <p>
+                <h1>Search results for: "{{query}}"</h1>
+            </p>
+            {% endif %}
+            <p>
+              <form action="/search" method="get" style="display: flex;flex-wrap: nowrap;">
+                <!-- id for javascript, name for form submit -->
+                {% if query %}
+                <input id="query" name="query" type="search" value="{{query}}" style="width: 90%">
+                {% else %}
+                <input id="query" name="query" type="search" placeholder="{{placeholder}}" style="width: 90%">
+                {% endif %}
+              </form>
+            </p>
+            <ol>
+            {% for result in results %}
+            <li>
+                <p><a href="{{result.link}}">{{result.title}}</a></p>
+                <p>{{result.snippet}}</p>
+            </li>
+            </ol>
+            {% else %}
+            <p>
+                {% if query %}
+                No results found. You can try using operators to refine your query:
+                {% endif %}
+                <ul>
+                    <li>Boolean operators: <b>cookie AND monster</b>, <b>cookie OR monster</b></li>
+                    <li>Required terms: <b>+cookie +monster</b></li>
+                    <li>Excluded terms: <b>cookie -monster</b></li>
+                    <li>Phrases: <b>"cookie monster"</b></li>
+                </ul>
+            </p>
+            {% endfor %}
+        </div>
+        <div class="three columns">
+        </div>
+    </div>
+</div>
+{% include "footer.html" %}

@@ -164,16 +164,16 @@ tr:nth-child(odd) {
     padding: 3px;
 }
 
-.sidebar ul {
-    list-style: disc inside;
+.anchors ul {
+    list-style: url("/icon/hash.svg") inside;
 }
 
-.sidebar ul.files {
-    list-style-image: url("/icon/document.svg");
+ul.files {
+    list-style: url("/icon/document.svg") inside;
 }
 
-.sidebar ul.folders {
-    list-style-image: url("/icon/folder.svg");
+ul.folders {
+    list-style: url("/icon/document.svg") inside;
     margin-bottom: 1em;
 }
 
@@ -181,10 +181,6 @@ tr:nth-child(odd) {
     width: 50%;
     border-color: #aaa;
     margin: 1em 0;
-}
-
-.sidebar span.anchors ul {
-    list-style-image: url("/icon/hash.svg");
 }
 
 .linkbox {

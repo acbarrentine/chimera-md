@@ -1,0 +1,32 @@
+{% include "header.html" %}
+{% include "breadcrumbs.html" %}
+<div class="container">
+    <div class="row">
+        <div class="nine columns">
+          <h1>Index of: {{path}}</strong></h1>
+
+          {% if peer_folders -%}
+          <h2>Folders</h2>
+          <ul class="folders">
+            {% for folder in peer_folders -%}
+              <li><a href="{{folder.url | urlencode}}">{{folder.name}}</a></li>
+            {% endfor -%}
+          </ul>
+          {% endif -%}
+          
+          {% if peer_files and peer_folders -%}
+          <hr/>
+          {% endif -%}
+
+          {% if peer_files -%}
+          <h2>Files</h2>
+          <ul class="files">
+            {% for file in peer_files -%}
+              <li><a href="{{file.url | urlencode}}">{{file.name}}</a></li>
+            {% endfor -%}
+          </ul>
+          {% endif -%}
+        </div>
+    </div>
+</div>
+{% include "footer.html" %}

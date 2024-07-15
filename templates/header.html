@@ -8,7 +8,22 @@
     <link rel="stylesheet" href="/style/skeleton.css">
     <link rel="stylesheet" href="/style/chimera.css">
     <link rel="stylesheet" href="/home/style/site.css">
-    {{{code_js}}}{{{plugin_js}}}
+    {% if has_code == true -%}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/{{highlight_style}}.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    {% if code_languages -%}
+    {% for lang in code_languages -%}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/{{lang}}.min.js"></script>
+    {% endfor -%}
+    {% endif %}
+    <script>hljs.highlightAll();</script>
+    {% endif -%}
+    {% if plugins -%}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+      {% for plugin in plugins -%}
+        <script src="/home/script/{{plugin}}.js"></script>
+      {% endfor -%}
+    {% endif -%}
   </head>
   <body>
     <nav>
