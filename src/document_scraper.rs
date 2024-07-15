@@ -244,7 +244,7 @@ mod tests {
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 1);
         assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "/-home-/-documents-/-work".to_string(),
+            "/ Home / Documents / Work".to_string(),
             "/ Home / Documents / Work".to_string(),
             1
         ));
@@ -256,9 +256,9 @@ mod tests {
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 1);
         assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "kisses-<3!".to_string(),
             "Kisses <3!".to_string(),
-            3
+            "Kisses <3!".to_string(),
+            1
         ));
     }
 
@@ -268,11 +268,11 @@ mod tests {
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 2);
         assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "the-title".to_string(),
+            "The title".to_string(),
             "The title".to_string(),
             1));
         assert_eq!(scraper.internal_links[1], InteralLink::new(
-            "subhead".to_string(),
+            "Subhead".to_string(),
             "Subhead".to_string(),
             2
         ));
