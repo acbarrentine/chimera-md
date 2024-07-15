@@ -359,6 +359,7 @@ Chimera-md uses the following open source libraries:
 * [async-watcher](https://crates.io/crates/async-watcher)
 * [toml](https://crates.io/crates/toml)
 * [indexmap](https://crates.io/crates/indexmap)
+* [slugify](https://crates.io/crates/slugify)
 
 ## License
 
