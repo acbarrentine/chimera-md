@@ -1,7 +1,7 @@
 use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InteralLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -88,7 +88,7 @@ impl HtmlGenerator {
         peers: PeerInfo,
     ) -> Result<String, ChimeraError> {
         tracing::debug!("Peers: {peers:?}");
-        let html_content = add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
+        let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
                 name.to_string_lossy().into_owned()
@@ -152,46 +152,47 @@ impl HtmlGenerator {
         let html = self.tera.render("index.html", &vars)?;
         Ok(html)
     }
-}
 
-fn add_anchors_to_headings(original_html: String, links: &[InteralLink], inserted_top: bool) -> String {
-    let start_index = if inserted_top { 1 } else { 0 };
-    let num_links = links.len();
-    if num_links == start_index {
-        return original_html;
-    }
-    let mut link_index = start_index;
-    let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
-    let mut char_iter = original_html.char_indices();
-    while let Some((i, c)) = char_iter.next() {
-        if link_index < links.len() && c == '<' {
-            if let Some(open_slice) = original_html.get(i..i+4) {
-                let mut slice_it = open_slice.chars().skip(1);
-                if slice_it.next() == Some('h') {
-                    if let Some(heading_size) = slice_it.next() {
-                        if slice_it.next() == Some('>') {
-                            let anchor = links[link_index].anchor.as_str();
-                            tracing::debug!("Rewriting anchor: {anchor}");
-                            new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
-                            link_index += 1;
-                            for _ in 0..open_slice.len()-1 {
-                                if char_iter.next().is_none() {
-                                    return new_html;
+
+    fn add_anchors_to_headings(&self, original_html: String, links: &[InternalLink], inserted_top: bool) -> String {
+        let start_index = if inserted_top { 1 } else { 0 };
+        let num_links = links.len();
+        if num_links == start_index {
+            return original_html;
+        }
+        let mut link_index = start_index;
+        let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
+        let mut char_iter = original_html.char_indices();
+        while let Some((i, c)) = char_iter.next() {
+            if link_index < links.len() && c == '<' {
+                if let Some(open_slice) = original_html.get(i..i+4) {
+                    let mut slice_it = open_slice.chars().skip(1);
+                    if slice_it.next() == Some('h') {
+                        if let Some(heading_size) = slice_it.next() {
+                            if slice_it.next() == Some('>') {
+                                let anchor = links[link_index].anchor.as_str();
+                                tracing::debug!("Rewriting anchor: {anchor}");
+                                new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
+                                link_index += 1;
+                                for _ in 0..open_slice.len()-1 {
+                                    if char_iter.next().is_none() {
+                                        return new_html;
+                                    }
                                 }
+                                continue;
                             }
-                            continue;
-                        }
-                        else if slice_it.next() == Some(' ') {
-                            // already has an id?
-                            link_index += 1;
+                            else if slice_it.next() == Some(' ') {
+                                // already has an id?
+                                link_index += 1;
+                            }
                         }
                     }
                 }
             }
+            new_html.push(c);
         }
-        new_html.push(c);
+        new_html
     }
-    new_html
 }
 
 fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {

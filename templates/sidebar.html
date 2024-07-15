@@ -19,7 +19,7 @@
                                 {% endfor -%}
                                 </li>
                               {% endif -%}
-                              <li><a href="#{{link.anchor | slugify}}">{{link.name}}</a>
+                              <li><a href="#{{link.anchor}}">{{link.name}}</a>
                             {% endfor -%}
                             {% for i in [1,2,3,4,5,6] -%}
                               {% if last_level == 0 %}{% break %}{% endif -%}

@@ -2,9 +2,10 @@ use std::{cmp::Ordering, collections::HashSet, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
+use slugify::slugify;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
-pub struct InteralLink {
+pub struct InternalLink {
     pub anchor: String,
     pub name: String,
     pub level: u8,
@@ -16,9 +17,9 @@ pub struct ExternalLink {
     pub name: String,
 }
 
-impl InteralLink {
+impl InternalLink {
     pub fn new(anchor: String, name: String, level: u8) -> Self {
-        InteralLink {
+        InternalLink {
             anchor,
             name,
             level,
@@ -38,7 +39,7 @@ impl ExternalLink {
 #[derive(Clone)]
 pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
-    pub internal_links: Vec<InteralLink>,
+    pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
     pub plugins: Vec<String>,
     pub title: Option<String>,
@@ -140,7 +141,13 @@ impl DocumentScraper {
                         }
                     };
                     tracing::debug!("Found doclink: {anchor} -> {heading_text}");
-                    self.internal_links.push(InteralLink::new(anchor.to_string(), heading_text.to_string(), level));
+                    self.internal_links.push(
+                        InternalLink::new(
+                            anchor.to_string(),
+                            heading_text.to_string(), 
+                            level
+                        )
+                    );
                 }
             },
             Event::Text(t) => {
@@ -156,8 +163,8 @@ impl DocumentScraper {
                             if self.title.is_none() {
                                 self.title = Some(name.clone());
                             }
-                            let link = InteralLink::new(
-                                name.clone(), 
+                            let link = InternalLink::new(
+                                slugify!(name.as_str()),
                                 name, *level as u8);
                             tracing::debug!("Doclink found: {link:?}");
                             self.internal_links.push(link);
@@ -228,7 +235,7 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     let mut html_content = String::with_capacity(md.len() * 3 / 2);
     pulldown_cmark::html::push_html(&mut html_content, parser);
     if !scraper.starts_with_heading {
-        scraper.internal_links.insert(0, InteralLink::new("top".to_string(), "Top".to_string(), 1));
+        scraper.internal_links.insert(0, InternalLink::new("top".to_string(), "Top".to_string(), 1));
     }
     scraper.normalize_headings();
     (html_content, scraper)
@@ -243,8 +250,8 @@ mod tests {
         let md = "# / [Home](/index.md) / [Documents](/Documents/index.md) / [Work](index.md)";
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 1);
-        assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "/ Home / Documents / Work".to_string(),
+        assert_eq!(scraper.internal_links[0], InternalLink::new(
+            "home-documents-work".to_string(),
             "/ Home / Documents / Work".to_string(),
             1
         ));
@@ -255,8 +262,8 @@ mod tests {
         let md = "### Kisses <3!";
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 1);
-        assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "Kisses <3!".to_string(),
+        assert_eq!(scraper.internal_links[0], InternalLink::new(
+            "kisses-3".to_string(),
             "Kisses <3!".to_string(),
             1
         ));
@@ -267,12 +274,12 @@ mod tests {
         let md = "# The title\n\nBody\n\n## Subhead\n\nBody 2";
         let (_html_content, scraper) = parse_markdown(md);
         assert_eq!(scraper.internal_links.len(), 2);
-        assert_eq!(scraper.internal_links[0], InteralLink::new(
-            "The title".to_string(),
+        assert_eq!(scraper.internal_links[0], InternalLink::new(
+            "the-title".to_string(),
             "The title".to_string(),
             1));
-        assert_eq!(scraper.internal_links[1], InteralLink::new(
-            "Subhead".to_string(),
+        assert_eq!(scraper.internal_links[1], InternalLink::new(
+            "subhead".to_string(),
             "Subhead".to_string(),
             2
         ));
