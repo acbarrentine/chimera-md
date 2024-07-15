@@ -173,7 +173,7 @@ ul.files {
 }
 
 ul.folders {
-    list-style: url("/icon/document.svg") inside;
+    list-style: url("/icon/folder.svg") inside;
     margin-bottom: 1em;
 }
 

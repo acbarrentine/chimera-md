@@ -4,6 +4,7 @@ mod full_text_index;
 mod html_generator;
 mod file_manager;
 mod result_cache;
+mod perf_timer;
 
 use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
@@ -21,6 +22,7 @@ use crate::html_generator::{HtmlGenerator, HtmlGeneratorCfg};
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::parse_markdown;
 use crate::result_cache::ResultCache;
+use crate::perf_timer::PerfTimer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
@@ -312,11 +314,14 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
+    let mut perf_timer = PerfTimer::new();
     let (html, cached) = match app_state.result_cache.get(path) {
         Some(html) => { (html, true) },
         None => {
             let md_content = tokio::fs::read_to_string(path).await?;
+            perf_timer.add_sample("read-file");
             let (body, scraper) = parse_markdown(md_content.as_str());
+            perf_timer.add_sample("parse-markdown");
             let peers = match app_state.generate_index {
                 true => {
                     app_state.file_manager.find_peers(
@@ -324,13 +329,17 @@ async fn serve_markdown_file(
                 },
                 false => { PeerInfo::default() }
             };
+            perf_timer.add_sample("find-peers");
             let html = app_state.html_generator.gen_markdown(
                 path,
                 body,
                 scraper,
                 peers,
             ).await?;
+            perf_timer.add_sample("generate-html");
             app_state.result_cache.add(path, html.as_str()).await;
+            perf_timer.add_sample("cache-results");
+            perf_timer.report(path);
             (html, false)
         }
     };
