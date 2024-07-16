@@ -1,29 +1,21 @@
-use std::{path::Path, time::Instant};
+use std::time::Instant;
 
 pub struct PerfTimer {
-    samples: Vec<(&'static str, Instant)>,
+    prev_time: Instant,
 }
 
 impl PerfTimer {
     pub fn new() -> Self {
         PerfTimer {
-            samples: vec![("start", Instant::now())],
+            prev_time: Instant::now(),
         }
     }
 
-    pub fn add_sample(&mut self, event: &'static str) {
-        self.samples.push((event, Instant::now()))
-    }
-
-    pub fn report(self, path: &Path) {
-        if self.samples.len() < 2 {
-            return;
-        }
-        tracing::info!("Completed {}", path.to_string_lossy());
-        let (_, mut prev_time) = self.samples[0];
-        for (event, time) in self.samples.into_iter().skip(1) {
-            tracing::info!(" - {event} took {} µs", time.duration_since(prev_time).as_micros());
-            prev_time = time;
+    pub fn sample(&mut self, event: &'static str) {
+        if cfg!(feature = "detailed-timing") {
+            let now = Instant::now();
+            tracing::info!(" - {event} took {} µs", now.duration_since(self.prev_time).as_micros());
+            self.prev_time = now;
         }
     }
 }

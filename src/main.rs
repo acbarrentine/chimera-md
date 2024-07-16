@@ -314,14 +314,14 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
-    let mut perf_timer = PerfTimer::new();
     let (html, cached) = match app_state.result_cache.get(path) {
         Some(html) => { (html, true) },
         None => {
+            let mut perf_timer = PerfTimer::new();
             let md_content = tokio::fs::read_to_string(path).await?;
-            perf_timer.add_sample("read-file");
+            perf_timer.sample("read-file");
             let (body, scraper) = parse_markdown(md_content.as_str());
-            perf_timer.add_sample("parse-markdown");
+            perf_timer.sample("parse-markdown");
             let peers = match app_state.generate_index {
                 true => {
                     app_state.file_manager.find_peers(
@@ -329,17 +329,16 @@ async fn serve_markdown_file(
                 },
                 false => { PeerInfo::default() }
             };
-            perf_timer.add_sample("find-peers");
+            perf_timer.sample("find-peers");
             let html = app_state.html_generator.gen_markdown(
                 path,
                 body,
                 scraper,
                 peers,
             ).await?;
-            perf_timer.add_sample("generate-html");
+            perf_timer.sample("generate-html");
             app_state.result_cache.add(path, html.as_str()).await;
-            perf_timer.add_sample("cache-results");
-            perf_timer.report(path);
+            perf_timer.sample("cache-results");
             (html, false)
         }
     };

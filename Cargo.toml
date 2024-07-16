@@ -28,3 +28,7 @@ slugify = "0.1.0"
 codegen-units = 1
 lto = "fat" 
 strip = "debuginfo"
+
+[features]
+default = ["detailed-timing"]
+detailed-timing = []
