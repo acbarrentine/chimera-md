@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, cmp::Ordering, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 
 use crate::{chimera_error::ChimeraError, document_scraper::ExternalLink};
@@ -68,7 +68,10 @@ impl FileManager {
                                     continue;
                                 }
                             }
-                            files.push(ExternalLink::new(fname_str.to_string(), stem.to_string()));
+                            files.push(ExternalLink::new(
+                                urlencoding::encode(fname_str.borrow()).into_owned(), 
+                                stem.to_string())
+                            );
                         }
                         else if let Ok(parent) = parent.strip_prefix(abs_path) {
                             folder_set.insert(parent.to_owned());
@@ -79,7 +82,10 @@ impl FileManager {
         }
 
         let folders:Vec<ExternalLink> = folder_set.into_iter().map(|folder| {
-            ExternalLink::new(format!("{}/", folder.to_string_lossy()), folder.to_string_lossy().into_owned())
+            ExternalLink::new(
+                format!("{}/", urlencoding::encode(folder.to_string_lossy().borrow())), 
+                folder.to_string_lossy().into_owned()
+            )
         }).collect();
         PeerInfo {
             files,

@@ -11,12 +11,6 @@ pub struct InternalLink {
     pub level: u8,
 }
 
-#[derive(Serialize, Debug)]
-pub struct ExternalLink {
-    pub url: String,
-    pub name: String,
-}
-
 impl InternalLink {
     pub fn new(anchor: String, name: String, level: u8) -> Self {
         InternalLink {
@@ -25,6 +19,12 @@ impl InternalLink {
             level,
         }
     }
+}
+
+#[derive(Serialize, Debug)]
+pub struct ExternalLink {
+    pub url: String,
+    pub name: String,
 }
 
 impl ExternalLink {
