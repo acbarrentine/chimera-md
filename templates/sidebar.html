@@ -1,57 +1,27 @@
-                <p>
-                    <div class="linkbox">
-                        <p>
-                          <strong>Within this document:</strong>
-                        </p>
-                        <span class="anchors">
-                          <ul>
-                            {% set_global last_level = 0 -%}
-                            {% for link in doclinks -%}
-                              {% if last_level < link.level -%}
-                                <ul>
-                                {% set_global last_level = link.level -%}
-                              {% else -%}
-                                {% for i in range(end=6) -%}
-                                  {% if last_level == link.level %}{% break %}{% endif -%}
-                                  </li>
-                                  </ul>
-                                  {% set_global last_level = last_level - 1 -%}
-                                {% endfor -%}
-                                </li>
-                              {% endif -%}
-                              <li><a href="#{{link.anchor}}">{{link.name}}</a>
-                            {% endfor -%}
-                            {% for i in range(end=6) -%}
-                              {% if last_level == 0 %}{% break %}{% endif -%}
-                                </li></ul>
-                              {% set_global last_level = last_level - 1 -%}
-                            {% endfor -%}
-                        </ul>
-                        </span>
-                    </div>
-                <p>
-                    {% if peer_files or peer_folders -%}
-                    <div class="linkbox">
-                      <p>
-                        <strong>Other documents:</strong>
-                      </p>
-                      {% if peer_folders -%}
-                      <ul class="folders">
-                        {% for folder in peer_folders -%}
-                          <li><a href="{{folder.url}}">{{folder.name}}</a></li>
-                        {% endfor -%}
-                      </ul>
-                      {% endif -%}
-                      {% if peer_files and peer_folders -%}
-                      <hr/>
-                      {% endif -%}
+{% include "doclinks.html" -%}
+<p>
+  {% if peer_files or peer_folders -%}
+  <div class="linkbox">
+    <p>
+      <strong>Other documents:</strong>
+    </p>
+    {% if peer_folders -%}
+    <ul class="folders">
+      {% for folder in peer_folders -%}
+        <li><a href="{{folder.url}}">{{folder.name}}</a></li>
+      {% endfor -%}
+    </ul>
+    {% endif -%}
+    {% if peer_files and peer_folders -%}
+    <hr/>
+    {% endif -%}
 
-                      {% if peer_files -%}
-                      <ul class="files">
-                        {% for file in peer_files -%}
-                          <li><a href="{{file.url}}">{{file.name}}</a></li>
-                        {% endfor -%}
-                      </ul>
-                      {% endif -%}
-                    </div>
-                    {% endif -%}
+    {% if peer_files -%}
+    <ul class="files">
+      {% for file in peer_files -%}
+        <li><a href="{{file.url}}">{{file.name}}</a></li>
+      {% endfor -%}
+    </ul>
+    {% endif -%}
+  </div>
+  {% endif -%}

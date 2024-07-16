@@ -1,3 +1,7 @@
+---
+template: index-helper.html
+---
+
 # Chimera-md
 
 Chimera-md is a Markdown-aware documentation server.
@@ -20,18 +24,3 @@ A chimera is a mythical creature with two heads from different beasts, most comm
 lion and a goat. It was the differing perspectives that suggested the name for this
 project. It is a web server that presents an alternative view depending on the kind of
 document you are looking at.
-
-## Example documents
-
-* [Index (this document)](index.md)
-* [Example 1](example1.md)
-* [Example 2](example2.md)
-* [Something](No%20index/Something.md)
-* [Dialog test 1](dialog-test-1.md)
-* [Dialog test 2](dialog-test-2.md)
-
-## Other folders
-
-* [Subfolder](Subfolder/)
-* [Gruber test suite](Tests/)
-* [No index](No%20index/)

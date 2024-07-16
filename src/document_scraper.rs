@@ -43,6 +43,7 @@ pub struct DocumentScraper {
     pub code_languages: Vec<&'static str>,
     pub plugins: Vec<String>,
     pub title: Option<String>,
+    pub template: Option<String>,
     heading_re: Regex,
     id_re: Regex,
     text_collector: Option<String>,
@@ -65,6 +66,7 @@ impl DocumentScraper {
             code_languages: Vec::new(),
             plugins: Vec::new(),
             title: None,
+            template: None,
             heading_re,
             id_re,
             text_collector: None,
@@ -180,8 +182,12 @@ impl DocumentScraper {
                                         tracing::debug!("Plugin: {plugin:?}");
                                         self.plugins.push(plugin.to_string());
                                     }
-                                    else {
-                                        break;
+                                }
+                                else if chunk.eq_ignore_ascii_case("template") {
+                                    if let Some(template) = it.next() {
+                                        let template = template.trim();
+                                        tracing::debug!("Template: {template:?}");
+                                        self.template = Some(template.to_string());
                                     }
                                 }
                             }

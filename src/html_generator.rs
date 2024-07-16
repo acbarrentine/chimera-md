@@ -116,8 +116,8 @@ impl HtmlGenerator {
             vars.insert("code_languages", &scraper.code_languages);
         }
         vars.insert("breadcrumbs", &breadcrumbs);
-
-        let html = self.tera.render("markdown.html", &vars)?;
+        let template = scraper.template.unwrap_or("markdown.html".to_string());
+        let html = self.tera.render(template.as_str(), &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
 
         Ok(html)
