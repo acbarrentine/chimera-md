@@ -181,7 +181,7 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         },
         None => "static".to_string(),
     };
-    let elapsed = start_time.elapsed().as_millis();
+    let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
     let time_str = format!("total; dur={}; desc=\"{}\"", elapsed, cached_status);
     if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
         headers.append("server-timing", hval);
@@ -343,8 +343,8 @@ async fn serve_markdown_file(
         }
     };
     match cached {
-        true => Ok((StatusCode::OK, [("cached", "cache")], Html(html)).into_response()),
-        false => Ok((StatusCode::OK, [("cached", "gen")], Html(html)).into_response()),
+        true => Ok((StatusCode::OK, [("cached", "cached")], Html(html)).into_response()),
+        false => Ok((StatusCode::OK, [("cached", "generated")], Html(html)).into_response()),
     }
 }
 

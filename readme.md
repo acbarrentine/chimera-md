@@ -265,6 +265,20 @@ increasing complexity, these are:
     the partials system to isolate your changes, if possible. Look for `{% include %}`
     in the templates for examples.
 
+## Release notes
+
+### v0.1.17
+
+* Used `server-timing` http header, which is the only response header web clients allow
+  Javascript to read, to render the response timing directly in the page.
+
+* Figured out how to do my dialog plugin without jquery, using straight Javascript. As
+  a result, I removed jquery from the html generator
+
+### v0.1.16
+
+
+
 ## Non-Docker installation
 
 You rebel! Well, I don't have precompiled binaries, so the easiest way to go
