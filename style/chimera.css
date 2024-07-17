@@ -194,6 +194,17 @@ ul.folders {
     margin-bottom: 1em;
 }
 
+footer {
+    border-top: 3px solid var(--rule-color);
+    padding: 2em 8em 2em 8rem;
+    margin: 0 -10px;
+}
+
+footer span {
+    color: #aaa;
+    margin-left: 10px;
+}
+
 @media screen and (max-width: 550px) {
     nav {
         padding: 0 1em 0 1em;

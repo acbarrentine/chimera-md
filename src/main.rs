@@ -173,20 +173,15 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     let cached_status = match headers.remove("cached") {
-        Some(_) => " (cached)",
+        Some(_) => " (from cache)",
         None => "",
     };
-    let elapsed = start_time.elapsed().as_micros();
-    let time_str = if elapsed > 1000 {
-        format!("{:.3} ms{}", elapsed as f64 / 1000.0, cached_status)
-    }
-    else {
-        format!("{} µs{}", elapsed, cached_status)
-    };
+    let elapsed = start_time.elapsed().as_millis();
+    let time_str = format!("total; dur={}; desc=\"served{}\"", elapsed, cached_status);
     if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
-        headers.append("response-time", hval);
+        headers.append("server-timing", hval);
     }
-    tracing::info!("{}: {} in {}", response.status().as_u16(), path, time_str);
+    tracing::info!("{}: {path} in {elapsed} ms{cached_status}", response.status().as_u16());
     response
 }
 
