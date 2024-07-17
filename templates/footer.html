@@ -8,7 +8,7 @@
       var dur = serverTiming[0].duration;
       var desc = serverTiming[0].description;
       if (dur != null && desc != null) {
-        document.getElementById("server-timing").innerHTML = `<a href="https://github.com/acbarrentine/chimera-md">Chimera-md</a> ${desc} this page in ${dur} ms`;
+        document.getElementById("server-timing").innerHTML = `Response: ${dur} ms (${desc})`;
       }
     }
   </script>

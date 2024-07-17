@@ -213,14 +213,23 @@ increasing complexity, these are:
     The rest of your Markdown content goes here
     ```
 
-    When this file gets processed, Chimera-md will add `<script>` tags for [jQuery](https://jquery.com/)
-    and `/home/script/[plugin-name].js`. In your plugin js, you can use jQuery directives
-    to tweak node styles. For my dialog plug-in, I use a simple script like this to give
-    extra style hints to `<blockquote>` and the preceding `<p>` tags.
+    When this file gets processed, Chimera-md will add a script tag for `/home/script/[plugin-name].js`.
+    In your plugin js, you can use javascript to tweak node styles. For my dialog plug-in, I use
+    a simple script like this to give extra style hints to `<blockquote>` and the preceding `<p>` tags.
 
     ```javascript
-    $(document).ready(function(){
-      $("blockquote").addClass("dialog").prev("p").addClass("speaker");
+    document.addEventListener("DOMContentLoaded", function() {
+      var quotes = document.querySelectorAll("blockquote");
+      quotes.forEach((q) => {
+        q.className = 'dialog';
+        var prev = q.previousElementSibling;
+        if (prev.tagName == "P") {
+          prev.className = "speaker";
+        }
+        else {
+          console.log(`Prev: ${prev.tagName}`);
+        }
+      });
     });
     ```
     I defined the `dialog` and `speaker` classes in site.css.

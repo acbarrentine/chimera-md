@@ -173,15 +173,20 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     let cached_status = match headers.remove("cached") {
-        Some(_) => " (from cache)",
-        None => "",
+        Some(status) => {
+            match status.to_str() {
+                Ok(str) => str.to_string(),
+                Err(_) => "err".to_string(),
+            }
+        },
+        None => "static".to_string(),
     };
     let elapsed = start_time.elapsed().as_millis();
-    let time_str = format!("total; dur={}; desc=\"served{}\"", elapsed, cached_status);
+    let time_str = format!("total; dur={}; desc=\"{}\"", elapsed, cached_status);
     if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
         headers.append("server-timing", hval);
     }
-    tracing::info!("{}: {path} in {elapsed} ms{cached_status}", response.status().as_u16());
+    tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16());
     response
 }
 
@@ -338,8 +343,8 @@ async fn serve_markdown_file(
         }
     };
     match cached {
-        true => Ok((StatusCode::OK, [("cached", "yes")], Html(html)).into_response()),
-        false => Ok((StatusCode::OK, Html(html)).into_response()),
+        true => Ok((StatusCode::OK, [("cached", "cache")], Html(html)).into_response()),
+        false => Ok((StatusCode::OK, [("cached", "gen")], Html(html)).into_response()),
     }
 }
 
