@@ -5,10 +5,10 @@
   <script>
     const {serverTiming} = performance.getEntriesByType('navigation')[0];
     if (serverTiming[0]) {
-      var dur = serverTiming[0].duration;
-      var desc = serverTiming[0].description;
+      var dur = serverTiming.at(-1).duration;
+      var desc = serverTiming.at(-1).description;
       if (dur != null && desc != null) {
-        document.getElementById("server-timing").innerHTML = `Response: ${dur} ms (${desc})`;
+        document.getElementById("server-timing").innerHTML = `Response: ${dur} ms ${desc}`;
       }
     }
   </script>
