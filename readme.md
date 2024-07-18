@@ -271,13 +271,40 @@ increasing complexity, these are:
 
 * Used `server-timing` http header, which is the only response header web clients allow
   Javascript to read, to render the response timing directly in the page.
-
 * Figured out how to do my dialog plugin without jquery, using straight Javascript. As
   a result, I removed jquery from the html generator
 
 ### v0.1.16
 
+* Fixed the search results template (it was closing the `<ol>` prematurely)
+* Added a performance timing component
+* Added the ability to specify an alternate Tera template to render against. The only
+  use for this at the moment is letting you make an index.md file that doesn't need to
+  list out the file contents. index-helper.html uses the same file discovery component
+  as the sidebar. To use the feature, in a Markdown document's header, use:
 
+```markdown
+---
+template: index-helper.html
+---
+```
+
+### v0.1.15
+
+* Fixed bug with heading jump-lists (one side was getting slugified and the other was not)
+* Fixed the html generator's file watcher so it would dump the cache if an html file (Tera
+  template) changed, instead of the old .hbs (Handlebars template) files
+
+### v0.1.14
+
+* Swapped out the Handlebars templating system for [Tera](https://keats.github.io/tera/).
+  Tera is both faster and has more functionality
+* Made the file names in the sidebar use stems (no extensions)
+
+### v0.1.13
+
+* Added little .svg icons to the sidebars
+* Cleaned up the full text indexer's file discovery
 
 ## Non-Docker installation
 

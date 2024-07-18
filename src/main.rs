@@ -26,6 +26,8 @@ use crate::perf_timer::PerfTimer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
+const SERVER_TIMING: &str = "server-timing";
+const CACHED_HEADER: &str = "cached";
 
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
@@ -172,7 +174,7 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
     };
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
-    let cached_status = match headers.remove("cached") {
+    let cached_status = match headers.remove(CACHED_HEADER) {
         Some(status) => {
             match status.to_str() {
                 Ok(str) => str.to_string(),
@@ -182,9 +184,9 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         None => "static".to_string(),
     };
     let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-    let time_str = format!("total; dur={}; desc=\"{}\"", elapsed, cached_status);
+    let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cached_status);
     if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
-        headers.append("server-timing", hval);
+        headers.append(SERVER_TIMING, hval);
     }
     tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16());
     response
@@ -314,14 +316,20 @@ async fn serve_markdown_file(
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
+    let mut headers = axum::http::header::HeaderMap::new();
     let (html, cached) = match app_state.result_cache.get(path) {
-        Some(html) => { (html, true) },
+        Some(html) => {
+            if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
+                headers.append(CACHED_HEADER, hval);
+            }
+            (html, true)
+        },
         None => {
             let mut perf_timer = PerfTimer::new();
             let md_content = tokio::fs::read_to_string(path).await?;
-            perf_timer.sample("read-file");
+            perf_timer.sample("read-file", &mut headers);
             let (body, scraper) = parse_markdown(md_content.as_str());
-            perf_timer.sample("parse-markdown");
+            perf_timer.sample("parse-markdown", &mut headers);
             let peers = match app_state.generate_index {
                 true => {
                     app_state.file_manager.find_peers(
@@ -329,22 +337,25 @@ async fn serve_markdown_file(
                 },
                 false => { PeerInfo::default() }
             };
-            perf_timer.sample("find-peers");
+            perf_timer.sample("find-peers", &mut headers);
             let html = app_state.html_generator.gen_markdown(
                 path,
                 body,
                 scraper,
                 peers,
             ).await?;
-            perf_timer.sample("generate-html");
+            perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
-            perf_timer.sample("cache-results");
+            perf_timer.sample("cache-results", &mut headers);
+            if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
+                headers.append(CACHED_HEADER, hval);
+            }
             (html, false)
         }
     };
     match cached {
-        true => Ok((StatusCode::OK, [("cached", "cached")], Html(html)).into_response()),
-        false => Ok((StatusCode::OK, [("cached", "generated")], Html(html)).into_response()),
+        true => Ok((StatusCode::OK, headers, Html(html)).into_response()),
+        false => Ok((StatusCode::OK, headers, Html(html)).into_response()),
     }
 }
 
