@@ -6,7 +6,7 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{collections::BTreeMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -16,7 +16,7 @@ use clap::Parser;
 #[allow(unused_imports)]
 use axum::debug_handler;
 
-use crate::file_manager::{FileManager, FolderInfo};
+use crate::file_manager::FileManager;
 use crate::full_text_index::FullTextIndex;
 use crate::html_generator::{HtmlGenerator, HtmlGeneratorCfg};
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
@@ -332,18 +332,12 @@ async fn serve_markdown_file(
             perf_timer.sample("parse-markdown", &mut headers);
             let peers = match app_state.generate_index {
                 true => {
-                    app_state.file_manager.find_peers(
-                        path).await
+                    Some(app_state.file_manager.find_peers(path).await)
                 },
-                false => { BTreeMap::new() }
+                false => None,
             };
             perf_timer.sample("find-peers", &mut headers);
-            let html = app_state.html_generator.gen_markdown(
-                path,
-                body,
-                scraper,
-                peers,
-            )?;
+            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
             perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
             perf_timer.sample("cache-results", &mut headers);
@@ -364,6 +358,35 @@ async fn serve_static_file(
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
+}
+
+async fn serve_index(
+    app_state: &mut AppStateType,
+    path: &std::path::Path,
+) -> Result<axum::response::Response, ChimeraError> {
+    let mut headers = axum::http::header::HeaderMap::new();
+    let html = match app_state.result_cache.get(path) {
+        Some(html) => {
+            if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
+                headers.append(CACHED_HEADER, hval);
+            }
+            html
+        },
+        None => {
+            tracing::debug!("No file specified. Generating an index result at {}", path.display());
+            let links = if let Ok(abs_path) = path.canonicalize() {
+                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
+            }
+            else {
+                app_state.file_manager.find_files_in_directory(path, None)
+            };
+            if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
+                headers.append(CACHED_HEADER, hval);
+            }
+            app_state.html_generator.gen_index(path, links).await?
+        }
+    };
+    Ok((StatusCode::OK, headers, Html(html)).into_response())
 }
 
 async fn get_response(
@@ -389,15 +412,7 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            tracing::debug!("No file specified. Generating an index result at {}", path.display());
-            let links = if let Ok(abs_path) = path.canonicalize() {
-                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
-            }
-            else {
-                app_state.file_manager.find_files_in_directory(path, None)
-            };
-            let html = app_state.html_generator.gen_index(path, links).await?;
-            return Ok(Html(html).into_response());
+            return serve_index(app_state, path).await;
         }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());

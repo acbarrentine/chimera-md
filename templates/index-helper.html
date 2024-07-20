@@ -4,35 +4,12 @@
     <div class="row">
         <div class="nine columns">
           {{body}}
-
-            <ul class="folders">
-              {% set folder_info = peers["root"] %}
-              {% for folder in folder_info.folders %}
-              <li>1: <a href="{{folder.url}}">{{folder.name}}</a>
-                {% set subfolder = peers[folder.name] %}
-                <ul class="folders">
-                {% for subsubfolder in subfolder.folders %}
-                  <li>2: <a href="{{subsubfolder.url}}">{{folder.name}}</a></li>
-                {% endfor %}
-                </ul>
-                <ul class="files">
-                {% for file in subfolder.files %}
-                  <li>3: <a href="{{file.url}}">{{file.name}}</a></li>
-                {% endfor %}
-                </ul>
-              </li>
-            {% endfor %}
-            </ul>
-            <ul class="files">
-            {% for file in folder_info.files %}
-              <li>4: <a href="{{file.url}}">{{file.name}}</a></li>
-            {% endfor %}
-            </ul>
-
-          </div>
+          <h2>Contents</h2>
+          {% include "folders.html" -%}
+        </div>
         <div class="three columns">
           <div class="sidebar">
-              {% include "doclinks.html" %}
+          {% include "doclinks.html" %}
           </div>
         </div>
     </div>

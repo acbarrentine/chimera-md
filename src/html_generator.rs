@@ -1,5 +1,4 @@
-use std::{collections::{BTreeMap, HashMap}, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
-use serde::Serialize;
+use std::{collections::BTreeMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
 use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::FolderInfo, full_text_index::SearchResult, HOME_DIR};
@@ -86,9 +85,8 @@ impl HtmlGenerator {
         path: &std::path::Path,
         body: String,
         scraper: DocumentScraper,
-        peers: BTreeMap<String, FolderInfo>,
+        peers: Option<BTreeMap<String, FolderInfo>>,
     ) -> Result<String, ChimeraError> {
-        tracing::debug!("Peers: {peers:?}");
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
@@ -105,43 +103,9 @@ impl HtmlGenerator {
         vars.insert("body", html_content.as_str());
         vars.insert("doclinks", &scraper.internal_links);
         vars.insert("peers", &peers);
-        if !scraper.plugins.is_empty() {
-            vars.insert("plugins", &scraper.plugins);
-        }
-        if !scraper.code_languages.is_empty() {
-            vars.insert("code_languages", &scraper.code_languages);
-        }
+        vars.insert("plugins", &scraper.plugins);
+        vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
-
-        // #[derive(Serialize)]
-        // struct FolderInfo {
-        //     files: Vec<String>,
-        //     folders: Vec<String>,
-        // }
-
-        // let root = FolderInfo {
-        //     files: vec!["Index".to_string()],
-        //     folders: vec!["aaa".to_string(), "bbb".to_string(), "ccc".to_string()],
-        // };
-        // let aaa = FolderInfo {
-        //     files: vec!["File 1".to_string(), "File 2".to_string()],
-        //     folders: vec![],
-        // };
-        // let bbb = FolderInfo {
-        //     files: vec!["Index".to_string()],
-        //     folders: vec!["Subfolder".to_string()],
-        // };
-        // let ccc = FolderInfo {
-        //     files: vec!["File 3".to_string(), "File 4".to_string()],
-        //     folders: vec![],
-        // };
-        // let test_map = HashMap::from([
-        //     ("root".to_string(), root),
-        //     ("aaa".to_string(), aaa),
-        //     ("bbb".to_string(), bbb),
-        //     ("ccc".to_string(), ccc),
-        // ]);
-        // vars.insert("test_map", &test_map);
 
         let template = scraper.template.unwrap_or("markdown.html".to_string());
         let html = self.tera.render(template.as_str(), &vars)?;
@@ -171,7 +135,8 @@ impl HtmlGenerator {
         vars.insert("path", path_str.as_str());
         vars.insert("breadcrumbs", &breadcrumbs);
         vars.insert("peers", &peers);
-        let html = self.tera.render("index.html", &vars)?;
+        vars.insert("body", "");
+        let html = self.tera.render("index-helper.html", &vars)?;
         Ok(html)
     }
 

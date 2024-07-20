@@ -212,7 +212,7 @@ impl DocumentScanner {
             for del in deleted {
                 if let Ok(relative_path) = del.strip_prefix(self.document_root.as_path()) {
                     let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
-                    tracing::info!("Removing deleted document {} from full text index", del.display());
+                    tracing::debug!("Removing deleted document {} from full text index", del.display());
                     let doc_term = Term::from_field_text(self.link, &anchor_string);
                     index.delete_term(doc_term);
                 }
@@ -338,7 +338,7 @@ impl FileTimes {
             Ok(toml) => {
                 match tokio::fs::File::write_all(&mut file, toml.as_bytes()).await {
                     Ok(_) => {
-                        tracing::info!("Saved ft.toml");
+                        tracing::debug!("Saved ft.toml");
                     },
                     Err(e) => {
                         tracing::warn!("Failure writing full text index file times: {e}");

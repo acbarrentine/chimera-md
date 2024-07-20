@@ -1,27 +1,10 @@
 {% include "doclinks.html" -%}
 <p>
-  {% if peer_files or peer_folders -%}
+  {% if peers -%}
   <div class="linkbox">
     <p>
       <strong>Other documents:</strong>
     </p>
-    {% if peer_folders -%}
-    <ul class="folders">
-      {% for folder in peer_folders -%}
-        <li><a href="{{folder.url}}">{{folder.name}}</a></li>
-      {% endfor -%}
-    </ul>
-    {% endif -%}
-    {% if peer_files and peer_folders -%}
-    <hr/>
-    {% endif -%}
-
-    {% if peer_files -%}
-    <ul class="files">
-      {% for file in peer_files -%}
-        <li><a href="{{file.url}}">{{file.name}}</a></li>
-      {% endfor -%}
-    </ul>
-    {% endif -%}
+    {% include "folders.html" -%}
   </div>
   {% endif -%}

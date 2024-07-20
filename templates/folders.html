@@ -1,0 +1,23 @@
+<ul class="files">
+  {% set folder_info = peers["root"] -%}
+  {% for file in folder_info.files -%}
+    <li><a href="{{file.url}}">{{file.name}}</a></li>
+  {% endfor -%}
+</ul>
+ <ul class="folders">
+  {% for folder in folder_info.folders -%}
+  <li><a href="{{folder.url}}">{{folder.name}}</a>
+    {% set subfolder = peers[folder.name] -%}
+    <ul class="folders">
+    {% for subsubfolder in subfolder.folders -%}
+      <li><a href="{{subsubfolder.url}}">{{folder.name}}</a></li>
+    {% endfor -%}
+    </ul>
+    <ul class="files">
+    {% for file in subfolder.files -%}
+      <li><a href="{{file.url}}">{{file.name}}</a></li>
+    {% endfor -%}
+    </ul>
+  </li>
+  {% endfor -%}
+</ul>
