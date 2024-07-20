@@ -6,7 +6,7 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{collections::BTreeMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -332,7 +332,7 @@ async fn serve_markdown_file(
             perf_timer.sample("parse-markdown", &mut headers);
             let peers = match app_state.generate_index {
                 true => app_state.file_manager.find_peers(path),
-                false => BTreeMap::default(),
+                false => None,
             };
             perf_timer.sample("find-peers", &mut headers);
             let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
@@ -372,7 +372,7 @@ async fn serve_index(
         },
         None => {
             tracing::debug!("No file specified. Generating an index result at {}", path.display());
-            let links = if let Ok(abs_path) = path.canonicalize() {
+            let peers = if let Ok(abs_path) = path.canonicalize() {
                 app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
             }
             else {
@@ -381,7 +381,7 @@ async fn serve_index(
             if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
                 headers.append(CACHED_HEADER, hval);
             }
-            app_state.html_generator.gen_index(path, links).await?
+            app_state.html_generator.gen_index(path, peers).await?
         }
     };
     Ok((StatusCode::OK, headers, Html(html)).into_response())

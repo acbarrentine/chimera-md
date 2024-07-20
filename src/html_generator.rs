@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::FolderInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -85,7 +85,7 @@ impl HtmlGenerator {
         path: &std::path::Path,
         body: String,
         scraper: DocumentScraper,
-        peers: BTreeMap<String, FolderInfo>,
+        peers: Option<PeerInfo>,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
@@ -109,8 +109,6 @@ impl HtmlGenerator {
 
         let template = scraper.template.unwrap_or("markdown.html".to_string());
         let html = self.tera.render(template.as_str(), &vars)?;
-        tracing::debug!("Generated fresh response for {}", path.display());
-
         Ok(html)
     }
 
@@ -126,7 +124,7 @@ impl HtmlGenerator {
         Ok(html)
     }
 
-    pub async fn gen_index(&self, path: &Path, peers: BTreeMap<String, FolderInfo>) -> Result<String, ChimeraError> {
+    pub async fn gen_index(&self, path: &Path, peers: Option<PeerInfo>) -> Result<String, ChimeraError> {
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
@@ -136,7 +134,7 @@ impl HtmlGenerator {
         vars.insert("breadcrumbs", &breadcrumbs);
         vars.insert("peers", &peers);
         vars.insert("body", "");
-        let html = self.tera.render("index-helper.html", &vars)?;
+        let html = self.tera.render("index.html", &vars)?;
         Ok(html)
     }
 

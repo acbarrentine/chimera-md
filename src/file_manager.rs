@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::{BTreeMap, HashSet}, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 use serde::Serialize;
 
@@ -7,7 +7,7 @@ use crate::{chimera_error::ChimeraError, document_scraper::ExternalLink};
 type NotifyError = async_watcher::notify::Error;
 
 #[derive(Default, Debug, Serialize)]
-pub struct FolderInfo {
+pub struct PeerInfo {
     pub folders: Vec<ExternalLink>,
     pub files: Vec<ExternalLink>,
 }
@@ -51,10 +51,10 @@ impl FileManager {
         files
     }
 
-    pub fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> BTreeMap<String, FolderInfo> {
+    pub fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> Option<PeerInfo> {
         tracing::debug!("Find files in: {}", abs_path.display());
-        let mut map: BTreeMap<String, FolderInfo> = BTreeMap::new();
-        let mut known_folders = HashSet::new();
+        let mut folder_set = HashSet::new();
+        let mut files = Vec::new();
         for entry in walkdir::WalkDir::new(abs_path).max_depth(2).into_iter().flatten() {
             let parent = entry.path().parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
             if entry.file_type().is_file() {
@@ -69,68 +69,55 @@ impl FileManager {
                                     continue;
                                 }
                             }
-                            let link = ExternalLink::new(urlencoding::encode(
-                                fname_str.borrow()).into_owned(),
-                          stem.to_string());
-                            let folder = map.entry("root".to_string()).or_default();
-                            folder.files.push(link);
+                            files.push(ExternalLink::new(
+                                urlencoding::encode(fname_str.borrow()).into_owned(), 
+                                stem.to_string())
+                            );
                         }
                         else if let Ok(parent) = parent.strip_prefix(abs_path) {
-                            
-                                let parent_name_str = parent.to_string_lossy().into_owned();
-
-                                // does this folder already exist for "root"?
-                                known_folders.insert(parent_name_str.clone());
-
-                                // add this file to that folder's entry
-                                let url = format!("{}/{}", 
-                                    urlencoding::encode(parent_name_str.as_str()),
-                                    urlencoding::encode(fname_str.borrow()));
-                                let link = ExternalLink::new(
-                                    url,
-                                    stem.to_string());
-                                let folder = map.entry(parent_name_str).or_default();
-                                folder.files.push(link);
-                            
+                            folder_set.insert(parent.to_owned());
                         }
                     }
                 }
             }
         }
-        if !known_folders.is_empty() {
-            let root_folder = map.entry("root".to_string()).or_default();
-            for f in known_folders {
-                let url = urlencoding::encode(f.as_str()).into_owned();
-                let link = ExternalLink::new(url, f);
-                root_folder.folders.push(link);
-            }
+
+        if files.is_empty() && folder_set.is_empty() {
+            return None;
         }
-        map
+        let folders:Vec<ExternalLink> = folder_set.into_iter().map(|folder| {
+            ExternalLink::new(
+                format!("{}/", urlencoding::encode(folder.to_string_lossy().borrow())), 
+                folder.to_string_lossy().into_owned()
+            )
+        }).collect();
+        let mut peers = PeerInfo {
+            files,
+            folders
+        };
+        peers.sort();
+        Some(peers)
     }
 
-    pub fn find_peers(&self, relative_path: &Path) -> BTreeMap<String, FolderInfo> {
+    pub fn find_peers(&self, relative_path: &Path) -> Option<PeerInfo> {
         tracing::debug!("Finding peers of {}", relative_path.display());
         let Ok(abs_path) = relative_path.canonicalize() else {
             tracing::debug!("No canonical representation");
-            return BTreeMap::new();
+            return None;
         };
         let Some(parent_path) = abs_path.parent() else {
             tracing::debug!("No parent path");
-            return BTreeMap::new();
+            return None;
         };
         let Some(original_file_name) = relative_path.file_name() else {
             tracing::debug!("No root file");
-            return BTreeMap::new();
+            return None;
         };
         let original_file_name = match original_file_name.eq(self.index_file.as_str()) {
             false => Some(original_file_name),
             true => None,
         };
-        let mut peers = self.find_files_in_directory(parent_path, original_file_name);
-        for folder in peers.values_mut() {
-            folder.sort();
-        }
-        peers
+        self.find_files_in_directory(parent_path, original_file_name)
     }
 
     pub fn add_watch(&mut self, path: &Path) {
@@ -144,7 +131,7 @@ impl FileManager {
     }
 }
 
-impl FolderInfo {
+impl PeerInfo {
     fn sort(&mut self) {
         self.files.sort_unstable_by(|a, b| {
             a.name.cmp(&b.name)

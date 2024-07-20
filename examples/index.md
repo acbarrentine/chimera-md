@@ -1,5 +1,5 @@
 ---
-template: index-helper.html
+template: index.html
 ---
 
 # Chimera-md
@@ -28,7 +28,7 @@ document you are looking at.
 ## Extensibility
 
 This file, index.md is an example of Chimera-md's extensibility system. What you see
-beneath this paragraph is being furnished by a helper template called index-helper.html.
+beneath this paragraph is being furnished by a helper template called index.html.
 It takes a list of files and folders and gives them a clean presentation. Not every
 index page should list all files, but when it's safe, this is a great way to fill one
 out dynamically.

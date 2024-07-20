@@ -280,12 +280,12 @@ increasing complexity, these are:
 * Added a performance timing component
 * Added the ability to specify an alternate Tera template to render against. The only
   use for this at the moment is letting you make an index.md file that doesn't need to
-  list out the file contents. index-helper.html uses the same file discovery component
+  list out the file contents. index.html uses the same file discovery component
   as the sidebar. To use the feature, in a Markdown document's header, use:
 
 ```markdown
 ---
-template: index-helper.html
+template: index.html
 ---
 ```
 
