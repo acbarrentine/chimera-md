@@ -100,7 +100,7 @@ impl FullTextIndex {
         };
         tokio::spawn(scanner.scan());
 
-        let md_files = file_manager.get_markdown_files().await;
+        let md_files = file_manager.get_markdown_files();
         for md in md_files {
             tx.send(md).await?;
         }
