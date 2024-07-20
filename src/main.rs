@@ -317,12 +317,12 @@ async fn serve_markdown_file(
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
     let mut headers = axum::http::header::HeaderMap::new();
-    let (html, cached) = match app_state.result_cache.get(path) {
+    let html = match app_state.result_cache.get(path) {
         Some(html) => {
             if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
                 headers.append(CACHED_HEADER, hval);
             }
-            (html, true)
+            html
         },
         None => {
             let mut perf_timer = PerfTimer::new();
@@ -350,7 +350,7 @@ async fn serve_markdown_file(
             if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
                 headers.append(CACHED_HEADER, hval);
             }
-            (html, false)
+            html
         }
     };
     Ok((StatusCode::OK, headers, Html(html)).into_response())
