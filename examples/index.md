@@ -24,3 +24,11 @@ A chimera is a mythical creature with two heads from different beasts, most comm
 lion and a goat. It was the differing perspectives that suggested the name for this
 project. It is a web server that presents an alternative view depending on the kind of
 document you are looking at.
+
+## Extensibility
+
+This file, index.md is an example of Chimera-md's extensibility system. What you see
+beneath this paragraph is being furnished by a helper template called index-helper.html.
+It takes a list of files and folders and gives them a clean presentation. Not every
+index page should list all files, but when it's safe, this is a great way to fill one
+out dynamically.

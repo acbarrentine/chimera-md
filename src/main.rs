@@ -6,7 +6,7 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -16,7 +16,7 @@ use clap::Parser;
 #[allow(unused_imports)]
 use axum::debug_handler;
 
-use crate::file_manager::{FileManager, PeerInfo};
+use crate::file_manager::{FileManager, FolderInfo};
 use crate::full_text_index::FullTextIndex;
 use crate::html_generator::{HtmlGenerator, HtmlGeneratorCfg};
 use crate::chimera_error::{ChimeraError, handle_404, handle_err};
@@ -335,7 +335,7 @@ async fn serve_markdown_file(
                     app_state.file_manager.find_peers(
                         path).await
                 },
-                false => { PeerInfo::default() }
+                false => { BTreeMap::new() }
             };
             perf_timer.sample("find-peers", &mut headers);
             let html = app_state.html_generator.gen_markdown(
@@ -343,7 +343,7 @@ async fn serve_markdown_file(
                 body,
                 scraper,
                 peers,
-            ).await?;
+            )?;
             perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
             perf_timer.sample("cache-results", &mut headers);
@@ -394,10 +394,10 @@ async fn get_response(
         else if app_state.generate_index {
             tracing::debug!("No file specified. Generating an index result at {}", path.display());
             let links = if let Ok(abs_path) = path.canonicalize() {
-                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None).await
+                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
             }
             else {
-                app_state.file_manager.find_files_in_directory(path, None).await
+                app_state.file_manager.find_files_in_directory(path, None)
             };
             let html = app_state.html_generator.gen_index(path, links).await?;
             return Ok(Html(html).into_response());
