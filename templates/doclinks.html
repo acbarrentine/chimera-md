@@ -6,27 +6,25 @@
     </p>
     <span class="anchors">
       <ul>
-      {% set_global last_level = 0 -%}
+      {% set_global last_level = 1 -%}
       {% for link in doclinks -%}
-      {% if last_level < link.level -%}
+        {% if last_level < link.level -%}
         <ul>
-        {% set_global last_level = link.level -%}
+          {% set_global last_level = link.level -%}
         {% else -%}
-        {% for i in range(end=6) -%}
-        {% if last_level == link.level %}{% break %}{% endif -%}
-        </li>
-        </ul>
-        {% set_global last_level = last_level - 1 -%}
-        {% endfor -%}
-        </li>
+          {% for i in range(end=6) -%}
+            {% if last_level == link.level %}{% break %}{% endif -%}
+        </li></ul>
+            {% set_global last_level = last_level - 1 -%}
+          {% endfor -%}
         {% endif -%}
           <li><a href="#{{link.anchor}}">{{link.name}}</a>
-          {% endfor -%}
-          {% for i in range(end=6) -%}
-          {% if last_level == 0 %}{% break %}{% endif -%}
+      {% endfor -%}
+      {% for i in range(end=6) -%}
+        {% if last_level == 1 %}{% break %}{% endif -%}
           </li></ul>
-          {% set_global last_level = last_level - 1 -%}
-          {% endfor -%}
+        {% set_global last_level = last_level - 1 -%}
+      {% endfor -%}
       </ul>
     </span>
   </div>

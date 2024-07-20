@@ -88,13 +88,11 @@ impl HtmlGenerator {
         peers: Option<PeerInfo>,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
-        let title = scraper.title.unwrap_or_else(||{
-            if let Some(name) = path.file_name() {
-                name.to_string_lossy().into_owned()
-            }
-            else {
-                path.to_string_lossy().into_owned()
-            }
+        let title = scraper.title.unwrap_or_else(|| {
+            match path.file_name() {
+                Some(name) => name,
+                None => path.as_os_str(),
+            }.to_string_lossy().into_owned()
         });
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let title = format!("{}: {}", self.site_title, title);
@@ -114,12 +112,10 @@ impl HtmlGenerator {
 
     pub fn gen_error(&self, error_code: &str, heading: &str, message: &str) -> Result<String, ChimeraError> {
         let title = format!("{}: Error", self.site_title);
-
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("error_code", error_code);
         vars.insert("heading", heading);
         vars.insert("message", message);
-
         let html = self.tera.render("error.html", &vars)?;
         Ok(html)
     }
@@ -132,6 +128,8 @@ impl HtmlGenerator {
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("path", path_str.as_str());
         vars.insert("breadcrumbs", &breadcrumbs);
+        let doclinks = vec![InternalLink::new("contents".to_string(), "Contents".to_string(), 2)];
+        vars.insert("doclinks", &doclinks);
         vars.insert("peers", &peers);
         vars.insert("body", "");
         let html = self.tera.render("index.html", &vars)?;

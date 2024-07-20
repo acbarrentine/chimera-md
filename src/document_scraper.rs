@@ -243,6 +243,11 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     if !scraper.starts_with_heading {
         scraper.internal_links.insert(0, InternalLink::new("top".to_string(), "Top".to_string(), 1));
     }
+    if let Some(template) = scraper.template.as_ref() {
+        if template.eq("index.html") {
+            scraper.internal_links.push(InternalLink::new("contents".to_string(), "Contents".to_string(), 2));
+        }
+    }
     scraper.normalize_headings();
     (html_content, scraper)
 }
