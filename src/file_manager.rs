@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, collections::HashMap, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 use serde::Serialize;
 
@@ -53,7 +53,7 @@ impl FileManager {
 
     pub fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> Option<PeerInfo> {
         tracing::debug!("Find files in: {}", abs_path.display());
-        let mut folder_set = HashSet::new();
+        let mut folder_set: HashMap<PathBuf, Vec<(String, String)>> = HashMap::new();
         let mut files = Vec::new();
         for entry in walkdir::WalkDir::new(abs_path).max_depth(2).into_iter().flatten() {
             let parent = entry.path().parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
@@ -75,7 +75,8 @@ impl FileManager {
                             );
                         }
                         else if let Ok(parent) = parent.strip_prefix(abs_path) {
-                            folder_set.insert(parent.to_owned());
+                            let folder = folder_set.entry(parent.to_owned()).or_default();
+                            folder.push((fname_str.to_string(), stem.to_string()));
                         }
                     }
                 }
@@ -85,12 +86,22 @@ impl FileManager {
         if files.is_empty() && folder_set.is_empty() {
             return None;
         }
-        let folders:Vec<ExternalLink> = folder_set.into_iter().map(|folder| {
-            ExternalLink::new(
-                format!("{}/", urlencoding::encode(folder.to_string_lossy().borrow())), 
-                folder.to_string_lossy().into_owned()
-            )
-        }).collect();
+        let mut folders = Vec::with_capacity(folder_set.len());
+        for (path, sub_files) in folder_set {
+            let path_str = path.to_string_lossy();
+            if sub_files.len() == 1 {
+                let (fname, stem) = &sub_files[0];
+                let url = format!("{}/{}", urlencoding::encode(path_str.borrow()), urlencoding::encode(fname.as_str()));
+                let name = format!("{}/{}", path_str, stem);
+                files.push(ExternalLink::new(url, name));
+            }
+            else {
+                folders.push(ExternalLink::new(
+                    format!("{}/", urlencoding::encode(path_str.borrow())),
+                    path_str.into_owned()
+                ));
+            }
+        }
         let mut peers = PeerInfo {
             files,
             folders
