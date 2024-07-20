@@ -4,27 +4,12 @@
     <div class="row">
         <div class="nine columns">
           {{body}}
-          
-          {% if peer_folders -%}
-          <h2>Folders</h2>
-          <ul class="folders">
-            {% for folder in peer_folders -%}
-              <li><a href="{{folder.url}}">{{folder.name}}</a></li>
-            {% endfor -%}
-          </ul>
-          {% endif -%}
-          {% if peer_files -%}
-          <h2>Files</h2>
-          <ul class="files">
-            {% for file in peer_files -%}
-              <li><a href="{{file.url}}">{{file.name }}</a></li>
-            {% endfor -%}
-          </ul>
-          {% endif -%}
+          <h2>Contents</h2>
+          {% include "folders.html" -%}
         </div>
         <div class="three columns">
           <div class="sidebar">
-              {% include "doclinks.html" %}
+          {% include "doclinks.html" %}
           </div>
         </div>
     </div>

@@ -1,7 +1,7 @@
-use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use std::{collections::BTreeMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::FolderInfo, full_text_index::SearchResult, HOME_DIR};
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -80,14 +80,13 @@ impl HtmlGenerator {
         Ok(self.tera.render("search.html", &vars)?)
     }
 
-    pub async fn gen_markdown(
+    pub fn gen_markdown(
         &self,
         path: &std::path::Path,
         body: String,
         scraper: DocumentScraper,
-        peers: PeerInfo,
+        peers: BTreeMap<String, FolderInfo>,
     ) -> Result<String, ChimeraError> {
-        tracing::debug!("Peers: {peers:?}");
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
             if let Some(name) = path.file_name() {
@@ -103,19 +102,11 @@ impl HtmlGenerator {
         let mut vars = self.get_vars(title.as_str(), scraper.has_code_blocks);
         vars.insert("body", html_content.as_str());
         vars.insert("doclinks", &scraper.internal_links);
-        if !peers.files.is_empty() {
-            vars.insert("peer_files", &peers.files);
-        }
-        if !peers.folders.is_empty() {
-            vars.insert("peer_folders", &peers.folders);
-        }
-        if !scraper.plugins.is_empty() {
-            vars.insert("plugins", &scraper.plugins);
-        }
-        if !scraper.code_languages.is_empty() {
-            vars.insert("code_languages", &scraper.code_languages);
-        }
+        vars.insert("peers", &peers);
+        vars.insert("plugins", &scraper.plugins);
+        vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
+
         let template = scraper.template.unwrap_or("markdown.html".to_string());
         let html = self.tera.render(template.as_str(), &vars)?;
         tracing::debug!("Generated fresh response for {}", path.display());
@@ -135,7 +126,7 @@ impl HtmlGenerator {
         Ok(html)
     }
 
-    pub async fn gen_index(&self, path: &Path, peers: PeerInfo) -> Result<String, ChimeraError> {
+    pub async fn gen_index(&self, path: &Path, peers: BTreeMap<String, FolderInfo>) -> Result<String, ChimeraError> {
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
@@ -143,16 +134,11 @@ impl HtmlGenerator {
         let mut vars = self.get_vars(title.as_str(), false);
         vars.insert("path", path_str.as_str());
         vars.insert("breadcrumbs", &breadcrumbs);
-        if !peers.files.is_empty() {
-            vars.insert("peer_files", &peers.files);
-        }
-        if !peers.folders.is_empty() {
-            vars.insert("peer_folders", &peers.folders);
-        }
-        let html = self.tera.render("index.html", &vars)?;
+        vars.insert("peers", &peers);
+        vars.insert("body", "");
+        let html = self.tera.render("index-helper.html", &vars)?;
         Ok(html)
     }
-
 
     fn add_anchors_to_headings(&self, original_html: String, links: &[InternalLink], inserted_top: bool) -> String {
         let start_index = if inserted_top { 1 } else { 0 };
