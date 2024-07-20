@@ -353,10 +353,7 @@ async fn serve_markdown_file(
             (html, false)
         }
     };
-    match cached {
-        true => Ok((StatusCode::OK, headers, Html(html)).into_response()),
-        false => Ok((StatusCode::OK, headers, Html(html)).into_response()),
-    }
+    Ok((StatusCode::OK, headers, Html(html)).into_response())
 }
 
 async fn serve_static_file(

@@ -388,6 +388,7 @@ It all depends on you. What do you want to see?
 
 * I want to call out [this video by Rainer Stropek](https://www.youtube.com/watch?v=y5W6PErCc2c) for the
 very cogent guide to using Axum. It was a huge help.
+* Icons come from the [Ionicons](https://ionic.io/ionicons) SVG library
 
 ## Libraries
 

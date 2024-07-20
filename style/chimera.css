@@ -197,7 +197,7 @@ ul.folders {
 footer {
     border-top: 3px solid var(--rule-color);
     padding: 2em 8em 2em 8rem;
-    margin: 0 -10px;
+    margin: 4em -10px 0 -10px;
 }
 
 footer span {
