@@ -6,7 +6,7 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -331,10 +331,8 @@ async fn serve_markdown_file(
             let (body, scraper) = parse_markdown(md_content.as_str());
             perf_timer.sample("parse-markdown", &mut headers);
             let peers = match app_state.generate_index {
-                true => {
-                    Some(app_state.file_manager.find_peers(path).await)
-                },
-                false => None,
+                true => app_state.file_manager.find_peers(path),
+                false => BTreeMap::default(),
             };
             perf_timer.sample("find-peers", &mut headers);
             let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;

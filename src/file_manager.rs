@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, cmp::Ordering, collections::{BTreeMap, HashSet}, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, collections::{BTreeMap, HashSet}, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 use serde::Serialize;
 
@@ -35,7 +35,7 @@ impl FileManager {
         Ok(file_manager)
     }
 
-    pub async fn get_markdown_files(&self) -> Vec<PathBuf> {
+    pub fn get_markdown_files(&self) -> Vec<PathBuf> {
         let mut files = Vec::new();
         for entry in walkdir::WalkDir::new(self.document_root.as_path()).into_iter().flatten() {
             let p = entry.path();
@@ -71,7 +71,7 @@ impl FileManager {
                             }
                             let link = ExternalLink::new(urlencoding::encode(
                                 fname_str.borrow()).into_owned(),
-                                stem.to_string());
+                          stem.to_string());
                             let folder = map.entry("root".to_string()).or_default();
                             folder.files.push(link);
                         }
@@ -97,16 +97,18 @@ impl FileManager {
                 }
             }
         }
-        let root_folder = map.entry("root".to_string()).or_default();
-        for f in known_folders {
-            let url = urlencoding::encode(f.as_str()).into_owned();
-            let link = ExternalLink::new(url, f);
-            root_folder.folders.push(link);
+        if !known_folders.is_empty() {
+            let root_folder = map.entry("root".to_string()).or_default();
+            for f in known_folders {
+                let url = urlencoding::encode(f.as_str()).into_owned();
+                let link = ExternalLink::new(url, f);
+                root_folder.folders.push(link);
+            }
         }
         map
     }
 
-    pub async fn find_peers(&self, relative_path: &Path) -> BTreeMap<String, FolderInfo> {
+    pub fn find_peers(&self, relative_path: &Path) -> BTreeMap<String, FolderInfo> {
         tracing::debug!("Finding peers of {}", relative_path.display());
         let Ok(abs_path) = relative_path.canonicalize() else {
             tracing::debug!("No canonical representation");
@@ -126,7 +128,7 @@ impl FileManager {
         };
         let mut peers = self.find_files_in_directory(parent_path, original_file_name);
         for folder in peers.values_mut() {
-            folder.sort(self.index_file.as_str());
+            folder.sort();
         }
         peers
     }
@@ -143,17 +145,9 @@ impl FileManager {
 }
 
 impl FolderInfo {
-    fn sort(&mut self, index_file: &str) {
+    fn sort(&mut self) {
         self.files.sort_unstable_by(|a, b| {
-            if a.url.eq_ignore_ascii_case(index_file) {
-                Ordering::Less
-            }
-            else if b.url.eq_ignore_ascii_case(index_file) {
-                Ordering::Greater
-            }
-            else {
-                a.name.cmp(&b.name)
-            }
+            a.name.cmp(&b.name)
         });
         self.folders.sort_unstable_by(|a, b| {
             a.name.cmp(&b.name)

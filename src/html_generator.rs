@@ -85,7 +85,7 @@ impl HtmlGenerator {
         path: &std::path::Path,
         body: String,
         scraper: DocumentScraper,
-        peers: Option<BTreeMap<String, FolderInfo>>,
+        peers: BTreeMap<String, FolderInfo>,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let title = scraper.title.unwrap_or_else(||{
@@ -139,7 +139,6 @@ impl HtmlGenerator {
         let html = self.tera.render("index-helper.html", &vars)?;
         Ok(html)
     }
-
 
     fn add_anchors_to_headings(&self, original_html: String, links: &[InternalLink], inserted_top: bool) -> String {
         let start_index = if inserted_top { 1 } else { 0 };
