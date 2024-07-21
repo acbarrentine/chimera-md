@@ -1,4 +1,5 @@
 <div class="index">
+  {%if peers.folders -%}
   <div class="index-block">
     <p><strong>Folders:</strong></p>
     <ul class="folders">
@@ -7,6 +8,8 @@
       {% endfor -%}
     </ul>
   </div>
+  {% endif -%}
+  {%if peers.files -%}
   <div class="index-block">
     <p><strong>Files:</strong></p>
     <ul class="files">
@@ -15,4 +18,5 @@
       {% endfor -%}
     </ul>
   </div>
+  {% endif -%}
 </div>
