@@ -1,17 +1,15 @@
 {% include "header.html" %}
 {% include "breadcrumbs.html" %}
 <div class="container">
-    <div class="row">
-        <div class="nine columns">
-          {{body}}
-          <h2 id="contents">Contents</h2>
-          {% include "peers.html" -%}
-        </div>
-        <div class="three columns">
-          <div class="sidebar">
-          {% include "doclinks.html" %}
-          </div>
-        </div>
+  <div class="row">
+    <div class="nine columns">
+      {{body}}
+      <h2 id="contents">Contents</h2>
+      {% include "peers.html" -%}
     </div>
+    <div class="three columns">
+      {% include "doclinks.html" %}
+    </div>
+  </div>
 </div>
 {% include "footer.html" %}

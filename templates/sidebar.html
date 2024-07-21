@@ -1,7 +1,9 @@
-{% include "doclinks.html" -%}
-<p>
+<div class="sidebar">
+  {% include "doclinks.html" -%}
+  <p></p>
   {% if peers -%}
   <div class="linkbox">
     {% include "peers.html" -%}
   </div>
   {% endif -%}
+</div>
