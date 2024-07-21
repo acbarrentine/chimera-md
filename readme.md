@@ -229,6 +229,7 @@ increasing complexity, these are:
 
 * Got rid of the plugins notion in favor of using overridden template files
 * Added hook for signals (like ctrl-C) to shut the server down cleanly
+* Two-column index layout
 
 ### v0.1.18
 
