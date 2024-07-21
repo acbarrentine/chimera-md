@@ -179,7 +179,7 @@ ul.folders {
 
 div.index {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-evenly;
 }
 
@@ -226,6 +226,9 @@ footer span {
     nav {
         padding: 0 1em 0 1em;
     }
+    footer {
+        padding: 2em 1em 0 1em;
+    }
     div.title {
         font-size: 3rem;
     }
@@ -238,7 +241,7 @@ footer span {
     .breadcrumbs .crumb::before {
         padding: 0 6px 0 3px;
     }
-    }
+}
 
 @media (min-width: 550px) {
     .sidebar {
@@ -249,5 +252,9 @@ footer span {
     }
     div.mobile-search {
         display: none;
+    }
+
+    div.index {
+        flex-direction: row;
     }
 }
