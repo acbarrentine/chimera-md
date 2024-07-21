@@ -41,7 +41,6 @@ pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
-    pub plugins: Vec<String>,
     pub title: Option<String>,
     pub template: Option<String>,
     heading_re: Regex,
@@ -64,7 +63,6 @@ impl DocumentScraper {
             ]),
             internal_links: Vec::new(),
             code_languages: Vec::new(),
-            plugins: Vec::new(),
             title: None,
             template: None,
             heading_re,
@@ -176,14 +174,7 @@ impl DocumentScraper {
                         if let Some(metadata) = self.text_collector.take() {
                             let mut it = metadata.split(':');
                             while let Some(chunk) = it.next() {
-                                if chunk.eq_ignore_ascii_case("plugin") {
-                                    if let Some(plugin) = it.next() {
-                                        let plugin = plugin.trim();
-                                        tracing::debug!("Plugin: {plugin:?}");
-                                        self.plugins.push(plugin.to_string());
-                                    }
-                                }
-                                else if chunk.eq_ignore_ascii_case("template") {
+                                if chunk.eq_ignore_ascii_case("template") {
                                     if let Some(template) = it.next() {
                                         let template = template.trim();
                                         tracing::debug!("Template: {template:?}");

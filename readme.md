@@ -194,49 +194,7 @@ increasing complexity, these are:
     You can also put a `favicon.ico` file in the web root and browsers will discover it on
     their own.
 
-2. Plugins
-
-    Sometimes you just want extra functionality on your documents, and it's not something
-    that's part of the built-in Markdown functionality. For instance, I write comic scripts
-    in a lightweight variant of Markdown of my own design. (It's not [Fountain](https://fountain.io/),
-    but it's close enough). Styling these requires a bit of extra processing. To that end,
-    Chimera-md has a plugin system that will let you apply that post-processing yourself.
-
-    To start, you'll want to add a plugin tag to the frontmatter of your document. Frontmatter
-    is an optional tagging system you can do at the top of a Markdown file. It doesn't print,
-    but the program scrapes it looking for "Plugin" requests.
-
-    ```markdown
-    ---
-    Plugin: dialog
-    ---
-    The rest of your Markdown content goes here
-    ```
-
-    When this file gets processed, Chimera-md will add a script tag for `/home/script/[plugin-name].js`.
-    In your plugin js, you can use javascript to tweak node styles. For my dialog plug-in, I use
-    a simple script like this to give extra style hints to `<blockquote>` and the preceding `<p>` tags.
-
-    ```javascript
-    document.addEventListener("DOMContentLoaded", function() {
-      var quotes = document.querySelectorAll("blockquote");
-      quotes.forEach((q) => {
-        q.className = 'dialog';
-        var prev = q.previousElementSibling;
-        if (prev.tagName == "P") {
-          prev.className = "speaker";
-        }
-        else {
-          console.log(`Prev: ${prev.tagName}`);
-        }
-      });
-    });
-    ```
-    I defined the `dialog` and `speaker` classes in site.css.
-
-    ![Dialog](examples/assets/dialog.jpg)
-
-3.  Override the built-in CSS files
+2.  Override the built-in CSS files
 
     Using Docker mapping, you can paper over the built-in CSS files. These are located
     at `/data/style/skeleton.css` and `/data/style/chimera.css` (in Docker parlance).
@@ -253,7 +211,7 @@ increasing complexity, these are:
     Note, however, that I probably won't be hands-off with these files as I make updates
     to the app, so grabbing new versions could cause instabilities with your local changes.
 
-4.  Override the html template files
+3.  Override the html template files
 
     The Markdown files Chimera-md serves are assembled from your content merged into
     html template files using a tool called [Tera](https://keats.github.io/tera/). If you
@@ -266,6 +224,18 @@ increasing complexity, these are:
     in the templates for examples.
 
 ## Release notes
+
+### v0.1.19
+
+* Got rid of the plugins notion in favor of using overridden template files
+* Added hook for signals (like ctrl-C) to shut the server down cleanly
+
+### v0.1.18
+
+* Tried out a version of making a directory tree, rather than a single, flat folder
+  for the sidebar and generated indices. Ultimately I decided I didn't like it and
+  backed it out, but along the way I got to clean up a fair bit of the code
+* Fixed a couple rendering issues with the sidebar
 
 ### v0.1.17
 

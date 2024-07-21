@@ -1,5 +1,5 @@
 ---
-Plugin: dialog
+template: dialog.html
 ---
 
 # Dialog test

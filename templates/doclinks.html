@@ -4,7 +4,7 @@
     <p>
       <strong>Within this document:</strong>
     </p>
-    <span class="anchors">
+    <div class="anchors">
       <ul>
       {% set_global last_level = 1 -%}
       {% for link in doclinks -%}
@@ -26,7 +26,7 @@
         {% set_global last_level = last_level - 1 -%}
       {% endfor -%}
       </ul>
-    </span>
+    </div>
   </div>
   {% endif -%}
 <p>

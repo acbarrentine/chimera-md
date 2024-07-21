@@ -101,7 +101,6 @@ impl HtmlGenerator {
         vars.insert("body", html_content.as_str());
         vars.insert("doclinks", &scraper.internal_links);
         vars.insert("peers", &peers);
-        vars.insert("plugins", &scraper.plugins);
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
 
