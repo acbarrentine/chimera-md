@@ -1,10 +1,18 @@
-<ul class="folders">
-  {% for folder in peers.folders -%}
-  <li><a href="{{folder.url}}">{{folder.name}}</a></li>
-  {% endfor -%}
-</ul>
-<ul class="files">
-  {% for file in peers.files -%}
-    <li><a href="{{file.url}}">{{file.name}}</a></li>
-  {% endfor -%}
-</ul>
+<div class="index">
+  <div class="index-block">
+    <p><strong>Folders:</strong></p>
+    <ul class="folders">
+      {% for folder in peers.folders -%}
+      <li><a href="{{folder.url}}">{{folder.name}}</a></li>
+      {% endfor -%}
+    </ul>
+  </div>
+  <div class="index-block">
+    <p><strong>Files:</strong></p>
+    <ul class="files">
+      {% for file in peers.files -%}
+      <li><a href="{{file.url}}">{{file.name}}</a></li>
+      {% endfor -%}
+    </ul>
+  </div>
+</div>

@@ -177,6 +177,18 @@ ul.folders {
     margin-bottom: 1em;
 }
 
+div.index {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+div.index-block {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
 .sidebar hr {
     width: 50%;
     border-color: #aaa;
@@ -188,6 +200,10 @@ ul.folders {
     border-left: 5px solid var(--border-color);
     background-color: var(--box-color);
     padding: 1em;
+}
+
+.linkbox div.index {
+    flex-direction: column;
 }
 
 .linkbox p {
