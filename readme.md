@@ -225,6 +225,10 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.1.20
+
+* Added gzip compression support
+
 ### v0.1.19
 
 * Got rid of the plugins notion in favor of using overridden template files
