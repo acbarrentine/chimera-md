@@ -160,6 +160,7 @@ async fn main() -> Result<(), ChimeraError> {
         .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
+        .layer(tower_http::compression::CompressionLayer::new())
         .layer(middleware::from_fn(mw_response_time));
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
