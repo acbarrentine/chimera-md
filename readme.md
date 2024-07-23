@@ -214,14 +214,44 @@ increasing complexity, these are:
 3.  Override the html template files
 
     The Markdown files Chimera-md serves are assembled from your content merged into
-    html template files using a tool called [Tera](https://keats.github.io/tera/). If you
-    are _really_ intent on hacking up Chimera-md, you can use Docker volume mappings to
-    replace my copies with your own. You should start with copies of my files, [found here]
-    (https://github.com/acbarrentine/chimera-md/tree/main/templates), and map them to
-    /data/templates. As with the style files, though, changes here have a decent chance
-    of conflicting with changes I might make as I release new versions. I suggest using
-    the partials system to isolate your changes, if possible. Look for `{% include %}`
-    in the templates for examples.
+    html template files using a tool called [Tera](https://keats.github.io/tera/). While
+    the template directory is inside the Docker container, you can use volume mapping to
+    add templates of your own. You'll probably want to start by making copies of mine,
+    [found here](https://github.com/acbarrentine/chimera-md/tree/main/templates), and
+    map them to `/data/templates`. By default, a Markdown file renders with the
+    markdown.html template file. But you can use the override mechanism to direct it to
+    your own.
+    
+    ```markdown
+    ---
+    template: dialog.html
+    ---
+
+    # My Cool Comic
+    
+    ## Issue 1
+    ```
+
+    I made an index.html template to render directories without index files, but I have
+    found it useful as an override on an index.md file to let me customize and decorate
+    the page without having to manually list out all the contents.
+
+    ```markdown
+    ---
+    template: index.html
+    ---
+
+    # Index of /
+
+    ![Logo](/home/media/logo.png)
+    <!-- Files/Folders will show up below this point -->
+    ```
+    
+    If you are _really_ intent on hacking up the server, you can use Docker volume mappings
+    to replace my copies with your own. As with the style files, though, changes here have
+    a decent chance of conflicting with changes I might make as I release new versions. I
+    suggest using the partials system to isolate your changes, if possible. Look for
+    `{% include %}` in the templates for examples.
 
 ## Release notes
 
