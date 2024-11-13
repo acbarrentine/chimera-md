@@ -255,6 +255,16 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.1.21
+
+* Added a customization point to the footer called site-footer.html. The included
+  file is mostly empty and the intention is for people to override it with their
+  docker mappings
+* Updated various support crates
+* Troubleshooting the timing bars Javascript widget, so there's an extra console.log()
+  I am getting strange results from the site over the public internet, and I need to
+  see what the data looks like
+
 ### v0.1.20
 
 * Added gzip compression support

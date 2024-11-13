@@ -1,15 +1,21 @@
 <footer>
+  {% include "site-footer.html" %}
   <p>
     <span id="server-timing"></span>
   </p>
   <script>
     const {serverTiming} = performance.getEntriesByType('navigation')[0];
-    if (serverTiming[0]) {
-      var dur = serverTiming.at(-1).duration;
-      var desc = serverTiming.at(-1).description;
-      if (dur != null && desc != null) {
-        document.getElementById("server-timing").innerHTML = `Response: ${dur} ms ${desc}`;
-      }
+    if (serverTiming) {
+      //console.log("server-timing: %j", serverTiming);
+      serverTiming.forEach((timing) => {
+        if (timing.name == "total") {
+          var dur = serverTiming.at(-1).duration;
+          var desc = serverTiming.at(-1).description;
+          if (dur != null && desc != null) {
+            document.getElementById("server-timing").innerHTML = `Response: ${dur} ms ${desc}`;
+          }
+        }
+      });
     }
   </script>
 </footer>

@@ -86,17 +86,18 @@ struct AppState {
 
 impl AppState {
     pub async fn new(config: Config) -> Result<Self, ChimeraError> {
-        tracing::debug!("Document root: {}", config.document_root);
-
         let template_root = PathBuf::from(config.template_root.as_str());
         let document_root = PathBuf::from(config.document_root.as_str());
         let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
+
+        tracing::debug!("Document root: {}", document_root.to_string_lossy());
         std::env::set_current_dir(document_root.as_path())?;
 
         let mut file_manager = FileManager::new(
             document_root.as_path(),
             config.index_file.as_str(),
         ).await?;
+        tracing::debug!("Template root: {}", template_root.to_string_lossy());
         file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
@@ -111,8 +112,10 @@ impl AppState {
             highlight_style: config.highlight_style,
             version: VERSION,
         };
+        tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;
         
+        tracing::debug!("Full text index: {}", search_index_dir.to_string_lossy());
         let full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
 
@@ -150,6 +153,8 @@ async fn main() -> Result<(), ChimeraError> {
     let port = config.port;
     let state = Arc::new(AppState::new(config).await?);
 
+    tracing::info!("1");
+
     let app = Router::new()
         .route("/search", get(handle_search))
         .route("/style/*path", get(handle_style))
@@ -162,6 +167,8 @@ async fn main() -> Result<(), ChimeraError> {
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(middleware::from_fn(mw_response_time));
+
+    tracing::info!("2");
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app)
