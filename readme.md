@@ -255,6 +255,17 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.1.23
+
+* Ok, now I think I _have_ fixed the footer thing. When going through the array of server
+  timing objects, actually use the one you're iterating on, not the end of the array
+* Added a site-header.html template that's basically empty to be used by implementers
+  who want to add additional <head> content, such as <meta>, <script>, or <link> tags
+
+### v0.1.22
+
+* Maybe fixed the footer thing?
+
 ### v0.1.21
 
 * Added a customization point to the footer called site-footer.html. The included

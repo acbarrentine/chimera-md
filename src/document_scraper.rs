@@ -80,7 +80,7 @@ impl DocumentScraper {
             Event::Start(tag) => {
                 match tag {
                     Tag::MetadataBlock(_) => {
-                        self.text_collector = Some(String::with_capacity(128));
+                        self.text_collector = Some(String::with_capacity(1024));
                     },
                     Tag::Heading { level: _, id: _, classes: _, attrs: _ } => {
                         if !self.has_readable_text {

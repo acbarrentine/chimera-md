@@ -1,16 +1,13 @@
 <footer>
   {% include "site-footer.html" %}
-  <p>
-    <span id="server-timing"></span>
-  </p>
+  <span id="server-timing"></span>
   <script>
     const {serverTiming} = performance.getEntriesByType('navigation')[0];
     if (serverTiming) {
-      //console.log("server-timing: %j", serverTiming);
       serverTiming.forEach((timing) => {
         if (timing.name == "total") {
-          var dur = serverTiming.at(-1).duration;
-          var desc = serverTiming.at(-1).description;
+          var dur = timing.duration;
+          var desc = timing.description;
           if (dur != null && desc != null) {
             document.getElementById("server-timing").innerHTML = `Response: ${dur} ms ${desc}`;
           }
