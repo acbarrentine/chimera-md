@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, ops::Range};
+use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
@@ -41,6 +41,7 @@ pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
+    pub metadata: HashMap<String, String>,
     pub title: Option<String>,
     pub template: Option<String>,
     heading_re: Regex,
@@ -63,6 +64,7 @@ impl DocumentScraper {
             ]),
             internal_links: Vec::new(),
             code_languages: Vec::new(),
+            metadata: HashMap::new(),
             title: None,
             template: None,
             heading_re,
@@ -286,5 +288,25 @@ mod tests {
             2
         ));
         assert_eq!(scraper.title, Some("The title".to_string()));
+    }
+
+    #[test]
+    fn test_metadata_with_multiple_lines() {
+        let md = 
+"---
+template: index.html
+opengraph:
+  - title: Index
+  - url: https://my.site.com
+  - image: /media/fancy.jpg
+  - type: website
+---";
+        let (_html_content, scraper) = parse_markdown(md);
+        assert_eq!(scraper.metadata.len(), 5);
+        assert_eq!(scraper.metadata["template"], "index.html");
+        assert_eq!(scraper.metadata["og:title"], "Chimera-md");
+        assert_eq!(scraper.metadata["og:image"], "/home/media/fancy.jpg");
+        assert_eq!(scraper.metadata["og:type"], "website");
+        assert_eq!(scraper.metadata["og:url"], "https://www.chimera-md.com/");
     }
 }

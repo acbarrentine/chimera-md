@@ -1,5 +1,6 @@
 ---
 template: index.html
+og:title: Chimera-md
 ---
 
 # Chimera-md

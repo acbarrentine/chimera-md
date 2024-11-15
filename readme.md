@@ -176,7 +176,7 @@ references. A file such as `/data/www/images/logo.png` would route as `/home/ima
 
 ## Customizing the server
 
-There are 4 different possible levels of customization points for the Chimera-md server. In
+There's a few different possible levels of customization points for the Chimera-md server. In
 increasing complexity, these are:
 
 1.  `/home/style/site.css`
@@ -194,7 +194,21 @@ increasing complexity, these are:
     You can also put a `favicon.ico` file in the web root and browsers will discover it on
     their own.
 
-2.  Override the built-in CSS files
+2.  Make your own additions to the header and footer. The base Chimera-md image header and
+    footer include empty templates that are intended for site replacement. These are called
+    `site-header.html` and `site-footer.html`. While these are looked file in the image's
+    `/data/templates` directory, you can use volume mapping to overwrite them with your
+    own. Content in here is echoed into the final output by a templating tool called
+    [Tera](https://keats.github.io/tera/). Variables provided by the Chimera-md back-end
+    are available.
+
+```
+        volumes:
+        - /users/me/templates/site-header.html:/data/templates/site-header.html
+        - /users/me/templates/site-footer.html:/data/templates/site-footer.html
+```
+
+3.  Override the built-in CSS files
 
     Using Docker mapping, you can paper over the built-in CSS files. These are located
     at `/data/style/skeleton.css` and `/data/style/chimera.css` (in Docker parlance).
@@ -211,7 +225,7 @@ increasing complexity, these are:
     Note, however, that I probably won't be hands-off with these files as I make updates
     to the app, so grabbing new versions could cause instabilities with your local changes.
 
-3.  Override the html template files
+4.  Override the html template files
 
     The Markdown files Chimera-md serves are assembled from your content merged into
     html template files using a tool called [Tera](https://keats.github.io/tera/). While
