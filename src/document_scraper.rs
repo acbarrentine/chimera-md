@@ -1,8 +1,10 @@
-use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
+use std::{cmp::Ordering, collections::HashSet, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
 use slugify::slugify;
+//use tera::Tera;
+use yaml_rust2::{YamlLoader, /*YamlEmitter*/};
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct InternalLink {
@@ -41,7 +43,7 @@ pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
-    pub metadata: HashMap<String, String>,
+    pub tera_vars: tera::Context,
     pub title: Option<String>,
     pub template: Option<String>,
     heading_re: Regex,
@@ -64,7 +66,7 @@ impl DocumentScraper {
             ]),
             internal_links: Vec::new(),
             code_languages: Vec::new(),
-            metadata: HashMap::new(),
+            tera_vars: tera::Context::new(),
             title: None,
             template: None,
             heading_re,
@@ -174,16 +176,40 @@ impl DocumentScraper {
                     },
                     TagEnd::MetadataBlock(_) => {
                         if let Some(metadata) = self.text_collector.take() {
-                            let mut it = metadata.split(':');
-                            while let Some(chunk) = it.next() {
-                                if chunk.eq_ignore_ascii_case("template") {
-                                    if let Some(template) = it.next() {
-                                        let template = template.trim();
-                                        tracing::debug!("Template: {template:?}");
-                                        self.template = Some(template.to_string());
+                            if let Ok(docs) = YamlLoader::load_from_str(metadata.as_str()) {
+                                for doc in docs {
+                                    match doc {
+                                        yaml_rust2::Yaml::Real(_) => todo!(),
+                                        yaml_rust2::Yaml::Integer(_) => todo!(),
+                                        yaml_rust2::Yaml::String(_) => todo!(),
+                                        yaml_rust2::Yaml::Boolean(_) => todo!(),
+                                        yaml_rust2::Yaml::Array(vec) => {
+                                            tracing::debug!("Vec: {vec:?}");
+                                        },
+                                        yaml_rust2::Yaml::Hash(linked_hash_map) => {
+                                            tracing::debug!("Hash: {linked_hash_map:?}");
+
+                                            //self.tera_vars.extend(&linked_hash_map);
+                                            for (key,value) in linked_hash_map {
+                                                self.tera_vars.insert(key.as_str().unwrap(), value.as_str().unwrap());
+                                            }
+                                        },
+                                        yaml_rust2::Yaml::Alias(_) => todo!(),
+                                        yaml_rust2::Yaml::Null => todo!(),
+                                        yaml_rust2::Yaml::BadValue => todo!(),
                                     }
                                 }
                             }
+                            // let mut it = metadata.split(':');
+                            // while let Some(chunk) = it.next() {
+                            //     if chunk.eq_ignore_ascii_case("template") {
+                            //         if let Some(template) = it.next() {
+                            //             let template = template.trim();
+                            //             tracing::debug!("Template: {template:?}");
+                            //             self.template = Some(template.to_string());
+                            //         }
+                            //     }
+                            // }
                         }
                     },
                     _ => {
@@ -247,6 +273,8 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
 
 #[cfg(test)]
 mod tests {
+    use tera::Value;
+
     use super::*;
 
     #[test]
@@ -295,18 +323,30 @@ mod tests {
         let md = 
 "---
 template: index.html
-opengraph:
+title: Index
+url: https://my.site.com
+image: /media/fancy.jpg
+type: website
+---";
+        let (_html_content, scraper) = parse_markdown(md);
+        //assert_eq!(scraper.tera_vars.len(), 5);
+        assert_eq!(scraper.tera_vars.get("template"), Some(&Value::from("index.html")));
+        assert_eq!(scraper.tera_vars.get("title"), Some(&Value::from("Index")));
+        assert_eq!(scraper.tera_vars.get("image"), Some(&Value::from("/media/fancy.jpg")));
+        assert_eq!(scraper.tera_vars.get("type"), Some(&Value::from("website")));
+        assert_eq!(scraper.tera_vars.get("url"), Some(&Value::from("https://my.site.com")));
+    }
+
+    #[test]
+    fn test_metadata_with_nested_struct() {
+        let _md = 
+"---
+template: index.html
+og:
   - title: Index
   - url: https://my.site.com
   - image: /media/fancy.jpg
   - type: website
 ---";
-        let (_html_content, scraper) = parse_markdown(md);
-        assert_eq!(scraper.metadata.len(), 5);
-        assert_eq!(scraper.metadata["template"], "index.html");
-        assert_eq!(scraper.metadata["og:title"], "Chimera-md");
-        assert_eq!(scraper.metadata["og:image"], "/home/media/fancy.jpg");
-        assert_eq!(scraper.metadata["og:type"], "website");
-        assert_eq!(scraper.metadata["og:url"], "https://www.chimera-md.com/");
     }
 }

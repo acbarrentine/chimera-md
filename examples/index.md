@@ -1,6 +1,10 @@
 ---
 template: index.html
-og:title: Chimera-md
+date: 2024-11-14
+Title: Index
+Url: https://my.site.com
+Image: /media/fancy.jpg
+Type: website
 ---
 
 # Chimera-md

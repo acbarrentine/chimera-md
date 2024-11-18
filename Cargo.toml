@@ -1,6 +1,6 @@
 [package]
 name = "chimera-md"
-version = "0.1.23"
+version = "0.1.24"
 edition = "2021"
 authors = ["Alexander Barrentine", "Alexander Barrentine <acbarrentine@gmail.com>"]
 description = "A Markdown-aware web server"
@@ -15,7 +15,7 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 serde = { version = "1.0.215", features = ["derive"] }
 urlencoding = "2.1.3"
-clap = { version = "4.5.20", features = ["derive", "env"] }
+clap = { version = "4.5.21", features = ["derive", "env"] }
 regex = { version = "1.11.1"}
 tantivy = "0.22.0"
 walkdir = "2.5.0"
@@ -23,6 +23,7 @@ async-watcher = "0.3.0"
 toml = "0.8.19"
 indexmap = "2.6.0"
 slugify = "0.1.0"
+yaml-rust2 = "0.9.0"
 
 [profile.release]
 codegen-units = 1
