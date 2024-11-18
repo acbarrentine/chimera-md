@@ -269,6 +269,13 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.1.24
+
+* Fixed a bug in the frontmatter parser. Turns out, that's Yaml in there! I integrated
+  the yaml-rust2 crate to parse it and feed it into the Tera vars as name-value pairs.
+  Current implementation is a bit of a hack as it doesn't take into account the
+  potentially nested nature of Yaml data. I'll come back around on that soon
+
 ### v0.1.23
 
 * Ok, now I think I _have_ fixed the footer thing. When going through the array of server
@@ -393,9 +400,11 @@ but odds are good you'll want to override at least a few of them.
     cargo test
 
     # Or you can do it all on the command line
-    cargo run -- --document-root ~/Source/chimera-md/examples --template-root~/Source/chimera-md/templates
-      --style-root ~/Source/chimera-md/style --icon-root ~/Source/chimera-md/icon --site-title "My journal"
-      --index-file index.md --site-lang en --highlight-style a11y-dark --generate-index=true
+    cargo run -- --document-root /Users/me/Source/chimera-md/examples
+      --template-root /Users/me/Source/chimera-md/templates
+      --style-root /Users/me/Source/chimera-md/style --icon-root /Users/me/Source/chimera-md/icon
+      --site-title "My journal" --index-file index.md --site-lang en
+      --highlight-style a11y-dark --generate-index=true
       --log-level DEBUG --max-cache-size 52428800 --port 8080
 ```
 
@@ -451,6 +460,7 @@ Chimera-md uses the following open source libraries:
 * [toml](https://crates.io/crates/toml)
 * [indexmap](https://crates.io/crates/indexmap)
 * [slugify](https://crates.io/crates/slugify)
+* [yaml-rust2](https://crates.io/crates/yaml-rust2)
 
 ## License
 
