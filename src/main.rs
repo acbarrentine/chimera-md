@@ -153,8 +153,6 @@ async fn main() -> Result<(), ChimeraError> {
     let port = config.port;
     let state = Arc::new(AppState::new(config).await?);
 
-    tracing::info!("1");
-
     let app = Router::new()
         .route("/search", get(handle_search))
         .route("/style/*path", get(handle_style))
@@ -167,8 +165,6 @@ async fn main() -> Result<(), ChimeraError> {
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(middleware::from_fn(mw_response_time));
-
-    tracing::info!("2");
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     axum::serve(listener, app)

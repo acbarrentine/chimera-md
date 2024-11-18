@@ -88,7 +88,8 @@ impl HtmlGenerator {
         peers: Option<PeerInfo>,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
-        let title = scraper.title.unwrap_or_else(|| {
+        let template = scraper.get_template();
+        let title = scraper.title.as_ref().cloned().unwrap_or_else(|| {
             match path.file_name() {
                 Some(name) => name,
                 None => path.as_os_str(),
@@ -104,8 +105,7 @@ impl HtmlGenerator {
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
 
-        let template = scraper.template.unwrap_or("markdown.html".to_string());
-        let html = self.tera.render(template.as_str(), &vars)?;
+        let html = self.tera.render(template, &vars)?;
         Ok(html)
     }
 

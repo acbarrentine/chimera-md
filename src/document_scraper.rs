@@ -45,7 +45,6 @@ pub struct DocumentScraper {
     pub code_languages: Vec<&'static str>,
     pub tera_vars: tera::Context,
     pub title: Option<String>,
-    pub template: Option<String>,
     heading_re: Regex,
     id_re: Regex,
     text_collector: Option<String>,
@@ -68,13 +67,21 @@ impl DocumentScraper {
             code_languages: Vec::new(),
             tera_vars: tera::Context::new(),
             title: None,
-            template: None,
             heading_re,
             id_re,
             text_collector: None,
             has_code_blocks: false,
             starts_with_heading: false,
             has_readable_text: false,
+        }
+    }
+
+    pub fn get_template(&self) -> &str {
+        match self.tera_vars.get("template") {
+            Some(template) => {
+                template.as_str().unwrap_or("markdown.html")
+            },
+            None => "markdown.html",
         }
     }
 
@@ -262,10 +269,8 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     if !scraper.starts_with_heading {
         scraper.internal_links.insert(0, InternalLink::new("top".to_string(), "Top".to_string(), 1));
     }
-    if let Some(template) = scraper.template.as_ref() {
-        if template.eq("index.html") {
-            scraper.internal_links.push(InternalLink::new("contents".to_string(), "Contents".to_string(), 2));
-        }
+    if scraper.get_template().eq("index.html") {
+        scraper.internal_links.push(InternalLink::new("contents".to_string(), "Contents".to_string(), 2));
     }
     scraper.normalize_headings();
     (html_content, scraper)
