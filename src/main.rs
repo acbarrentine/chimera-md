@@ -296,9 +296,11 @@ async fn handle_style(
 //#[debug_handler]
 async fn handle_path(
     State(mut app_state): State<AppStateType>,
+    axum::extract::Host(host): axum::extract::Host,
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
+    tracing::info!("Request: {host}/{path}");
     let path = PathBuf::from(path);
     match get_response(&mut app_state, path.as_path(), headers).await {
         Ok(resp) => {

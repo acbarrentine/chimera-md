@@ -1,10 +1,9 @@
-use std::{cmp::Ordering, collections::HashSet, ops::Range};
+use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
 use slugify::slugify;
-//use tera::Tera;
-use yaml_rust2::{YamlLoader, /*YamlEmitter*/};
+use yaml_rust2::YamlLoader;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct InternalLink {
@@ -43,7 +42,7 @@ pub struct DocumentScraper {
     language_map: HashSet<&'static str>,
     pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
-    pub tera_vars: tera::Context,
+    pub metadata: HashMap<String, String>,
     pub title: Option<String>,
     heading_re: Regex,
     id_re: Regex,
@@ -65,7 +64,7 @@ impl DocumentScraper {
             ]),
             internal_links: Vec::new(),
             code_languages: Vec::new(),
-            tera_vars: tera::Context::new(),
+            metadata: HashMap::new(),
             title: None,
             heading_re,
             id_re,
@@ -77,12 +76,7 @@ impl DocumentScraper {
     }
 
     pub fn get_template(&self) -> &str {
-        match self.tera_vars.get("template") {
-            Some(template) => {
-                template.as_str().unwrap_or("markdown.html")
-            },
-            None => "markdown.html",
-        }
+        self.metadata.get("template").map_or("markdown.html", |v| {v.as_str()})
     }
 
     pub fn check_event(&mut self, ev: &Event, range: Range<usize>) {
@@ -194,11 +188,12 @@ impl DocumentScraper {
                                             tracing::debug!("Vec: {vec:?}");
                                         },
                                         yaml_rust2::Yaml::Hash(linked_hash_map) => {
-                                            tracing::debug!("Hash: {linked_hash_map:?}");
-
-                                            //self.tera_vars.extend(&linked_hash_map);
+                                            //tracing::debug!("Hash: {linked_hash_map:?}");
                                             for (key,value) in linked_hash_map {
-                                                self.tera_vars.insert(key.as_str().unwrap(), value.as_str().unwrap());
+                                                let key = key.as_str().unwrap();
+                                                let value = value.as_str().unwrap();
+                                                tracing::debug!("Adding metadata var: {key} = {value}");
+                                                self.metadata.insert(key.to_string(), value.to_string());
                                             }
                                         },
                                         yaml_rust2::Yaml::Alias(_) => todo!(),
@@ -207,16 +202,6 @@ impl DocumentScraper {
                                     }
                                 }
                             }
-                            // let mut it = metadata.split(':');
-                            // while let Some(chunk) = it.next() {
-                            //     if chunk.eq_ignore_ascii_case("template") {
-                            //         if let Some(template) = it.next() {
-                            //             let template = template.trim();
-                            //             tracing::debug!("Template: {template:?}");
-                            //             self.template = Some(template.to_string());
-                            //         }
-                            //     }
-                            // }
                         }
                     },
                     _ => {
@@ -278,8 +263,6 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
 
 #[cfg(test)]
 mod tests {
-    use tera::Value;
-
     use super::*;
 
     #[test]
@@ -334,12 +317,12 @@ image: /media/fancy.jpg
 type: website
 ---";
         let (_html_content, scraper) = parse_markdown(md);
-        //assert_eq!(scraper.tera_vars.len(), 5);
-        assert_eq!(scraper.tera_vars.get("template"), Some(&Value::from("index.html")));
-        assert_eq!(scraper.tera_vars.get("title"), Some(&Value::from("Index")));
-        assert_eq!(scraper.tera_vars.get("image"), Some(&Value::from("/media/fancy.jpg")));
-        assert_eq!(scraper.tera_vars.get("type"), Some(&Value::from("website")));
-        assert_eq!(scraper.tera_vars.get("url"), Some(&Value::from("https://my.site.com")));
+        assert_eq!(scraper.metadata.len(), 5);
+        assert_eq!(scraper.metadata.get("template"), Some(&String::from("index.html")));
+        assert_eq!(scraper.metadata.get("title"), Some(&String::from("Index")));
+        assert_eq!(scraper.metadata.get("image"), Some(&String::from("/media/fancy.jpg")));
+        assert_eq!(scraper.metadata.get("type"), Some(&String::from("website")));
+        assert_eq!(scraper.metadata.get("url"), Some(&String::from("https://my.site.com")));
     }
 
     #[test]

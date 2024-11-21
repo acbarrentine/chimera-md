@@ -1,10 +1,9 @@
 ---
 template: index.html
 date: 2024-11-14
-Title: Index
-Url: https://my.site.com
+Title: Exmaple Index
 Image: /media/fancy.jpg
-Type: website
+Alt: A fancy piece of chocolate art
 ---
 
 # Chimera-md

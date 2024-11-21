@@ -104,6 +104,11 @@ impl HtmlGenerator {
         vars.insert("peers", &peers);
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
+        vars.insert("url", &path.to_string_lossy());
+
+        for (key, value) in &scraper.metadata {
+            vars.insert(key, value);
+        }
 
         let html = self.tera.render(template, &vars)?;
         Ok(html)
