@@ -269,6 +269,40 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.1.25
+
+* I am now promoting frontmatter variables through to Tera, the HTML template engine,
+  which makes them available to the templates. The current use case is for opengraph
+  tags. So, for example, if a post had frontmatter like this:
+
+```yaml
+---
+Date: 2024-11-14
+Title: Exmaple Index
+Image: /media/fancy.jpg
+Alt: A fancy piece of chocolate art
+---
+```
+
+  That data would be available in the `__tera_context`, like so:
+
+```html
+{% if Image %}<meta property="og:image" content="{{Image}}" {% if Alt %}alt="{{Alt}}"{%endif%}>{% endif %}
+{% if Excerpt -%}
+<meta property="og:description" content="{{Excerpt}}">
+<meta property="og:type" content="article">
+{% else -%}
+<meta property="og:type" content="website">
+{% endif -%}
+{% if site_lang %}<meta property="og:locale" content="{{site_lang}}">{% endif %}
+{% if site_title %}<meta property="og:site_name" content="{{site_title}}">{% endif %}
+{% if Title -%}
+<meta property="og:title" content="{{Title}}">
+{% else -%}
+<meta property="og:title" content="{{title}}">
+{% endif %}
+```
+
 ### v0.1.24
 
 * Fixed a bug in the frontmatter parser. Turns out, that's Yaml in there! I integrated
