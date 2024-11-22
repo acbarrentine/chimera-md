@@ -14,6 +14,7 @@ pub enum ChimeraError {
     TokioChannel,
     RwLock,
     NotifyError,
+    TomlError(String),
 }
 
 impl From<tera::Error> for ChimeraError {
@@ -78,6 +79,13 @@ impl From<async_watcher::error::Error> for ChimeraError {
     fn from(err: async_watcher::error::Error) -> Self {
         tracing::warn!("async_watcher::error::Error: {err}");
         ChimeraError::NotifyError
+    }
+}
+
+impl From<toml::de::Error> for ChimeraError {
+    fn from(err: toml::de::Error) -> Self {
+        tracing::warn!("Toml error: {err}");
+        ChimeraError::TomlError(err.to_string())
     }
 }
 

@@ -1,4 +1,5 @@
 mod chimera_error;
+mod toml_config;
 mod document_scraper;
 mod full_text_index;
 mod html_generator;
@@ -6,7 +7,7 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tokio::signal;
 use tower_http::services::ServeDir;
@@ -24,6 +25,7 @@ use crate::chimera_error::{ChimeraError, handle_404, handle_err};
 use crate::document_scraper::parse_markdown;
 use crate::result_cache::ResultCache;
 use crate::perf_timer::PerfTimer;
+use crate::toml_config::TomlConfig;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
@@ -33,44 +35,8 @@ const CACHED_HEADER: &str = "cached";
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
-    #[arg(long, env("CHIMERA_DOCUMENT_ROOT"), default_value_t = String::from("/data/www"))]
-    document_root: String,
-
-    #[arg(long, env("CHIMERA_TEMPLATE_ROOT"), default_value_t = String::from("/data/templates"))]
-    template_root: String,
-
-    #[arg(long, env("CHIMERA_STYLE_ROOT"), default_value_t = String::from("/data/style"))]
-    style_root: String,
-
-    #[arg(long, env("CHIMERA_ICON_ROOT"), default_value_t = String::from("/data/icon"))]
-    icon_root: String,
-
-    #[arg(long, env("CHIMERA_SEARCH_INDEX_DIR"), default_value_t = String::from("/data/search"))]
-    search_index_dir: String,
-
-    #[arg(long, env("CHIMERA_SITE_TITLE"), default_value_t = String::from("Chimera-md"))]
-    site_title: String,
-
-    #[arg(long, env("CHIMERA_INDEX_FILE"), default_value_t = String::from("index.md"))]
-    index_file: String,
-
-    #[arg(long, env("CHIMERA_HIGHLIGHT_STYLE"), default_value_t = String::from("an-old-hope"))]
-    highlight_style: String,
-
-    #[arg(long, env("CHIMERA_LANG"), default_value_t = String::from("en"))]
-    site_lang: String,
-
-    #[arg(long, env("CHIMERA_GENERATE_INDEX"))]
-    generate_index: Option<bool>,
-
-    #[arg(long, env("CHIMERA_LOG_LEVEL"), value_enum)]
-    log_level: Option<tracing::Level>,
-
-    #[arg(long, env("CHIMERA_MAX_CACHE_SIZE"), default_value_t = 50 * 1024 * 1024)]
-    max_cache_size: usize,
-
-    #[arg(long, env("CHIMERA_HTTP_PORT"), value_parser = clap::value_parser!(u16).range(1..), default_value_t = 8080)]
-    port: u16,
+    #[arg(long, env("CHIMERA_CONFIG_FILE"), default_value_t = String::from("chimera.toml"))]
+    config_file: String,
 }
 
 struct AppState {
@@ -81,11 +47,12 @@ struct AppState {
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
     file_manager: FileManager,
+    known_redirects: HashMap<String, String>,
     result_cache: ResultCache,
 }
 
 impl AppState {
-    pub async fn new(config: Config) -> Result<Self, ChimeraError> {
+    pub async fn new(config: TomlConfig) -> Result<Self, ChimeraError> {
         let template_root = PathBuf::from(config.template_root.as_str());
         let document_root = PathBuf::from(config.document_root.as_str());
         let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
@@ -119,15 +86,15 @@ impl AppState {
         let full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
 
-        let generate_index = config.generate_index.map_or(false, |v| v);
         Ok(AppState {
             index_file: config.index_file,
             style_root: PathBuf::from(config.style_root),
             icon_root: PathBuf::from(config.icon_root),
-            generate_index,
+            generate_index: config.generate_index,
             full_text_index,
             html_generator,
             file_manager,
+            known_redirects: config.redirects,
             result_cache,
         })
     }
@@ -138,8 +105,10 @@ pub(crate) type AppStateType = Arc<AppState>;
 #[tokio::main]
 async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
+    let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
+    let tracing_level = toml_config.tracing_level();
     let trace_filter = tracing_subscriber::filter::Targets::new()
-        .with_default(config.log_level.unwrap_or(tracing::Level::INFO));
+        .with_default(tracing_level);
     let tracing_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_line_number(true);
@@ -147,11 +116,11 @@ async fn main() -> Result<(), ChimeraError> {
         .with(tracing_layer)
         .with(trace_filter)
         .init();
+    let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
 
-    tracing::info!("Starting up Chimera MD server \"{}\" on port {}", config.site_title, config.port);
-
-    let port = config.port;
-    let state = Arc::new(AppState::new(config).await?);
+    tracing::info!("Starting up Chimera MD server \"{}\" on port {}", toml_config.site_title, toml_config.port);
+    let port = toml_config.port;
+    let state = Arc::new(AppState::new(toml_config).await?);
 
     let app = Router::new()
         .route("/search", get(handle_search))
@@ -299,6 +268,11 @@ async fn handle_path(
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
+    if let Some(redirect) = app_state.known_redirects.get(&path) {
+        tracing::debug!("Known redirect: {path} => {redirect}");
+        return Redirect::temporary(redirect).into_response()
+    }
+
     let path = PathBuf::from(path);
     match get_response(&mut app_state, path.as_path(), headers).await {
         Ok(resp) => {

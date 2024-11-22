@@ -90,24 +90,13 @@ background = true
 # a binding `r = job:run-long` at the end of this file .
 [jobs.example]
 command = ["cargo", "run", "--color", "always","--",
-    "--document-root", "/Users/acbarrentine/Source/chimera-md/examples",
-    "--template-root", "/Users/acbarrentine/Source/chimera-md/templates",
-    "--style-root", "/Users/acbarrentine/Source/chimera-md/style",
-    "--icon-root", "/Users/acbarrentine/Source/chimera-md/icon",
-    "--site-title", "My journal",
-    "--index-file", "index.md",
-    "--site-lang", "en",
-    "--highlight-style", "a11y-dark",
-    "--generate-index=true",
-    "--log-level=DEBUG",
-    "--max-cache-size", "52428800",
-    "--port", "8080"
+    "--config-file", "chimera.toml"
 ]
 need_stdout = true
 allow_warnings = true
 background = false
 on_change_strategy = "kill_then_restart"
-watch = ["src", "templates"]
+watch = ["src", "templates", "./chimera.toml"]
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.
