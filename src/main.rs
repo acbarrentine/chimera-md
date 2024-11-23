@@ -181,6 +181,7 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         None => { request.uri().path().to_string() }
     };
     let mut response = next.run(request).await;
+    let status = response.status();
     let headers = response.headers_mut();
     match path.ends_with(".md") {
         true => {
@@ -198,14 +199,14 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
-            match response.status().is_success() {
+            match status.is_success() || status.is_redirection() {
                 true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16()),
                 false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16())
             }
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            match response.status().is_success() {
+            match status.is_success()  || status.is_redirection() {
                 true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
                 false => tracing::warn!("{}: {path} in {elapsed} ms", response.status().as_u16())
             }
