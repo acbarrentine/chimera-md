@@ -80,7 +80,7 @@ impl DocumentScraper {
     }
 
     pub fn check_event(&mut self, ev: &Event, range: Range<usize>) {
-        tracing::debug!("md-event: {ev:?} - {range:?}");
+        tracing::trace!("md-event: {ev:?} - {range:?}");
         match ev {
             Event::Start(tag) => {
                 match tag {

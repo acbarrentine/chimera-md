@@ -88,16 +88,19 @@ have mapped reasonable values above. But there's a good chance you'll want to ov
 some of this content. Example with defaults included here:
 
 ```toml
+# When used in Docker, these are probably the only fields you will want to change
+site_title = "Chimera-md"
+site_lang = "en"
+generate_index = false
+
+# But the rest of these are available if you want to tune things
 document_root = "/data/www"
 template_root = "/data/templates"
 style_root = "/data/style"
 icon_root = "/data/icon"
 search_index_dir = "/data/search"
-site_title = "Chimera-md"
 index_file = "index.md"
-site_lang = "en"
 highlight_style = "an-old-hope"
-generate_index = false
 log_level = "Info"
 max_cache_size = 52428800
 port = 8080
@@ -109,7 +112,7 @@ port = 8080
 # URIs should be absolute, except the left one should not have a preceding /
 #
 # Example:
-# "original-uri/" = "/path/to/new/uri.md"
+# "original-uri/" = "/home/path/to/new/uri.md"
 ```
 
 Note that while Chimera-md is a web server, it is not trying to solve all problems a web server
@@ -269,6 +272,14 @@ increasing complexity, these are:
     `{% include %}` in the templates for examples.
 
 ## Release notes
+
+### v0.2.1
+
+* This contains an attempt to work around a sporadic fault in the directory watcher I'm
+  using. I keep having instances where the notifies just seem to drop and the server no
+  longer spots file changes. This change adds a backup system the looks at file modtimes
+  before serving a file out of the cache. That doesn't cover all cases, but it should be
+  a pretty good equivalent
 
 ### v0.2.0 (BREAKING CHANGE!)
 

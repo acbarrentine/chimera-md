@@ -291,13 +291,7 @@ impl FileTimes {
         let index_file = search_index_dir.join("ft.toml");
         let times = match tokio::fs::read_to_string(index_file.as_path()).await {
             Ok(f) => {
-                let ft: Result<FileMapType, toml::de::Error> = toml::from_str(f.as_str());
-                match ft {
-                    Ok(ft) => { ft },
-                    Err(_) => {
-                        FileMapType::default()
-                    }
-                }
+                toml::from_str(f.as_str()).unwrap_or_default()
             },
             Err(_) => {
                 FileMapType::default()

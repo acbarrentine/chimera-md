@@ -1,13 +1,16 @@
+# When used in Docker, these are probably the only fields you will want to change
+site_title = "Chimera-md"
+site_lang = "en"
+generate_index = false
+
+# But the rest of these are available if you want to tune things
 document_root = "/data/www"
 template_root = "/data/templates"
 style_root = "/data/style"
 icon_root = "/data/icon"
 search_index_dir = "/data/search"
-site_title = "Chimera-md"
 index_file = "index.md"
-site_lang = "en"
 highlight_style = "an-old-hope"
-generate_index = false
 log_level = "Info"
 max_cache_size = 52428800
 port = 8080
@@ -19,4 +22,4 @@ port = 8080
 # URIs should be absolute, except the left one should not have a preceding /
 #
 # Example:
-# "original-uri/" = "/path/to/new/uri.md"
+# "original-uri/" = "/home/path/to/new/uri.md"

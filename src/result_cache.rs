@@ -9,6 +9,7 @@ use crate::file_manager::FileManager;
 
 struct CachedPage {
     when: SystemTime,
+    modtime: SystemTime,
     html: String,
 }
 
@@ -22,6 +23,15 @@ struct WrappedCache {
 pub struct ResultCache {
     lock: Arc<RwLock<WrappedCache>>,
     signal_tx: tokio::sync::mpsc::Sender<()>,
+}
+
+async fn get_modtime(path: &std::path::Path) -> SystemTime {
+    if let Ok(metadata) = tokio::fs::metadata(path).await {
+        if let Ok(modtime) = metadata.modified() {
+            return modtime;
+        }
+    }
+    SystemTime::UNIX_EPOCH
 }
 
 impl ResultCache {
@@ -47,12 +57,14 @@ impl ResultCache {
     pub async fn add(&self, path: &std::path::Path, html: &str) {
         let needs_compact =
         {
+            let modtime = get_modtime(path).await;
             let Ok(mut lock) = self.lock.write() else {
                 tracing::warn!("Result cache lock poisoned error");
                 return;
             };
             let page = CachedPage {
                 when: SystemTime::now(),
+                modtime,
                 html: html.to_string(),
             };
             let size = page.html.len();
@@ -70,11 +82,20 @@ impl ResultCache {
         }
     }
 
-    pub fn get(&self, path: &std::path::Path) -> Option<String> {
+    pub async fn get(&self, path: &std::path::Path) -> Option<String> {
+        let modtime = get_modtime(path).await;
         let Ok(lock) = self.lock.read() else {
             return None;
         };
-        lock.cache.get(path).map(|res| res.html.clone())
+        if let Some(res) = lock.cache.get(path) {
+            if res.modtime == modtime {
+                return Some(res.html.clone())
+            }
+            else if let Ok(mut write_lock) = self.lock.write() {
+                write_lock.cache.clear();
+            }
+        }
+        None
     }
 
     #[cfg(test)]

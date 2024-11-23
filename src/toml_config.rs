@@ -4,6 +4,7 @@ use crate::chimera_error::ChimeraError;
 
 #[derive(Deserialize, Debug)]
 enum LogLevel {
+    Trace,
     Debug,
     Info,
     Warning,
@@ -76,7 +77,7 @@ impl TomlConfig {
                 if let Ok(cwd) = std::env::current_dir() {
                     tracing::debug!("CWD: {}", cwd.display());
                 }
-                eprintln!("Failed reading {config_file}");
+                tracing::error!("Failed reading {config_file}");
                 return Err(ChimeraError::from(e));
             },
         };
@@ -87,6 +88,7 @@ impl TomlConfig {
 
     pub fn tracing_level(&self) -> tracing::Level {
         match self.log_level {
+            LogLevel::Trace => tracing::Level::TRACE,
             LogLevel::Debug => tracing::Level::DEBUG,
             LogLevel::Info => tracing::Level::INFO,
             LogLevel::Warning => tracing::Level::WARN,

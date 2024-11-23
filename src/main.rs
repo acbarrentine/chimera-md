@@ -58,7 +58,9 @@ impl AppState {
         let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
 
         tracing::debug!("Document root: {}", document_root.to_string_lossy());
-        std::env::set_current_dir(document_root.as_path())?;
+        if let Err(e) = std::env::set_current_dir(document_root.as_path()) {
+            tracing::error!("Failed to set document root to {}: {e}", document_root.display());
+        }
 
         let mut file_manager = FileManager::new(
             document_root.as_path(),
@@ -180,21 +182,35 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
     };
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
-    let cached_status = match headers.remove(CACHED_HEADER) {
-        Some(status) => {
-            match status.to_str() {
-                Ok(str) => str.to_string(),
-                Err(_) => "err".to_string(),
+    match path.ends_with(".md") {
+        true => {
+            let cached_status = match headers.remove(CACHED_HEADER) {
+                Some(status) => {
+                    match status.to_str() {
+                        Ok(str) => str.to_string(),
+                        Err(_) => "err".to_string(),
+                    }
+                },
+                None => "static".to_string(),
+            };
+            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
+            let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cached_status);
+            if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
+                headers.append(SERVER_TIMING, hval);
+            }
+            match response.status().is_success() {
+                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16()),
+                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16())
             }
         },
-        None => "static".to_string(),
-    };
-    let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-    let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cached_status);
-    if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
-        headers.append(SERVER_TIMING, hval);
+        false => {
+            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
+            match response.status().is_success() {
+                true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
+                false => tracing::warn!("{}: {path} in {elapsed} ms", response.status().as_u16())
+            }
+        },
     }
-    tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16());
     response
 }
 
@@ -328,7 +344,7 @@ async fn serve_markdown_file(
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
     let mut headers = axum::http::header::HeaderMap::new();
-    let html = match app_state.result_cache.get(path) {
+    let html = match app_state.result_cache.get(path).await {
         Some(html) => {
             if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
                 headers.append(CACHED_HEADER, hval);
@@ -374,7 +390,7 @@ async fn serve_index(
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
     let mut headers = axum::http::header::HeaderMap::new();
-    let html = match app_state.result_cache.get(path) {
+    let html = match app_state.result_cache.get(path).await {
         Some(html) => {
             if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
                 headers.append(CACHED_HEADER, hval);

@@ -90,7 +90,7 @@ background = true
 # a binding `r = job:run-long` at the end of this file .
 [jobs.example]
 command = ["cargo", "run", "--color", "always","--",
-    "--config-file", "chimera.toml"
+    "--config-file", "example.toml"
 ]
 need_stdout = true
 allow_warnings = true

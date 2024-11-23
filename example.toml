@@ -8,7 +8,7 @@ index_file = "index.md"
 site_lang = "en"
 highlight_style = "a11y_dark"
 generate_index = true
-log_level = "Debug"
+#log_level = "Debug"
 max_cache_size = 52428800
 port = 8080
 
