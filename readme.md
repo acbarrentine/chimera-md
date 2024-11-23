@@ -71,44 +71,45 @@ services:
       # - /volume1/docker/chimera-md/script:/data/www/script:ro
 
     environment:
-      # Chimera provides a number of environment variable-based configuration options. Only a few
-      # are relevant to Docker installations. If you would like, these can be offloaded into a file
-      # named .env, placed next to this compose.yaml file
-
-      # Site title appears in the <title> tags of served pages
-      # Default is "Chimera-md"
-      - CHIMERA_SITE_TITLE=Chimera-md
-
-      # What is the name of the index file to serve for a folder URL?
-      # Default is "index.md"
-      - CHIMERA_INDEX_FILE=index.md
-
-      # HTML lang tag
-      # Used as <html lang="site_lang">
-      # See <https://www.w3.org/International/questions/qa-html-language-declarations> for details
-      # Default is "en"
-      - CHIMERA_SITE_LANG=en
-
-      # What code block highlight style should we use?
-      # Syntax highlighting provided by highlight.js
-      # Styles available listed at: https://github.com/highlightjs/highlight.js/tree/main/src/styles
-      # Default is "an-old-hope"
-      - CHIMERA_HIGHLIGHT_STYLE=an-old-hope
-
-      # Tracing log level. In descending verbosity, options are TRACE, DEBUG, INFO, WARN, ERROR
-      # Case matters
-      # Default is INFO
-      - CHIMERA_LOG_LEVEL=INFO
-
-      # If a directory doesn't contain an index.md file, should we generate one?
-      # Default is false
-      - CHIMERA_GENERATE_INDEX=true
-
-      # Maximum size (in bytes) for the HTML page cache
-      # Default is 52428800 (50 MBs)
-      - CHIMERA_MAX_CACHE_SIZE=52428800
+      # HEADS UP!
+      #
+      # Breaking change as of v 0.2.0!
+      #
+      # Configuration data has been moved to a site-based config file
+      # Default is "chimera.toml"
+      - CHIMERA_CONFIG_FILE=chimera.toml
 
     restart: unless-stopped
+```
+
+The config file in [TOML](https://toml.io/en/) format. Every field has a default, and the
+Docker image provides a stub file, so the server should be able to start up provided you
+have mapped reasonable values above. But there's a good chance you'll want to override
+some of this content. Example with defaults included here:
+
+```toml
+document_root = "/data/www"
+template_root = "/data/templates"
+style_root = "/data/style"
+icon_root = "/data/icon"
+search_index_dir = "/data/search"
+site_title = "Chimera-md"
+index_file = "index.md"
+site_lang = "en"
+highlight_style = "an-old-hope"
+generate_index = false
+log_level = "Info"
+max_cache_size = 52428800
+port = 8080
+
+[redirects]
+# You can list as many redirects here as you'd like
+# "original URL" = "new URI"
+# 
+# URIs should be absolute, except the left one should not have a preceding /
+#
+# Example:
+# "original-uri/" = "/path/to/new/uri.md"
 ```
 
 Note that while Chimera-md is a web server, it is not trying to solve all problems a web server
@@ -241,9 +242,9 @@ increasing complexity, these are:
     template: dialog.html
     ---
 
-    # My Cool Comic
+    # My Cool Index
     
-    ## Issue 1
+    ## Generated index with customization
     ```
 
     I made an index.html template to render directories without index files, but I have
@@ -268,6 +269,17 @@ increasing complexity, these are:
     `{% include %}` in the templates for examples.
 
 ## Release notes
+
+### v0.2.0 (BREAKING CHANGE!)
+
+* Added support for a table of redirects to the router. This is motivated by the needs
+  of my [main website](https://www.dismal.ink/), which I am porting from Wordpress to
+  Chimera-ma. I wanted to make some of the old, popular URLs map to their current
+  locations
+* Because environment variables aren't conducive to making a mapping and the configuration
+  was already getting pretty hairy, I wound up moving the config settings over to toml.
+  Going forward, you will need to make a site-based toml config file, called chimera.toml
+  by default
 
 ### v0.1.25
 
@@ -403,51 +415,18 @@ That does not appear to be the case in the Docker version, however.
 variables for controlling the behavior, and more of them will be applicable here. You
 can either use the environment, or specify them on the command line.
 
+`bacon example` will compile and run the `examples` web content and keep watch on the
+source directories for changes. However, at the moment, the paths in the config file
+are required to be absolute, so the values you'll find in git will only work for me.
+You'll need to either change the `example.toml` file or add your own
+[bacon job](https://dystroy.org/bacon/#configuration).
+
 ## Arguments
 
-Command arguments can be set either via environment or the command line. Each has a default,
-but odds are good you'll want to override at least a few of them.
+The only command line argument is the path to the config TOML file. Call it with
 
 ```bash
-    # Often it's easiest to establish these in a globally loaded file like .zshrc
-    export CHIMERA_DOCUMENT_ROOT=/data/www
-    export CHIMERA_TEMPLATE_ROOT=/data/templates
-    export CHIMERA_STYLE_ROOT=/data/style
-    export CHIMERA_STYLE_ROOT=/data/icon
-    export CHIMERA_SEARCH_INDEX_DIR=/data/search
-    export CHIMERA_SITE_TITLE=Chimera-md
-    export CHIMERA_INDEX_FILE=index.md
-    export CHIMERA_SITE_LANG=en
-    export CHIMERA_HIGHLIGHT_STYLE=a11y-dark
-    export CHIMERA_GENERATE_INDEX=false
-    export CHIMERA_LOG_LEVEL=INFO
-    export CHIMERA_MAX_CACHE_SIZE=52428800
-    export CHIMERA_PORT=8080
-
-    # And then run the program unadorned
-    cargo run
-
-    # Release version
-    cargo run --release
-
-    # Unit tests
-    cargo test
-
-    # Or you can do it all on the command line
-    cargo run -- --document-root /Users/me/Source/chimera-md/examples
-      --template-root /Users/me/Source/chimera-md/templates
-      --style-root /Users/me/Source/chimera-md/style --icon-root /Users/me/Source/chimera-md/icon
-      --site-title "My journal" --index-file index.md --site-lang en
-      --highlight-style a11y-dark --generate-index=true
-      --log-level DEBUG --max-cache-size 52428800 --port 8080
-```
-
-Personally, I set the vars in my shell environment and use [cargo-watch](https://crates.io/crates/cargo-watch)
-to monitor for source changes. If you're not hacking on the source, though, it won't help
-you.
-
-```bash
-cargo watch -x run -w src/
+chimera-md --config-file=example.toml
 ```
 
 ## Contributing
@@ -495,6 +474,7 @@ Chimera-md uses the following open source libraries:
 * [indexmap](https://crates.io/crates/indexmap)
 * [slugify](https://crates.io/crates/slugify)
 * [yaml-rust2](https://crates.io/crates/yaml-rust2)
+* [toml](https://crates.io/crates/toml)
 
 ## License
 

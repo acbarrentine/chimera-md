@@ -12,6 +12,7 @@ COPY --from=builder /usr/src/chimera-md/www /data/www
 COPY --from=builder /usr/src/chimera-md/templates /data/templates
 COPY --from=builder /usr/src/chimera-md/style/ /data/style
 COPY --from=builder /usr/src/chimera-md/icon/ /data/icon
+COPY --from=builder /usr/src/chimera-md/chimera.toml /data/chimera.toml
 
 EXPOSE 8080
 

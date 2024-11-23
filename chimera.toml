@@ -1,16 +1,22 @@
-document_root = "/Users/acbarrentine/Source/chimera-md/examples"
-template_root = "/Users/acbarrentine/Source/chimera-md/templates"
-style_root = "/Users/acbarrentine/Source/chimera-md/style"
-icon_root = "/Users/acbarrentine/Source/chimera-md/icon"
-search_index_dir = "/Users/acbarrentine/Source/chimera-md/search"
-site_title = "Example journal"
+document_root = "/data/www"
+template_root = "/data/templates"
+style_root = "/data/style"
+icon_root = "/data/icon"
+search_index_dir = "/data/search"
+site_title = "Chimera-md"
 index_file = "index.md"
 site_lang = "en"
-highlight_style = "a11y_dark"
-generate_index = true
-log_level = "Debug"
+highlight_style = "an-old-hope"
+generate_index = false
+log_level = "Info"
 max_cache_size = 52428800
 port = 8080
 
 [redirects]
-"dialog-test/" = "/home/Dialog%20test%202.md"
+# You can list as many redirects here as you'd like
+# "original URL" = "new URI"
+# 
+# URIs should be absolute, except the left one should not have a preceding /
+#
+# Example:
+# "original-uri/" = "/path/to/new/uri.md"

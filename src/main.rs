@@ -35,7 +35,7 @@ const CACHED_HEADER: &str = "cached";
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
 struct Config {
-    #[arg(long, env("CHIMERA_CONFIG_FILE"), default_value_t = String::from("chimera.toml"))]
+    #[arg(long, env("CHIMERA_CONFIG_FILE"), default_value_t = String::from("/data/chimera.toml"))]
     config_file: String,
 }
 
