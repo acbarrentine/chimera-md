@@ -19,10 +19,15 @@ struct WrappedCache {
     max_size: usize,
 }
 
+enum CacheAction {
+    Compact,
+    Clean
+}
+
 #[derive(Clone)]
 pub struct ResultCache {
     lock: Arc<RwLock<WrappedCache>>,
-    signal_tx: tokio::sync::mpsc::Sender<()>,
+    signal_tx: tokio::sync::mpsc::Sender<CacheAction>,
 }
 
 async fn get_modtime(path: &std::path::Path) -> SystemTime {
@@ -36,7 +41,7 @@ async fn get_modtime(path: &std::path::Path) -> SystemTime {
 
 impl ResultCache {
     pub fn new(max_size: usize) -> Self {
-        let (tx, rx) = tokio::sync::mpsc::channel(1);
+        let (tx, rx) = tokio::sync::mpsc::channel(2);
         let wrapped_cache = Arc::new(RwLock::new(WrappedCache {
             cache: IndexMap::new(),
             current_size: 0,
@@ -76,7 +81,7 @@ impl ResultCache {
             lock.current_size > lock.max_size
         };
         if needs_compact {
-            if let Err(e) = self.signal_tx.send(()).await {
+            if let Err(e) = self.signal_tx.send(CacheAction::Compact).await {
                 tracing::warn!("Failed to send cache compact message: {e}");
             }
         }
@@ -91,8 +96,8 @@ impl ResultCache {
             if res.modtime == modtime {
                 return Some(res.html.clone())
             }
-            else if let Ok(mut write_lock) = self.lock.write() {
-                write_lock.cache.clear();
+            else if let Err(e) = self.signal_tx.send(CacheAction::Clean).await {
+                tracing::warn!("Failed to send cache clean message: {e}");
             }
         }
         None
@@ -119,27 +124,38 @@ impl fmt::Debug for CachedPage {
 }
 
 async fn cache_compactor(
-    mut go_signal: tokio::sync::mpsc::Receiver<()>,
+    mut go_signal: tokio::sync::mpsc::Receiver<CacheAction>,
     cache: Arc<RwLock<WrappedCache>>,
 ) {
-    while go_signal.recv().await.is_some() {
-        tracing::debug!("Compacting HTML result cache");
-        let Ok(mut lock) = cache.write() else {
-            return;
-        };
-        let target_trim_size  = lock.current_size - lock.max_size;
-        let mut prune_size = 0;
-        let mut split_index = 0;
-        for (i, v) in lock.cache.values().enumerate() {
-            prune_size += v.html.len();
-            if prune_size > target_trim_size {
-                split_index = i;
-                break;
-            }
+    while let Some(signal) = go_signal.recv().await {
+        match signal {
+            CacheAction::Compact => {
+                tracing::debug!("Compacting HTML result cache");
+                let Ok(mut lock) = cache.write() else {
+                    return;
+                };
+                let target_trim_size  = lock.current_size - lock.max_size;
+                let mut prune_size = 0;
+                let mut split_index = 0;
+                for (i, v) in lock.cache.values().enumerate() {
+                    prune_size += v.html.len();
+                    if prune_size > target_trim_size {
+                        split_index = i;
+                        break;
+                    }
+                }
+                lock.cache = lock.cache.split_off(split_index);
+                lock.current_size -= prune_size;
+                tracing::debug!("New cache size: {} kb", lock.current_size as f64 / 1024.0);
+            },
+            CacheAction::Clean => {
+                tracing::debug!("Compacting HTML result cache");
+                let Ok(mut lock) = cache.write() else {
+                    return;
+                };
+                lock.cache.clear();
+            },
         }
-        lock.cache = lock.cache.split_off(split_index);
-        lock.current_size -= prune_size;
-        tracing::debug!("New cache size: {} kb", lock.current_size as f64 / 1024.0);
     }
 }
 

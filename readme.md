@@ -273,6 +273,13 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.2.2
+
+* I hit an instance of a thread deadlocking which I believe to be a result of the cache
+  failsafe operation I added. This changes the implementation to a message passed to the
+  existing compaction thread, which should prevent the lock-in-lock situation I got it
+  into before
+
 ### v0.2.1
 
 * This contains an attempt to work around a sporadic fault in the directory watcher I'm
