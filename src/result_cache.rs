@@ -89,14 +89,22 @@ impl ResultCache {
 
     pub async fn get(&self, path: &std::path::Path) -> Option<String> {
         let modtime = get_modtime(path).await;
-        let Ok(lock) = self.lock.read() else {
-            return None;
-        };
-        if let Some(res) = lock.cache.get(path) {
-            if res.modtime == modtime {
-                return Some(res.html.clone())
+        let mut needs_clean = false;
+        {
+            let Ok(lock) = self.lock.read() else {
+                return None;
+            };
+            if let Some(res) = lock.cache.get(path) {
+                if res.modtime == modtime {
+                    return Some(res.html.clone())
+                }
+                else{
+                    needs_clean = true;
+                }
             }
-            else if let Err(e) = self.signal_tx.send(CacheAction::Clean).await {
+        }
+        if needs_clean {
+            if let Err(e) = self.signal_tx.send(CacheAction::Clean).await {
                 tracing::warn!("Failed to send cache clean message: {e}");
             }
         }
