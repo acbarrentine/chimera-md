@@ -109,10 +109,14 @@ async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
     let tracing_level = toml_config.tracing_level();
+    let file_appender = tracing_appender::rolling::daily(toml_config.log_dir, "chimera.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
     let tracing_layer = tracing_subscriber::fmt::layer()
         .compact()
+        .with_writer(non_blocking)
+        .with_ansi(false)
         .with_line_number(true);
     tracing_subscriber::registry()
         .with(tracing_layer)

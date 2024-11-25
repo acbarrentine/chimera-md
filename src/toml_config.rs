@@ -28,6 +28,9 @@ pub struct TomlConfig {
     #[serde(default = "default_search_index_dir")]
     pub search_index_dir: String,
 
+    #[serde(default = "default_log_dir")]
+    pub log_dir: String,
+
     #[serde(default = "default_site_title")]
     pub site_title: String,
 
@@ -61,6 +64,7 @@ fn default_template_root() -> String { "/data/templates".to_string() }
 fn default_style_root() -> String { "/data/style".to_string() }
 fn default_icon_root() -> String { "/data/icon".to_string() }
 fn default_search_index_dir() -> String { "/data/search".to_string() }
+fn default_log_dir() -> String { "/data/log".to_string() }
 fn default_site_title() -> String { "Chimera-md".to_string() }
 fn default_index_file() -> String { "index.md".to_string() }
 fn default_highlight_style() -> String { "an-old-hope".to_string() }

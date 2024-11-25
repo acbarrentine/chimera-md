@@ -55,6 +55,9 @@ services:
       # These are persisted to optimize server startup times
       - /docker/chimera-md/search:/data/search
 
+      # Set a log dir
+      - /docker/chimera-md/log:/data/log
+
       # You may want to map an images folder
       - /usr/data/user1/media:/data/www/images:ro
 
@@ -99,6 +102,7 @@ template_root = "/data/templates"
 style_root = "/data/style"
 icon_root = "/data/icon"
 search_index_dir = "/data/search"
+log_dir = "/data/log"
 index_file = "index.md"
 highlight_style = "an-old-hope"
 log_level = "Info"
@@ -273,6 +277,12 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.0 **BREAKING CHANGE!**
+
+* Adding support for log files. This adds a new field to the config `log_dir`, set to
+  `/data/log` by default. Log files rotate daily. You'll need to establish this path
+  in the Docker container before it will work
+
 ### v0.2.2
 
 * I hit an instance of a thread deadlocking which I believe to be a result of the cache
@@ -288,7 +298,7 @@ increasing complexity, these are:
   before serving a file out of the cache. That doesn't cover all cases, but it should be
   a pretty good equivalent
 
-### v0.2.0 (BREAKING CHANGE!)
+### v0.2.0 **BREAKING CHANGE!**
 
 * Added support for a table of redirects to the router. This is motivated by the needs
   of my [main website](https://www.dismal.ink/), which I am porting from Wordpress to
