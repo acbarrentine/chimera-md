@@ -11,7 +11,7 @@ use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::I
 use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tokio::signal;
 use tower_http::services::ServeDir;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 use serde::Deserialize;
 use clap::Parser;
 
@@ -113,14 +113,20 @@ async fn main() -> Result<(), ChimeraError> {
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
-    let tracing_layer = tracing_subscriber::fmt::layer()
+    let file_layer = tracing_subscriber::fmt::layer()
         .compact()
         .with_writer(non_blocking)
         .with_ansi(false)
-        .with_line_number(true);
+        .with_line_number(false)
+        .with_filter(trace_filter.clone());
+    let tty_layer = tracing_subscriber::fmt::layer()
+        .compact()
+        .with_ansi(true)
+        .with_line_number(true)
+        .with_filter(trace_filter);
     tracing_subscriber::registry()
-        .with(tracing_layer)
-        .with(trace_filter)
+        .with(file_layer)
+        .with(tty_layer)
         .init();
     let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
 
@@ -184,6 +190,12 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
         None => { request.uri().path().to_string() }
     };
+    let (user_agent, referer) = {
+        let req_headers = request.headers();
+        let user_agent = req_headers.get("user-agent").cloned();
+        let referer = req_headers.get("referer").cloned();
+        (user_agent, referer)
+    };
     let mut response = next.run(request).await;
     let status = response.status();
     let headers = response.headers_mut();
@@ -204,8 +216,8 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
                 headers.append(SERVER_TIMING, hval);
             }
             match status.is_success() || status.is_redirection() {
-                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16()),
-                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status})", response.status().as_u16())
+                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}", response.status().as_u16()),
+                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}", response.status().as_u16())
             }
         },
         false => {
