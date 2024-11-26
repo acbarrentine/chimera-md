@@ -277,6 +277,11 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.1
+
+* The server now logs output both to the TTY and a log file. Referer and user-agent added
+  to log statements
+
 ### v0.3.0 **BREAKING CHANGE!**
 
 * Adding support for log files. This adds a new field to the config `log_dir`, set to
