@@ -277,6 +277,10 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.2
+
+* Making the redirect mappings use permanent redirection. Fingers crossed they're working!
+
 ### v0.3.1
 
 * The server now logs output both to the TTY and a log file. Referer and user-agent added

@@ -303,7 +303,7 @@ async fn handle_path(
 ) -> axum::response::Response {
     if let Some(redirect) = app_state.known_redirects.get(&path) {
         tracing::debug!("Known redirect: {path} => {redirect}");
-        return Redirect::temporary(redirect).into_response()
+        return Redirect::permanent(redirect).into_response()
     }
 
     let path = PathBuf::from(path);
