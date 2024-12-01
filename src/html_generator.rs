@@ -1,7 +1,11 @@
 use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use indexmap::IndexMap;
+use serde::Serialize;
 use tera::Tera;
 
 use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct HtmlGeneratorCfg<'a> {
     pub template_root: &'a str,
@@ -9,7 +13,13 @@ pub struct HtmlGeneratorCfg<'a> {
     pub index_file: &'a str,
     pub site_lang: String,
     pub highlight_style: String,
-    pub version: &'static str,
+    pub menu: IndexMap<String, String>,
+}
+
+#[derive (Debug, Serialize)]
+struct MenuItem {
+    title: String,
+    target: String,
 }
 
 pub struct HtmlGenerator {
@@ -18,7 +28,7 @@ pub struct HtmlGenerator {
     site_lang: String,
     highlight_style: String,
     index_file: OsString,
-    version: &'static str,
+    menu: Vec<MenuItem>,
 }
 
 impl HtmlGenerator {
@@ -44,7 +54,12 @@ impl HtmlGenerator {
             site_lang: cfg.site_lang,
             highlight_style: cfg.highlight_style,
             index_file: OsString::from(cfg.index_file),
-            version: cfg.version,
+            menu: cfg.menu.into_iter().map(|(title, target)| {
+                MenuItem {
+                    title,
+                    target
+                }
+            }).collect(),
         })
     }
 
@@ -53,9 +68,10 @@ impl HtmlGenerator {
         vars.insert("title", title);
         vars.insert("site_title", self.site_title.as_str());
         vars.insert("site_lang", self.site_lang.as_str());
-        vars.insert("version", self.version);
         vars.insert("highlight_style", self.highlight_style.as_str());
         vars.insert("has_code", &has_code);
+        vars.insert("version", VERSION);
+        vars.insert("menu", &self.menu);
         vars
     }
 

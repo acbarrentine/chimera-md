@@ -71,12 +71,51 @@ div.search button {
     border: none;
 }
 
-.breadcrumbs {
+.navbar {
     margin: 0px -10px 20px -10px;
     background-color: var(--box-color);
-    padding: 6px 0px 6px 6em;
+    display: flex;
+    flex-flow: nowrap;
+    align-items: center;
+    justify-content: space-between;
     border-bottom: 2px solid var(--rule-color);
 }
+
+.breadcrumbs {
+    padding: 6px 0px 6px 6em;
+}
+
+.menu-button {
+    content: url("/icon/menu-outline.svg");
+    cursor: pointer;
+    border: none;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--shade-color);
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px var(--shade-color);
+    z-index: 1;
+}
+
+.dropdown-content a {
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--box-color);
+}
+
+.show {display:block;}
 
 .breadcrumbs .crumb::before {
     content: url("/icon/chevron.svg");
@@ -241,6 +280,13 @@ footer span {
     .breadcrumbs .crumb::before {
         padding: 0 6px 0 3px;
     }
+    .menu-anchor {
+        padding: 0;
+        margin: 10px 0 0 -15px;
+    }
+    .dropdown-content {
+        right: 1em;
+    }
 }
 
 @media (min-width: 550px) {
@@ -253,8 +299,13 @@ footer span {
     div.mobile-search {
         display: none;
     }
-
     div.index {
         flex-direction: row;
+    }
+    .menu-anchor {
+        padding: 6px 6em 0px 0;
+    }
+    .dropdown-content {
+        right: 6em;
     }
 }

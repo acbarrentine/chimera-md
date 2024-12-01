@@ -24,3 +24,8 @@ port = 8080
 #
 # Example:
 # "original-uri/" = "/home/path/to/new/uri.md"
+
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"

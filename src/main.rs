@@ -27,7 +27,6 @@ use crate::result_cache::ResultCache;
 use crate::perf_timer::PerfTimer;
 use crate::toml_config::TomlConfig;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HOME_DIR: &str = "/home/";
 const SERVER_TIMING: &str = "server-timing";
 const CACHED_HEADER: &str = "cached";
@@ -79,7 +78,7 @@ impl AppState {
             index_file: config.index_file.as_str(),
             site_lang: config.site_lang,
             highlight_style: config.highlight_style,
-            version: VERSION,
+            menu: config.menu,
         };
         tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;

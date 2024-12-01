@@ -15,3 +15,10 @@ port = 8080
 
 [redirects]
 "dialog-test/" = "/home/Dialog%20test%202.md"
+
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"
+"Tests" = "/home/tests/index.md"
+"Subfolder" = "/home/subfolder/index.md"

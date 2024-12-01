@@ -1,3 +1,4 @@
+<span class="navbar">
 <div class="breadcrumbs">
   {% for crumb in breadcrumbs -%}
     {% if loop.first -%}
@@ -9,3 +10,16 @@
     {% endif -%}
   {% endfor -%}
 </div>
+{% if menu -%}
+<span class="menu-anchor">
+  <button class="menu-button" onclick="showNavMenu()">
+    <img src="/icon/menu-outline.svg" id="menu-button">
+  </button>
+  <div id="myDropdown" class="dropdown-content">
+    {% for menu_item in menu -%}
+    <a href="{{menu_item.target}}">{{menu_item.title}}</a>
+    {% endfor -%}
+  </div>
+</span>
+{% endif -%}
+</span>

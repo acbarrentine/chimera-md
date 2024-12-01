@@ -277,6 +277,20 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.3
+
+* Adds a drop-down navigation menu on the right side of the breadcrumb bar. Entries in the
+  menu are specified in the `chimera.toml` config file. Example:
+
+```toml
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"
+"Tests" = "/home/tests/index.md"
+"Subfolder" = "/home/subfolder/index.md"
+```
+
 ### v0.3.2
 
 * Adds the client IP address to log lines

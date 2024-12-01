@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use serde::Deserialize;
 use crate::chimera_error::ChimeraError;
 
@@ -57,6 +58,9 @@ pub struct TomlConfig {
 
     #[serde(default)]
     pub redirects: HashMap<String, String>,
+
+    #[serde(default)]
+    pub menu: IndexMap<String, String>,
 }
 
 fn default_document_root() -> String { "/data/www".to_string() }
