@@ -279,6 +279,10 @@ increasing complexity, these are:
 
 ### v0.3.2
 
+* Adds the client IP address to log lines
+
+### v0.3.2
+
 * Making the redirect mappings use permanent redirection. Fingers crossed they're working!
 
 ### v0.3.1

@@ -7,8 +7,8 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{collections::HashMap, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
-use axum::{extract::State, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::PathBuf, sync::Arc, time::Instant};
+use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -16,7 +16,7 @@ use serde::Deserialize;
 use clap::Parser;
 
 #[allow(unused_imports)]
-use axum::debug_handler;
+use axum::{debug_handler, debug_middleware};
 
 use crate::file_manager::FileManager;
 use crate::full_text_index::FullTextIndex;
@@ -148,7 +148,8 @@ async fn main() -> Result<(), ChimeraError> {
         .layer(middleware::from_fn(mw_response_time));
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
-    axum::serve(listener, app)
+    let connect_wrapper = app.into_make_service_with_connect_info::<SocketAddr>();
+    axum::serve(listener, connect_wrapper)
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
@@ -184,7 +185,12 @@ async fn shutdown_signal() {
     }
 }
 
-async fn mw_response_time(request: axum::extract::Request, next: Next) -> Response {
+#[debug_middleware]
+async fn mw_response_time(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: axum::extract::Request,
+    next: Next,
+) -> Response {
     let start_time = Instant::now();
     let path = match request.uri().path_and_query() {
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
@@ -216,15 +222,15 @@ async fn mw_response_time(request: axum::extract::Request, next: Next) -> Respon
                 headers.append(SERVER_TIMING, hval);
             }
             match status.is_success() || status.is_redirection() {
-                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}", response.status().as_u16()),
-                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}", response.status().as_u16())
+                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {}", response.status().as_u16(), addr.ip()),
+                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {}", response.status().as_u16(), addr.ip())
             }
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
             match status.is_success()  || status.is_redirection() {
                 true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
-                false => tracing::warn!("{}: {path} in {elapsed} ms", response.status().as_u16())
+                false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {}", response.status().as_u16(), addr.ip())
             }
         },
     }

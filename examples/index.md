@@ -1,7 +1,7 @@
 ---
 template: index.html
 date: 2024-11-14
-Title: Exmaple Index
+Title: Example Index
 Image: /media/fancy.jpg
 Alt: A fancy piece of chocolate art
 ---
@@ -9,6 +9,8 @@ Alt: A fancy piece of chocolate art
 # Chimera-md
 
 Chimera-md is a Markdown-aware documentation server.
+
+[![A pretty picture](/home/assets/img-1.jpg)](/home/assets/img-1.jpg)
 
 I have spent years developing a hard drive full of notes and documents written in the
 [Markdown](https://www.markdownguide.org/) text processing language, and while it is

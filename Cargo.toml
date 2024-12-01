@@ -1,6 +1,6 @@
 [package]
 name = "chimera-md"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 authors = ["Alexander Barrentine", "Alexander Barrentine <acbarrentine@gmail.com>"]
 description = "A Markdown-aware web server"
@@ -25,6 +25,7 @@ indexmap = "2.6.0"
 slugify = "0.1.0"
 yaml-rust2 = "0.9.0"
 tracing-appender = "0.2.3"
+lazy_static = "1.5.0"
 
 [profile.release]
 codegen-units = 1

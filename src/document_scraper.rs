@@ -1,4 +1,5 @@
 use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
+use lazy_static::lazy_static;
 use regex::Regex;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use serde::Serialize;
@@ -37,9 +38,16 @@ impl ExternalLink {
     }
 }
 
+lazy_static! {
+    static ref CODE_LANGUAGES: HashSet<&'static str> = HashSet::from([
+        "applescript", "bash", "c", "cpp", "csharp", "erlang", "fortran", "go", "haskell",
+        "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
+        "python", "r", "rust", "sql", "text", "xml", "yaml",
+    ]);
+}
+
 #[derive(Clone)]
 pub struct DocumentScraper {
-    language_map: HashSet<&'static str>,
     pub internal_links: Vec<InternalLink>,
     pub code_languages: Vec<&'static str>,
     pub metadata: HashMap<String, String>,
@@ -57,11 +65,6 @@ impl DocumentScraper {
         let heading_re = Regex::new(r"<[hH](\d)\s*([^<]*)>([^<]*)</[hH]\d>").unwrap();
         let id_re = Regex::new("id=\"([^\"]+)\"").unwrap();
         DocumentScraper {
-            language_map: HashSet::from([
-                "applescript", "bash", "c", "cpp", "csharp", "erlang", "fortran", "go", "haskell",
-                "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
-                "python", "r", "rust", "sql", "text", "xml", "yaml",
-            ]),
             internal_links: Vec::new(),
             code_languages: Vec::new(),
             metadata: HashMap::new(),
@@ -98,11 +101,14 @@ impl DocumentScraper {
                         self.has_code_blocks = true;
                         if let pulldown_cmark::CodeBlockKind::Fenced(lang) = kind {
                             let lang = lang.to_ascii_lowercase();
-                            if let Some(js) = self.language_map.get(lang.as_str()) {
+                            if let Some(js) = CODE_LANGUAGES.get(lang.as_str()) {
                                 self.code_languages.push(js);
                             }
                         }
                     },
+                    // Tag::Image { link_type, dest_url, title, id } => {
+                    //     tracing::info!("Image: {link_type:?}, dest_url: {dest_url}, title: {title}, id: {id}");
+                    // }
                     _ => {
                         self.has_readable_text = true;
                     }

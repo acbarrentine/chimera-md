@@ -1,5 +1,5 @@
 # When used in Docker, these are probably the only fields you will want to change
-site_title = "Chimera-md"
+site_title = "Chimera Example"
 site_lang = "en"
 generate_index = false
 
