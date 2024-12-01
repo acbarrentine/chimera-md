@@ -17,7 +17,7 @@
   </button>
   <div id="myDropdown" class="dropdown-content">
     {% for menu_item in menu -%}
-    <a href="{{menu_item.target}}">{{menu_item.title}}</a>
+    <button onclick="window.location.href='{{menu_item.target}}';">{{menu_item.title}}</button>
     {% endfor -%}
   </div>
 </span>

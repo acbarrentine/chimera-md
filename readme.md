@@ -277,7 +277,12 @@ increasing complexity, these are:
 
 ## Release notes
 
-### v0.3.3
+### v0.3.5
+
+* Changes menu item HTML from `<a>` to `<button>`. The tap targets were too small for the
+  links and on mobile, you'd often wind up clicking through to something underneath
+
+### v0.3.4
 
 * Adds a drop-down navigation menu on the right side of the breadcrumb bar. Entries in the
   menu are specified in the `chimera.toml` config file. Example:
@@ -291,7 +296,7 @@ increasing complexity, these are:
 "Subfolder" = "/home/subfolder/index.md"
 ```
 
-### v0.3.2
+### v0.3.3
 
 * Adds the client IP address to log lines
 
