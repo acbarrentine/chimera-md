@@ -109,6 +109,11 @@ log_level = "Info"
 max_cache_size = 52428800
 port = 8080
 
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/"
+
 [redirects]
 # You can list as many redirects here as you'd like
 # "original URL" = "new URI"
