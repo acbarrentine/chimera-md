@@ -282,6 +282,11 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.6
+
+* Push the z-index on the drop-down menu; that seemed to fix the click-through problem
+  I was getting. Some fine-tuning to the readme.
+
 ### v0.3.5
 
 * Changes menu item HTML from `<a>` to `<button>`. The tap targets were too small for the

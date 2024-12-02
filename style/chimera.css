@@ -86,7 +86,6 @@ div.search button {
 }
 
 .menu-button {
-    content: url("/icon/menu-outline.svg");
     cursor: pointer;
     border: none;
 }
