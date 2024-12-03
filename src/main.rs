@@ -195,12 +195,15 @@ async fn mw_response_time(
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
         None => { request.uri().path().to_string() }
     };
-    let (user_agent, referer) = {
-        let req_headers = request.headers();
-        let user_agent = req_headers.get("user-agent").cloned();
-        let referer = req_headers.get("referer").cloned();
-        (user_agent, referer)
-    };
+
+    let req_headers = request.headers();
+    let user_agent = req_headers.get("user-agent").cloned();
+    let referer = req_headers.get("referer").cloned();
+    let forward_addr = req_headers.get("X-Forwarded-For").cloned();
+    let addr = forward_addr.map_or(addr.ip().to_string(), |addr| {
+        String::from_utf8_lossy(addr.as_bytes()).to_string()
+    });
+
     let mut response = next.run(request).await;
     let status = response.status();
     let headers = response.headers_mut();
@@ -221,15 +224,15 @@ async fn mw_response_time(
                 headers.append(SERVER_TIMING, hval);
             }
             match status.is_success() || status.is_redirection() {
-                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {}", response.status().as_u16(), addr.ip()),
-                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {}", response.status().as_u16(), addr.ip())
+                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16()),
+                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
             }
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
             match status.is_success()  || status.is_redirection() {
                 true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
-                false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {}", response.status().as_u16(), addr.ip())
+                false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {addr}", response.status().as_u16())
             }
         },
     }

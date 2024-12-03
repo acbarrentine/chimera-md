@@ -282,6 +282,12 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.7
+
+* Another attempt to get the requester's IP address, this time using the
+  [X-Forwarded-For](https://en.wikipedia.org/wiki/X-Forwarded-For) header if you are behind
+  a proxy
+
 ### v0.3.6
 
 * Push the z-index on the drop-down menu; that seemed to fix the click-through problem
