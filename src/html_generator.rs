@@ -102,6 +102,7 @@ impl HtmlGenerator {
         body: String,
         scraper: DocumentScraper,
         peers: Option<PeerInfo>,
+        uri: &str,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let template = scraper.get_template();
@@ -121,6 +122,7 @@ impl HtmlGenerator {
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
         vars.insert("url", &path.to_string_lossy());
+        vars.insert("uri", uri);
 
         for (key, value) in &scraper.metadata {
             vars.insert(key, value);

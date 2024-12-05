@@ -8,7 +8,7 @@ mod result_cache;
 mod perf_timer;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::PathBuf, sync::Arc, time::Instant};
-use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use axum::{extract::{ConnectInfo, OriginalUri, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -223,6 +223,9 @@ async fn mw_response_time(
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
+            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
+                headers.insert(axum::http::header::CACHE_CONTROL, value);
+            }
             match status.is_success() || status.is_redirection() {
                 true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16()),
                 false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
@@ -230,6 +233,9 @@ async fn mw_response_time(
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
+            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
+                headers.insert(axum::http::header::CACHE_CONTROL, value);
+            }
             match status.is_success()  || status.is_redirection() {
                 true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
                 false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {addr}", response.status().as_u16())
@@ -307,6 +313,7 @@ async fn handle_style(
 async fn handle_path(
     State(mut app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
+    uri: axum::extract::OriginalUri,
     headers: HeaderMap
 ) -> axum::response::Response {
     if let Some(redirect) = app_state.known_redirects.get(&path) {
@@ -315,7 +322,7 @@ async fn handle_path(
     }
 
     let path = PathBuf::from(path);
-    match get_response(&mut app_state, path.as_path(), headers).await {
+    match get_response(&mut app_state, path.as_path(), headers, uri).await {
         Ok(resp) => {
             let status = resp.status();
             if status.is_success() || status.is_redirection() {
@@ -352,7 +359,7 @@ async fn handle_fallback(
     State(app_state): State<AppStateType>,
     uri: axum::http::Uri,
 ) -> axum::response::Response {
-    tracing::warn!("404 Not found: {uri}");
+    tracing::warn!("404: {uri}");
     handle_404(app_state).await.into_response()
 }
 
@@ -366,6 +373,7 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
 async fn serve_markdown_file(
     app_state: &mut AppStateType,
     path: &std::path::Path,
+    uri: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
     let mut headers = axum::http::header::HeaderMap::new();
@@ -387,7 +395,7 @@ async fn serve_markdown_file(
                 false => None,
             };
             perf_timer.sample("find-peers", &mut headers);
-            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
+            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers, uri)?;
             perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
             perf_timer.sample("cache-results", &mut headers);
@@ -442,11 +450,12 @@ async fn serve_index(
 async fn get_response(
     app_state: &mut AppStateType,
     path: &std::path::Path,
-    headers: HeaderMap
+    headers: HeaderMap,
+    uri: OriginalUri,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Chimera request {}", path.display());
     if has_extension(path, "md") {
-        return serve_markdown_file(app_state, path).await;
+        return serve_markdown_file(app_state, path, uri.path()).await;
     }
     else if path.is_dir() { 
         // is this a folder?
@@ -456,10 +465,12 @@ async fn get_response(
             tracing::debug!("Missing /, redirecting to {path_with_slash}");
             return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
         }
+
+        let uri_with_index = format!("{}{}", uri.path(), app_state.index_file.as_str());
         let path_with_index = path.join(app_state.index_file.as_str());
         if path_with_index.exists() {
             tracing::debug!("No file specified, sending {}", path_with_index.display());
-            return serve_markdown_file(app_state, &path_with_index).await;
+            return serve_markdown_file(app_state, &path_with_index, uri_with_index.as_str()).await;
         }
         else if app_state.generate_index {
             return serve_index(app_state, path).await;

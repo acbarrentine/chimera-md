@@ -282,6 +282,20 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.3.8
+
+* Trying out a couple things with this release. I have added a `cache-control` header to
+  the responses to tell caching layers (like CloudFlare) that it's ok to remember things.
+  The other item is that the back-end is providing a new variable `uri` to the Tera template
+  engine. My intention with that is to combine it with a server name in the site-header.html
+  to give a full canonical URL to each page. There's nothing using it in the default install,
+  though, so you don't need to worry about it if you don't need. `uri` will start with a
+  slash if you intend to use it.
+
+```html
+<link rel="canonical" href="https://canonical.server.name{{uri}}" />
+```
+
 ### v0.3.7
 
 * Another attempt to get the requester's IP address, this time using the
