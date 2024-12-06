@@ -296,6 +296,11 @@ increasing complexity, these are:
 <link rel="canonical" href="https://canonical.server.name{{uri}}" />
 ```
 
+### v0.3.8
+
+* Fixing an ambiguous routing issue. /path/file.md should not be equivalent to
+  /home/path/file.md
+
 ### v0.3.7
 
 * Another attempt to get the requester's IP address, this time using the

@@ -27,7 +27,7 @@ use crate::result_cache::ResultCache;
 use crate::perf_timer::PerfTimer;
 use crate::toml_config::TomlConfig;
 
-const HOME_DIR: &str = "/home/";
+const HOME_DIR: &str = "/home";
 const SERVER_TIMING: &str = "server-timing";
 const CACHED_HEADER: &str = "cached";
 
@@ -139,8 +139,8 @@ async fn main() -> Result<(), ChimeraError> {
         .route("/icon/*path", get(handle_icon))
         .route("/", get(handle_root))
         .route(HOME_DIR, get(handle_root))
-        .route(format!("{HOME_DIR}*path").as_str(), get(handle_path))
-        .route("/*path", get(handle_path))
+        .route(format!("{HOME_DIR}/").as_str(), get(handle_root))
+        .route(format!("{HOME_DIR}/*path").as_str(), get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
@@ -349,7 +349,7 @@ async fn handle_path(
 async fn handle_root(
     State(app_state): State<AppStateType>,
 ) -> axum::response::Response {
-    let redirect_path = format!("{HOME_DIR}{}", app_state.index_file);
+    let redirect_path = format!("{HOME_DIR}/{}", app_state.index_file);
     tracing::debug!("Redirecting / => {redirect_path}");
     Redirect::permanent(redirect_path.as_str()).into_response()
 }

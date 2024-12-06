@@ -205,7 +205,7 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {
     }).collect();
     let mut crumbs = Vec::with_capacity(parts.len());
     let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
-    url.push_str(HOME_DIR);
+    url.push_str(format!("{HOME_DIR}/").as_str());
 
     crumbs.push(ExternalLink::new(url.clone(), "Home".to_string()));
 
