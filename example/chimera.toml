@@ -1,6 +1,4 @@
 chimera_root = "example"
-web_root = "www"
-document_root = "home"
 site_title = "Chimera Example"
 index_file = "index.md"
 site_lang = "en"

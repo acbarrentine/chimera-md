@@ -39,7 +39,8 @@ struct Config {
 }
 
 struct AppState {
-    web_root: PathBuf,
+    user_web_root: PathBuf,
+    internal_web_root: PathBuf,
     index_file: String,
     generate_index: bool,
     full_text_index: FullTextIndex,
@@ -51,9 +52,11 @@ struct AppState {
 
 impl AppState {
     pub async fn new(chimera_root: PathBuf, config: TomlConfig) -> Result<Self, ChimeraError> {
-        let template_root = chimera_root.join("templates");
-        let web_root = chimera_root.join(config.web_root.as_str());
-        let document_root = chimera_root.join(config.document_root.as_str());
+        let user_template_root = chimera_root.join("template");
+        let internal_template_root = chimera_root.join("template-internal");
+        let user_web_root = chimera_root.join("www");
+        let internal_web_root = chimera_root.join("www-internal");
+        let document_root = chimera_root.join("home");
         let search_index_dir = chimera_root.join("search");
 
         tracing::debug!("Document root: {}", document_root.display());
@@ -65,20 +68,23 @@ impl AppState {
             document_root.as_path(),
             config.index_file.as_str(),
         ).await?;
-        tracing::debug!("Template root: {}", template_root.display());
+        tracing::debug!("Template roots: User: {}, Internal: {}", user_template_root.display(), internal_template_root.display());
         file_manager.add_watch(document_root.as_path());
-        file_manager.add_watch(template_root.as_path());
+        file_manager.add_watch(user_template_root.as_path());
+        file_manager.add_watch(internal_template_root.as_path());
 
         let result_cache = ResultCache::new(config.max_cache_size);
         result_cache.listen_for_changes(&file_manager);
 
         let cfg = HtmlGeneratorCfg {
-            template_root,
+            user_template_root,
+            internal_template_root,
             site_title: config.site_title.as_str(),
             site_lang: config.site_lang.as_str(),
             highlight_style: config.highlight_style.as_str(),
             index_file: config.index_file.as_str(),
             menu: config.menu,
+            file_manager: &file_manager,
         };
         tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;
@@ -90,7 +96,8 @@ impl AppState {
         Ok(AppState {
             index_file: config.index_file,
             generate_index: config.generate_index,
-            web_root,
+            user_web_root,
+            internal_web_root,
             full_text_index,
             html_generator,
             file_manager,
@@ -274,7 +281,10 @@ async fn handle_root_path(
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
-    let new_path = app_state.web_root.join(path.as_str());
+    let mut new_path = app_state.user_web_root.join(path.as_str());
+    if !new_path.exists() {
+        new_path = app_state.internal_web_root.join(path.as_str());
+    }
     tracing::debug!("Root request {path} => {}", new_path.display());
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
@@ -395,15 +405,6 @@ async fn serve_markdown_file(
     Ok((StatusCode::OK, headers, Html(html)).into_response())
 }
 
-// async fn handle_base_path(
-//     State(mut app_state): State<AppStateType>,
-//     axum::extract::Path(path): axum::extract::Path<String>,
-//     uri: axum::extract::OriginalUri,
-//     headers: HeaderMap
-// ) -> axum::response::Response {
-//     match
-// }
-
 async fn serve_static_file(
     path: &std::path::Path,
     headers: HeaderMap,
@@ -429,10 +430,10 @@ async fn serve_index(
         None => {
             tracing::debug!("No file specified. Generating an index result at {}", path.display());
             let peers = if let Ok(abs_path) = path.canonicalize() {
-                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
+                app_state.file_manager.find_peers_in_folder(abs_path.as_path(), None)
             }
             else {
-                app_state.file_manager.find_files_in_directory(path, None)
+                app_state.file_manager.find_peers_in_folder(path, None)
             };
             if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
                 headers.append(CACHED_HEADER, hval);

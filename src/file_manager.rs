@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashSet, ffi::OsStr, path::{Path, PathBuf}, time::Duration};
+use std::{borrow::Borrow, collections::HashSet, ffi::{OsStr, OsString}, path::{Path, PathBuf}, time::Duration};
 use async_watcher::{notify::{EventKind, RecommendedWatcher, RecursiveMode}, AsyncDebouncer, DebouncedEvent};
 use serde::Serialize;
 
@@ -51,37 +51,43 @@ impl FileManager {
         files
     }
 
-    pub fn find_files_in_directory(&self, abs_path: &Path, skip: Option<&OsStr>) -> Option<PeerInfo> {
+    pub fn find_files(&self, abs_path: &Path, ext: &OsStr) -> Vec<walkdir::DirEntry> {
         tracing::debug!("Find files in: {}", abs_path.display());
-        let mut folder_set = HashSet::new();
         let mut files = Vec::new();
         for entry in walkdir::WalkDir::new(abs_path).max_depth(2).into_iter().flatten() {
-            let parent = entry.path().parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
-            if entry.file_type().is_file() {
-                let fname = entry.file_name();
-                let fname_str = fname.to_string_lossy();
-                if let Some((stem, ext)) = fname_str.rsplit_once('.') {
-                    if ext.eq_ignore_ascii_case("md") {
-                        let direct_child = parent.as_os_str().len() == abs_path.as_os_str().len();
-                        if direct_child {
-                            if let Some(skip) = skip {
-                                if fname.eq(skip) {
-                                    continue;
-                                }
-                            }
-                            files.push(ExternalLink::new(
-                                urlencoding::encode(fname_str.borrow()).into_owned(), 
-                                stem.to_string())
-                            );
-                        }
-                        else if let Ok(parent) = parent.strip_prefix(abs_path) {
-                            folder_set.insert(parent.to_owned());
-                        }
-                    }
-                }
+            if entry.path().extension() == Some(ext) {
+                files.push(entry);
             }
         }
+        files
+    }
 
+    pub fn find_peers_in_folder(&self, abs_path: &Path, skip: Option<&OsStr>) -> Option<PeerInfo> {
+        let mut folder_set = HashSet::new();
+        let mut files = Vec::new();
+        let md_ext = OsString::from("md");
+        for entry in self.find_files(abs_path, md_ext.as_os_str()) {
+            let parent = entry.path().parent().map_or(PathBuf::from("/"), |p| p.to_path_buf());
+            let fname = entry.file_name();
+            let fname_str = fname.to_string_lossy();
+            let direct_child = parent.as_os_str().len() == abs_path.as_os_str().len();
+            if direct_child {
+                if let Some(skip) = skip {
+                    if fname.eq(skip) {
+                        continue;
+                    }
+                }
+                if let Some(stem) = entry.path().file_stem() {
+                    files.push(ExternalLink::new(
+                        urlencoding::encode(fname_str.borrow()).into_owned(), 
+                        stem.to_string_lossy().to_string())
+                    );
+                }
+            }
+            else if let Ok(parent) = parent.strip_prefix(abs_path) {
+                folder_set.insert(parent.to_owned());
+            }
+        }
         if files.is_empty() && folder_set.is_empty() {
             return None;
         }
@@ -117,7 +123,7 @@ impl FileManager {
             false => Some(original_file_name),
             true => None,
         };
-        self.find_files_in_directory(parent_path, original_file_name)
+        self.find_peers_in_folder(parent_path, original_file_name)
     }
 
     pub fn add_watch(&mut self, path: &Path) {

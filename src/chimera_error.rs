@@ -6,7 +6,6 @@ use crate::AppStateType;
 
 #[derive(Debug, PartialEq)]
 pub enum ChimeraError {
-    MissingMarkdownTemplate,
     TemplateParsing(String),
     IOError(String),
     TantivyError,
