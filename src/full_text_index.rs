@@ -38,7 +38,7 @@ struct DocumentScanner {
     index_writer: Arc<RwLock<IndexWriter>>,
     file_times: FileTimes,
     work_queue: Receiver<PathBuf>,
-    web_root: PathBuf,
+    document_root: PathBuf,
     title: Field,
     link: Field,
     body: Field,
@@ -82,7 +82,7 @@ impl FullTextIndex {
     
     pub async fn scan_directory(
         &self,
-        web_root: PathBuf,
+        root_directory: PathBuf,
         search_index_dir: PathBuf,
         file_manager: &FileManager
     ) -> Result<(), ChimeraError> {
@@ -93,7 +93,7 @@ impl FullTextIndex {
             index_writer: self.index_writer.clone(),
             file_times,
             work_queue: rx,
-            web_root,
+            document_root: root_directory.to_path_buf(),
             title: self.title_field,
             link: self.link_field,
             body: self.body_field,
@@ -206,12 +206,14 @@ impl DocumentScanner {
                 true
             }
         });
-        if !deleted.is_empty() {
+        if !deleted.is_empty()
+        {
             let mut index = self.index_writer.write()?;
             for del in deleted {
-                if let Ok(relative_path) = del.strip_prefix(self.web_root.as_path()) {
+                if let Ok(relative_path) = del.strip_prefix(self.document_root.as_path()) {
+                    let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
                     tracing::debug!("Removing deleted document {} from full text index", del.display());
-                    let doc_term = Term::from_field_text(self.link, &relative_path.to_string_lossy());
+                    let doc_term = Term::from_field_text(self.link, &anchor_string);
                     index.delete_term(doc_term);
                 }
             }
@@ -225,16 +227,14 @@ impl DocumentScanner {
 
         let mut docs_since_last_commit = 0;
         while let Some(path) = self.work_queue.recv().await {
-            tracing::debug!("Tantivy scan for {}", path.display());
             let modtime = get_modtime(path.as_path()).await;
             if self.file_times.check_up_to_date(path.as_path(), modtime) {
-                tracing::debug!("{} is up-to-date", path.display());
                 continue;
             }
 
             let mut doc = TantivyDocument::default();
-            if let Ok(relative_path) = path.strip_prefix(self.web_root.as_path()) {
-                let anchor_string = relative_path.to_string_lossy();
+            if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
+                let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
 
                 tracing::debug!("Removing {anchor_string} from full text index");
                 let doc_term = Term::from_field_text(self.link, &anchor_string);
