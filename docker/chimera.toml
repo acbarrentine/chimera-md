@@ -5,8 +5,6 @@ generate_index = false
 
 # But the rest of these are available if you want to tune things
 chimera_root = "/data"
-web_root = "/data/www"
-document_root = "/data/home"
 index_file = "index.md"
 highlight_style = "an-old-hope"
 log_level = "Info"

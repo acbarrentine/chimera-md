@@ -228,21 +228,25 @@ async fn mw_response_time(
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
-            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
-                headers.insert(axum::http::header::CACHE_CONTROL, value);
-            }
             match status.is_success() || status.is_redirection() {
-                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16()),
+                true => {
+                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
+                        headers.insert(axum::http::header::CACHE_CONTROL, value);
+                    }
+                    tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
+                },
                 false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
             }
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
-                headers.insert(axum::http::header::CACHE_CONTROL, value);
-            }
             match status.is_success()  || status.is_redirection() {
-                true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
+                true => {
+                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
+                        headers.insert(axum::http::header::CACHE_CONTROL, value);
+                    }
+                    tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16())
+                },
                 false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {addr}", response.status().as_u16())
             }
         },
