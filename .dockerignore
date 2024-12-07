@@ -1,6 +1,9 @@
 *.tar
 target/
-examples/
+example/home/
+example/log/
+example/search/
+
 .cargo/
 .DS_Store
 .git/

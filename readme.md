@@ -300,6 +300,15 @@ increasing complexity, these are:
 <link rel="canonical" href="https://canonical.server.name{{uri}}" />
 ```
 
+### v0.4.0 BREAKING CHANGE!
+
+* DO NOT TAKE THIS CHANGE!
+
+* IT IS NOT READY FOR PRODUCTION!
+
+* The readme will be out of date for little while I work out all the details of the big
+  file restructure I am doing. Bear with me, please.
+
 ### v0.3.8
 
 * Fixing an ambiguous routing issue. /path/file.md should not be equivalent to
