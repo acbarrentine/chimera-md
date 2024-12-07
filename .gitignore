@@ -1,6 +1,6 @@
 /target
-/search
-/log
+/example/search
+/example/log
 deploy.sh
 chimera_test.tar
 *.tar
