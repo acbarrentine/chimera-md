@@ -20,6 +20,9 @@ pub struct TomlConfig {
     #[serde(default = "default_web_root")]
     pub web_root: String,
 
+    #[serde(default = "default_document_root")]
+    pub document_root: String,
+
     #[serde(default = "default_site_title")]
     pub site_title: String,
 
@@ -52,7 +55,8 @@ pub struct TomlConfig {
 }
 
 fn default_chimera_root() -> String { "/data".to_string() }
-fn default_web_root() -> String { "/data/home".to_string() }
+fn default_web_root() -> String { "/data/www".to_string() }
+fn default_document_root() -> String { "/data/home".to_string() }
 fn default_site_title() -> String { "Chimera-md".to_string() }
 fn default_index_file() -> String { "index.md".to_string() }
 fn default_highlight_style() -> String { "an-old-hope".to_string() }

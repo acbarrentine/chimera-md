@@ -29,6 +29,7 @@ use crate::toml_config::TomlConfig;
 
 const SERVER_TIMING: &str = "server-timing";
 const CACHED_HEADER: &str = "cached";
+const HOME_DIR: &str = "/home";
 
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
@@ -38,9 +39,8 @@ struct Config {
 }
 
 struct AppState {
+    web_root: PathBuf,
     index_file: String,
-    style_root: PathBuf,
-    icon_root: PathBuf,
     generate_index: bool,
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
@@ -53,21 +53,20 @@ impl AppState {
     pub async fn new(chimera_root: PathBuf, config: TomlConfig) -> Result<Self, ChimeraError> {
         let template_root = chimera_root.join("templates");
         let web_root = chimera_root.join(config.web_root.as_str());
+        let document_root = chimera_root.join(config.document_root.as_str());
         let search_index_dir = chimera_root.join("search");
-        let style_root = chimera_root.join("style");
-        let icon_root = chimera_root.join("icon");
 
-        tracing::debug!("Document root: {}", web_root.display());
-        if let Err(e) = std::env::set_current_dir(web_root.as_path()) {
-            tracing::error!("Failed to set web root to {}: {e}", web_root.display());
+        tracing::debug!("Document root: {}", document_root.display());
+        if let Err(e) = std::env::set_current_dir(document_root.as_path()) {
+            tracing::error!("Failed to set web root to {}: {e}", document_root.display());
         }
 
         let mut file_manager = FileManager::new(
-            web_root.as_path(),
+            document_root.as_path(),
             config.index_file.as_str(),
         ).await?;
         tracing::debug!("Template root: {}", template_root.display());
-        file_manager.add_watch(web_root.as_path());
+        file_manager.add_watch(document_root.as_path());
         file_manager.add_watch(template_root.as_path());
 
         let result_cache = ResultCache::new(config.max_cache_size);
@@ -75,9 +74,10 @@ impl AppState {
 
         let cfg = HtmlGeneratorCfg {
             template_root,
-            site_title: config.site_title,
-            site_lang: config.site_lang,
-            highlight_style: config.highlight_style,
+            site_title: config.site_title.as_str(),
+            site_lang: config.site_lang.as_str(),
+            highlight_style: config.highlight_style.as_str(),
+            index_file: config.index_file.as_str(),
             menu: config.menu,
         };
         tracing::debug!("HtmlGenerator");
@@ -85,13 +85,12 @@ impl AppState {
         
         tracing::debug!("Full text index: {}", search_index_dir.to_string_lossy());
         let full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
-        full_text_index.scan_directory(web_root, search_index_dir, &file_manager).await?;
+        full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
 
         Ok(AppState {
             index_file: config.index_file,
-            style_root,
-            icon_root,
             generate_index: config.generate_index,
+            web_root,
             full_text_index,
             html_generator,
             file_manager,
@@ -136,10 +135,10 @@ async fn main() -> Result<(), ChimeraError> {
 
     let app = Router::new()
         .route("/search", get(handle_search))
-        .route("/style/*path", get(handle_style))
-        .route("/icon/*path", get(handle_icon))
+        .route(format!("{HOME_DIR}/*path").as_str(), get(handle_home))
+        .route(format!("{HOME_DIR}/").as_str(), get(handle_home_folder))
+        .route("/*path", get(handle_root_path))
         .route("/", get(handle_root))
-        .route("/*path", get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
@@ -270,50 +269,41 @@ async fn handle_search(
     handle_err(app_state).await.into_response()
 }
 
-async fn handle_internal_file(
-    app_state: AppStateType,
-    path: PathBuf,
-    headers: HeaderMap) -> axum::response::Response {
+async fn handle_root_path(
+    State(app_state): State<AppStateType>,
+    axum::extract::Path(path): axum::extract::Path<String>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    let new_path = app_state.web_root.join(path.as_str());
+    tracing::debug!("Root request {path} => {}", new_path.display());
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    match ServeDir::new(path.as_path()).try_call(req).await {
+    match ServeDir::new(new_path.as_path()).try_call(req).await {
         Ok(resp) => {
             resp.into_response()
         },
         Err(e) => {
-            tracing::warn!("Error serving file {}: {e}", path.display());
+            tracing::warn!("Error serving file {}: {e}", new_path.display());
             handle_404(app_state).await.into_response()
         }
     }
 }
 
-async fn handle_icon(
+async fn handle_home_folder(
     State(app_state): State<AppStateType>,
-    axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
 ) -> axum::response::Response {
-    let new_path = app_state.icon_root.join(path.as_str());
-    tracing::debug!("Icon request {path} => {}", new_path.display());
-    handle_internal_file(app_state, new_path, headers).await
+    let redirect_path = format!("{HOME_DIR}/{}", app_state.index_file);
+    tracing::debug!("Redirecting /home/ => {redirect_path}");
+    Redirect::permanent(redirect_path.as_str()).into_response()
 }
 
 //#[debug_handler]
-async fn handle_style(
-    State(app_state): State<AppStateType>,
-    axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
-) -> axum::response::Response {
-    let new_path = app_state.style_root.join(path.as_str());
-    tracing::debug!("Style request {path} => {}", new_path.display());
-    handle_internal_file(app_state, new_path, headers).await
-}
-
-//#[debug_handler]
-async fn handle_path(
+async fn handle_home(
     State(mut app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
+    tracing::debug!("handle_home: {path}");
     if let Some(redirect) = app_state.known_redirects.get(&path) {
         tracing::debug!("Known redirect: {path} => {redirect}");
         return Redirect::permanent(redirect).into_response()
@@ -347,7 +337,7 @@ async fn handle_path(
 async fn handle_root(
     State(app_state): State<AppStateType>,
 ) -> axum::response::Response {
-    let redirect_path = format!("/home/{}", app_state.index_file);
+    let redirect_path = format!("{HOME_DIR}/{}", app_state.index_file);
     tracing::debug!("Redirecting / => {redirect_path}");
     Redirect::permanent(redirect_path.as_str()).into_response()
 }

@@ -2,7 +2,5 @@
 /example/search
 /example/log
 deploy.sh
-chimera_test.tar
 *.tar
 todo.md
-examples/chimera.db
