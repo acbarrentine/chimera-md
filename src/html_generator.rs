@@ -1,16 +1,15 @@
-use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 use indexmap::IndexMap;
 use serde::Serialize;
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub struct HtmlGeneratorCfg<'a> {
-    pub template_root: &'a str,
+pub struct HtmlGeneratorCfg {
+    pub template_root: PathBuf,
     pub site_title: String,
-    pub index_file: &'a str,
     pub site_lang: String,
     pub highlight_style: String,
     pub menu: IndexMap<String, String>,
@@ -27,7 +26,6 @@ pub struct HtmlGenerator {
     site_title: String,
     site_lang: String,
     highlight_style: String,
-    index_file: OsString,
     menu: Vec<MenuItem>,
 }
 
@@ -35,14 +33,21 @@ impl HtmlGenerator {
     pub fn new(
         cfg: HtmlGeneratorCfg
     ) -> Result<HtmlGenerator, ChimeraError> {
-        let template_glob = format!("{}/*.html", cfg.template_root);
-        let mut tera = Tera::new(template_glob.as_str())?;
+        let template_glob = cfg.template_root.join("*.html");
+        let template_glob = match template_glob.to_str() {
+            Some(glob) => glob,
+            None => {
+                return Err(ChimeraError::IOError("Could not get template dir glob".to_string()));
+            },
+        };
+        //let template_glob = format!("{}/*.html", cfg.template_root.display());
+        let mut tera = Tera::new(template_glob)?;
         tera.autoescape_on(vec![]);
         let required_templates = ["markdown.html", "error.html", "search.html"];
         let found_templates = Vec::from_iter(tera.get_template_names());
         for name in required_templates {
             if !found_templates.contains(&name) {
-                let path_to_template = PathBuf::from(cfg.template_root).join(name);
+                let path_to_template = cfg.template_root.join(name);
                 tracing::error!("Missing required template: {}", path_to_template.display());
                 return Err(ChimeraError::MissingMarkdownTemplate);
             }
@@ -53,7 +58,6 @@ impl HtmlGenerator {
             site_title: cfg.site_title,
             site_lang: cfg.site_lang,
             highlight_style: cfg.highlight_style,
-            index_file: OsString::from(cfg.index_file),
             menu: cfg.menu.into_iter().map(|(title, target)| {
                 MenuItem {
                     title,
@@ -102,7 +106,6 @@ impl HtmlGenerator {
         body: String,
         scraper: DocumentScraper,
         peers: Option<PeerInfo>,
-        uri: &str,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let template = scraper.get_template();
@@ -112,7 +115,7 @@ impl HtmlGenerator {
                 None => path.as_os_str(),
             }.to_string_lossy().into_owned()
         });
-        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
+        let breadcrumbs = get_breadcrumbs(path);
         let title = format!("{}: {}", self.site_title, title);
 
         let mut vars = self.get_vars(title.as_str(), scraper.has_code_blocks);
@@ -122,7 +125,6 @@ impl HtmlGenerator {
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
         vars.insert("url", &path.to_string_lossy());
-        vars.insert("uri", uri);
 
         for (key, value) in &scraper.metadata {
             vars.insert(key, value);
@@ -143,7 +145,7 @@ impl HtmlGenerator {
     }
 
     pub async fn gen_index(&self, path: &Path, peers: Option<PeerInfo>) -> Result<String, ChimeraError> {
-        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
+        let breadcrumbs = get_breadcrumbs(path);
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
         let title = format!("{}: {}", self.site_title, path_str);
@@ -199,20 +201,18 @@ impl HtmlGenerator {
     }
 }
 
-fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {
-    let parts: Vec<&OsStr> = path.iter().filter(|el| {
-        el != &skip
-    }).collect();
-    let mut crumbs = Vec::with_capacity(parts.len());
+fn get_breadcrumbs(path: &Path) -> Vec<ExternalLink> {
+    let mut crumbs = Vec::with_capacity(8);
     let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
-    url.push_str(format!("{HOME_DIR}/").as_str());
-
-    crumbs.push(ExternalLink::new(url.clone(), "Home".to_string()));
-
-    for p in parts {
+    url.push('/');
+    for p in path.iter() {
         url.push_str(&urlencoding::encode(&p.to_string_lossy()));
         url.push('/');
-        crumbs.push(ExternalLink::new(url.clone(), p.to_string_lossy().into_owned()));
+        let mut name = p.to_string_lossy().into_owned();
+        if name.eq("home") {
+            name.replace_range(0..1, "H");
+        }
+        crumbs.push(ExternalLink::new(url.clone(), name));
     }
     crumbs
 }

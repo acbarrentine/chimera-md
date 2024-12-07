@@ -192,17 +192,21 @@ references. A file such as `/data/www/images/logo.png` would route as `/home/ima
 There's a few different possible levels of customization points for the Chimera-md server. In
 increasing complexity, these are:
 
-1.  `/home/style/site.css`
+1.  `/style/site.css`
 
     The Chimera-md header template references three CSS files. Two are termed internal
-    use, and serve from the `/style` route. But the third, `/home/style/site.css` is intended
-    for end-user customization. In there, you can adapt the site style as you see fit. There is
-    a set of CSS color variables to make broad color changes easy. An example of this file is
-    provided on [Github](https://github.com/acbarrentine/chimera-md/blob/main/examples/style/site.css).
-    You can make your own `site.css` file within your document root without having to do any
-    Docker mapping hijinks, and browsers will just immediately start using it. It does expect
-    to be in a `style` subfolder, though. So if your document root was `/users/me/documents`,
-    you would place it in `/users/me/documents/style/site.css`.
+    use, but the third, `/style/site.css` is intended for end-user customization. In there,
+    you can adapt the site style as you see fit. There is a set of CSS color variables to
+    make broad color changes easy. An example of this file is provided on
+    [Github](https://github.com/acbarrentine/chimera-md/blob/main/example/style/site.css).
+
+    You can make your own `site.css` file and map it over the Docker image using a file
+    mapping:
+
+```yaml
+        volumes:
+        - /docker/chimera-md/site.css:/data/style/site.css
+```
 
     You can also put a `favicon.ico` file in the web root and browsers will discover it on
     their own.
@@ -215,7 +219,7 @@ increasing complexity, these are:
     [Tera](https://keats.github.io/tera/). Variables provided by the Chimera-md back-end
     are available.
 
-```
+```yaml
         volumes:
         - /users/me/templates/site-header.html:/data/templates/site-header.html
         - /users/me/templates/site-footer.html:/data/templates/site-footer.html

@@ -1,0 +1,158 @@
+2024-12-06T18:34:40.092531Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-12-06T18:34:40.117231Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-12-06T18:35:05.463092Z  INFO chimera_md: 200: /home/index.md in 17.839 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: None, addr: 127.0.0.1
+2024-12-06T18:35:05.555007Z  WARN chimera_md: 404: /favicon.ico
+2024-12-06T18:35:05.555417Z  WARN chimera_md: 404: /favicon.ico in 0.51 ms, user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), addr: 127.0.0.1
+2024-12-06T18:35:23.854013Z  WARN chimera_md: 404: /tests/Index.md
+2024-12-06T18:35:23.854407Z  WARN chimera_md: 404: /tests/Index.md in 0.491 ms (static), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: None, addr: 127.0.0.1
+2024-12-06T18:35:50.902331Z  WARN chimera_md: 404: /tests/index.md
+2024-12-06T18:35:50.902820Z  WARN chimera_md: 404: /tests/index.md in 0.65 ms (static), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: None, addr: 127.0.0.1
+2024-12-06T18:36:35.144665Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:36:35.144837Z  WARN chimera_md: 404: /index.md in 0.202 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:37:07.939217Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:37:07.939391Z  WARN chimera_md: 404: /index.md in 0.208 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:37:18.165614Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:37:18.165793Z  WARN chimera_md: 404: /index.md in 0.211 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:37:24.280099Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:37:24.280284Z  WARN chimera_md: 404: /index.md in 0.216 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:39:12.307586Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:39:12.307754Z  WARN chimera_md: 404: /index.md in 0.203 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:39:35.120111Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:39:35.120277Z  WARN chimera_md: 404: /index.md in 0.201 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:40:11.928655Z  WARN chimera_md: 404: /index.md
+2024-12-06T18:40:11.928819Z  WARN chimera_md: 404: /index.md in 0.199 ms (static), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:40:17.891469Z  INFO chimera_md: 200: /home/index.md in 0.175 ms (cached), user_agent: Some("curl/8.7.1"), referer: None, addr: 127.0.0.1
+2024-12-06T18:41:17.247986Z  INFO chimera_md: 200: /home/index.md in 0.489 ms (cached), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/search?query=book&x=0&y=0"), addr: 127.0.0.1
+2024-12-06T18:41:22.186514Z  INFO chimera_md: 200: /home/tests/Literal%20quotes%20in%20titles.md in 13.417 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/home/tests/"), addr: 127.0.0.1
+2024-12-06T18:41:24.172099Z  WARN chimera_md: 404: /hometests/
+2024-12-06T18:41:24.172456Z  WARN chimera_md: 404: /hometests/ in 0.443 ms, user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), addr: 127.0.0.1
+2024-12-06T18:42:52.278968Z  INFO chimera_md: 200: /home/index.md in 0.426 ms (cached), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: None, addr: 127.0.0.1
+2024-12-06T18:43:05.151844Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-12-06T18:43:05.175884Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-12-06T18:43:11.424854Z  INFO chimera_md: 200: /home/tests/Literal%20quotes%20in%20titles.md in 10.475 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/home/tests/"), addr: 127.0.0.1
+2024-12-06T18:43:17.515911Z  INFO chimera_md: 200: /home/tests/Links%2C%20reference%20style.md in 12.755 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/home/tests/"), addr: 127.0.0.1
+2024-12-06T18:43:19.845212Z  WARN chimera_md: 404: /url
+2024-12-06T18:43:19.845647Z  WARN chimera_md: 404: /url in 0.552 ms, user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), addr: 127.0.0.1
+2024-12-06T18:43:25.680097Z  INFO chimera_md: 200: /home/index.md in 12.749 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/home/tests/Literal%20quotes%20in%20titles.md"), addr: 127.0.0.1
+2024-12-06T18:43:29.329267Z  INFO chimera_md: 200: /home/Dialog%20test%202.md in 13.271 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: Some("http://localhost:8080/home/index.md"), addr: 127.0.0.1
+2024-12-06T23:57:04.113302Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-12-06T23:57:04.139067Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-12-06T23:57:23.438612Z DEBUG chimera_md::toml_config: Toml config file: document_root = "/Users/acbarrentine/Source/chimera-md/examples"
+template_root = "/Users/acbarrentine/Source/chimera-md/templates"
+style_root = "/Users/acbarrentine/Source/chimera-md/style"
+icon_root = "/Users/acbarrentine/Source/chimera-md/icon"
+search_index_dir = "/Users/acbarrentine/Source/chimera-md/search"
+log_dir = "/Users/acbarrentine/Source/chimera-md/log"
+site_title = "Example journal"
+index_file = "index.md"
+site_lang = "en"
+highlight_style = "a11y_dark"
+generate_index = true
+log_level = "Debug"
+max_cache_size = 52428800
+port = 8080
+
+[redirects]
+"dialog-test/" = "/home/Dialog%20test%202.md"
+
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"
+"Tests" = "/home/tests/index.md"
+"Subfolder" = "/home/subfolder/index.md"
+
+2024-12-06T23:57:23.439478Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-12-06T23:57:23.439581Z DEBUG chimera_md: Document root: /Users/acbarrentine/Source/chimera-md/examples
+2024-12-06T23:57:23.440539Z DEBUG chimera_md: Template root: /Users/acbarrentine/Source/chimera-md/templates
+2024-12-06T23:57:23.443407Z DEBUG chimera_md: HtmlGenerator
+2024-12-06T23:57:23.445524Z DEBUG globset: built glob set; 0 literals, 0 basenames, 1 extensions, 0 prefixes, 0 suffixes, 0 required extensions, 0 regexes    
+2024-12-06T23:57:23.461433Z DEBUG chimera_md: Full text index: /Users/acbarrentine/Source/chimera-md/search
+2024-12-06T23:57:23.469522Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.term"    
+2024-12-06T23:57:23.469874Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.store"    
+2024-12-06T23:57:23.469949Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.idx"    
+2024-12-06T23:57:23.470029Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.pos"    
+2024-12-06T23:57:23.470115Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.fast"    
+2024-12-06T23:57:23.470314Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.fieldnorm"    
+2024-12-06T23:57:23.470417Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.2823.del"    
+2024-12-06T23:57:23.470579Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.term"    
+2024-12-06T23:57:23.470667Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.store"    
+2024-12-06T23:57:23.470736Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.idx"    
+2024-12-06T23:57:23.470813Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.pos"    
+2024-12-06T23:57:23.470884Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.fast"    
+2024-12-06T23:57:23.470952Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.fieldnorm"    
+2024-12-06T23:57:23.471030Z DEBUG tantivy::directory::mmap_directory: Releasing lock ".tantivy-meta.lock"    
+2024-12-06T23:57:23.471668Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-12-06T23:57:23.471850Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.term"    
+2024-12-06T23:57:23.471893Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.store"    
+2024-12-06T23:57:23.471922Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.idx"    
+2024-12-06T23:57:23.471956Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.pos"    
+2024-12-06T23:57:23.471990Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.fast"    
+2024-12-06T23:57:23.472021Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.fieldnorm"    
+2024-12-06T23:57:23.472054Z DEBUG tantivy::directory::mmap_directory: Open Read "3f2570560f814d8b8bd68a1b1239ead0.2823.del"    
+2024-12-06T23:57:23.472086Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.term"    
+2024-12-06T23:57:23.472120Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.store"    
+2024-12-06T23:57:23.472148Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.idx"    
+2024-12-06T23:57:23.472182Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.pos"    
+2024-12-06T23:57:23.472215Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.fast"    
+2024-12-06T23:57:23.472245Z DEBUG tantivy::directory::mmap_directory: Open Read "8ed930dc8dd048b98933371f07aeebfe.fieldnorm"    
+2024-12-06T23:57:23.472281Z DEBUG tantivy::directory::mmap_directory: Releasing lock ".tantivy-meta.lock"    
+2024-12-06T23:57:23.474072Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/Dialog test 1.md
+2024-12-06T23:57:23.474142Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/Example 1.md
+2024-12-06T23:57:23.474227Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/subfolder/index.md
+2024-12-06T23:57:23.474320Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Strong and em together.md
+2024-12-06T23:57:23.474439Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Auto links.md
+2024-12-06T23:57:23.474517Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Nested blockquotes.md
+2024-12-06T23:57:23.474604Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Literal quotes in titles.md
+2024-12-06T23:57:23.474672Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Backslash escapes.md
+2024-12-06T23:57:23.474756Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Links, reference style.md
+2024-12-06T23:57:23.474824Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Markdown Documentation - Basics.md
+2024-12-06T23:57:23.474885Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Markdown Documentation - Syntax.md
+2024-12-06T23:57:23.474939Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Inline HTML comments.md
+2024-12-06T23:57:23.474983Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Inline HTML (Simple).md
+2024-12-06T23:57:23.475050Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Hard-wrapped paragraphs with list-like lines.md
+2024-12-06T23:57:23.475130Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Tidyness.md
+2024-12-06T23:57:23.475187Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Tabs.md
+2024-12-06T23:57:23.475252Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/index.md
+2024-12-06T23:57:23.475309Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Inline HTML (Advanced).md
+2024-12-06T23:57:23.475359Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Amps and angle encoding.md
+2024-12-06T23:57:23.475404Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Links, inline style.md
+2024-12-06T23:57:23.475464Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Ordered and unordered lists.md
+2024-12-06T23:57:23.475522Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Blockquotes with code blocks.md
+2024-12-06T23:57:23.475583Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/tests/Horizontal rules.md
+2024-12-06T23:57:23.475653Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/no index/something.md
+2024-12-06T23:57:23.475717Z DEBUG chimera_md::full_text_index: Adding to ft.toml: /Users/acbarrentine/Source/chimera-md/examples/index.md
+2024-12-06T23:57:23.475740Z DEBUG chimera_md::full_text_index: Removing /home/index.md from full text index
+2024-12-06T23:57:23.475939Z DEBUG chimera_md::full_text_index: Adding index.md to full-text index
+2024-12-06T23:57:23.476001Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/Dialog test 2.md
+2024-12-06T23:57:23.476046Z DEBUG chimera_md::full_text_index: Up-to-date in ft.toml: /Users/acbarrentine/Source/chimera-md/examples/Example 2.md
+2024-12-06T23:57:23.477387Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.483411Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.store"    
+2024-12-06T23:57:23.485064Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.490080Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.fast"    
+2024-12-06T23:57:23.491502Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.497087Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.fieldnorm"    
+2024-12-06T23:57:23.498685Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.504228Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.term"    
+2024-12-06T23:57:23.505719Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.511165Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.idx"    
+2024-12-06T23:57:23.512646Z DEBUG tantivy::directory::mmap_directory: Atomic Write ".managed.json"    
+2024-12-06T23:57:23.518015Z DEBUG tantivy::directory::mmap_directory: Open Write "2933299cac0349daae1c6d2c1becef21.pos"    
+2024-12-06T23:59:47.382235Z DEBUG chimera_md: Redirecting / => /home/index.md
+2024-12-06T23:59:47.382472Z DEBUG chimera_md: 308: / in 0.483 ms
+2024-12-06T23:59:47.388703Z DEBUG chimera_md: Chimera request index.md
+2024-12-06T23:59:47.388833Z DEBUG chimera_md: Markdown request index.md
+2024-12-06T23:59:47.397820Z DEBUG chimera_md::document_scraper: Adding metadata var: template = index.html
+2024-12-06T23:59:47.397890Z DEBUG chimera_md::document_scraper: Adding metadata var: date = 2024-11-14
+2024-12-06T23:59:47.397915Z DEBUG chimera_md::document_scraper: Adding metadata var: Title = Example Index
+2024-12-06T23:59:47.397936Z DEBUG chimera_md::document_scraper: Adding metadata var: Image = /media/fancy.jpg
+2024-12-06T23:59:47.397961Z DEBUG chimera_md::document_scraper: Adding metadata var: Alt = A fancy piece of chocolate art
+2024-12-06T23:59:47.398094Z DEBUG chimera_md::document_scraper: Doclink found: InternalLink { anchor: "chimera-md", name: "Chimera-md", level: 1 }
+2024-12-06T23:59:47.398256Z DEBUG chimera_md::document_scraper: Doclink found: InternalLink { anchor: "what-s-in-a-name", name: "What’s in a name?", level: 2 }
+2024-12-06T23:59:47.398336Z DEBUG chimera_md::document_scraper: Doclink found: InternalLink { anchor: "extensibility", name: "Extensibility", level: 2 }
+2024-12-06T23:59:47.398437Z DEBUG chimera_md::file_manager: Finding peers of index.md
+2024-12-06T23:59:47.398650Z DEBUG chimera_md::file_manager: Find files in: /Users/acbarrentine/Source/chimera-md/examples
+2024-12-06T23:59:47.399702Z DEBUG chimera_md::html_generator: Rewriting anchor: chimera-md
+2024-12-06T23:59:47.399856Z DEBUG chimera_md::html_generator: Rewriting anchor: what-s-in-a-name
+2024-12-06T23:59:47.399921Z DEBUG chimera_md::html_generator: Rewriting anchor: extensibility
+2024-12-06T23:59:47.401285Z  INFO chimera_md: 200: /home/index.md in 12.732 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"), referer: None, addr: 127.0.0.1

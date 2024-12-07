@@ -1,0 +1,20 @@
+chimera_root = "example"
+web_root = "www"
+site_title = "Chimera Example"
+index_file = "index.md"
+site_lang = "en"
+highlight_style = "a11y_dark"
+generate_index = true
+log_level = "Debug"
+max_cache_size = 52428800
+port = 8080
+
+[redirects]
+"dialog-test/" = "/home/Dialog%20test%202.md"
+
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"
+"Tests" = "/home/tests/index.md"
+"Subfolder" = "/home/subfolder/index.md"

@@ -1,0 +1,39 @@
+2024-11-30T13:47:04.399449Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T13:47:04.422880Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T13:47:14.168540Z  INFO chimera_md: 200: /home/index.md in 18.615 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"), referer: None
+2024-11-30T13:47:14.265730Z  WARN chimera_md: 404: /favicon.ico in 0.558 ms
+2024-11-30T14:00:24.660365Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:00:24.686626Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:00:33.150162Z  INFO chimera_md::document_scraper: Image: Inline, dest_url: /home/assets/img-1.jpg, title: , id: 
+2024-11-30T14:00:33.152833Z  INFO chimera_md: 200: /home/index.md in 11.899 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"), referer: None
+2024-11-30T14:08:14.732437Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:08:14.754796Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:08:47.302226Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:08:47.328434Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:08:59.816047Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:08:59.837159Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:09:30.323049Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:09:30.344324Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:09:32.696083Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:09:32.713158Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:09:54.452401Z  INFO chimera_md: 200: /home/tests/Markdown%20Documentation%20-%20Syntax.md in 29.24 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"), referer: Some("http://localhost:8080/home/tests/")
+2024-11-30T14:47:37.526921Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:47:37.551893Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:55:25.306682Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T14:55:25.325441Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T14:55:49.995119Z  INFO chimera_md::document_scraper: Image: Inline, dest_url: /home/assets/img-1.jpg, title: , id: 
+2024-11-30T14:55:49.999870Z  INFO chimera_md: 200: /home/index.md in 14.833 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"), referer: Some("http://localhost:8080/home/tests/Markdown%20Documentation%20-%20Syntax.md"), addr: 127.0.0.1:55610
+2024-11-30T15:00:07.935750Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:00:07.953038Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T15:01:12.357381Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:01:12.376717Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T15:33:08.489676Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:33:08.518420Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T15:33:20.015493Z  INFO chimera_md::document_scraper: Image: Inline, dest_url: /home/assets/img-1.jpg, title: lightbox, id: 
+2024-11-30T15:33:20.018242Z  INFO chimera_md: 200: /home/index.md in 12.359 ms (generated), user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"), referer: Some("http://localhost:8080/home/tests/Markdown%20Documentation%20-%20Syntax.md"), addr: 127.0.0.1
+2024-11-30T15:46:52.675570Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:46:52.705688Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T15:46:59.100922Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:46:59.132694Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
+2024-11-30T15:47:16.770828Z  INFO chimera_md: Starting up Chimera MD server "Example journal" on port 8080
+2024-11-30T15:47:16.803002Z  INFO tantivy::directory::file_watcher: Meta file "/Users/acbarrentine/Source/chimera-md/search/meta.json" was modified    
