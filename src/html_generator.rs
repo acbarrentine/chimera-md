@@ -1,19 +1,25 @@
-use std::{ffi::{OsStr, OsString}, path::{Path, PathBuf}};
+use std::{collections::HashSet, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
 use indexmap::IndexMap;
 use serde::Serialize;
 use tera::Tera;
 
-use crate::{chimera_error::ChimeraError, document_scraper::{DocumentScraper, ExternalLink, InternalLink}, file_manager::PeerInfo, full_text_index::SearchResult, HOME_DIR};
+use crate::chimera_error::ChimeraError;
+use crate::document_scraper::{DocumentScraper, ExternalLink, InternalLink};
+use crate::file_manager::{FileManager, PeerInfo};
+use crate::full_text_index::SearchResult;
+use crate::HOME_DIR;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct HtmlGeneratorCfg<'a> {
-    pub template_root: &'a str,
-    pub site_title: String,
+    pub user_template_root: PathBuf,
+    pub internal_template_root: PathBuf,
+    pub site_title: &'a str,
     pub index_file: &'a str,
-    pub site_lang: String,
-    pub highlight_style: String,
+    pub site_lang: &'a str,
+    pub highlight_style: &'a str,
     pub menu: IndexMap<String, String>,
+    pub file_manager: &'a FileManager,
 }
 
 #[derive (Debug, Serialize)]
@@ -35,24 +41,33 @@ impl HtmlGenerator {
     pub fn new(
         cfg: HtmlGeneratorCfg
     ) -> Result<HtmlGenerator, ChimeraError> {
-        let template_glob = format!("{}/*.html", cfg.template_root);
-        let mut tera = Tera::new(template_glob.as_str())?;
+        let mut tera = Tera::default();
         tera.autoescape_on(vec![]);
-        let required_templates = ["markdown.html", "error.html", "search.html"];
-        let found_templates = Vec::from_iter(tera.get_template_names());
-        for name in required_templates {
-            if !found_templates.contains(&name) {
-                let path_to_template = PathBuf::from(cfg.template_root).join(name);
-                tracing::error!("Missing required template: {}", path_to_template.display());
-                return Err(ChimeraError::MissingMarkdownTemplate);
+
+        let html_ext = OsString::from("html");
+        let mut found = HashSet::new();
+        for entry in cfg.file_manager.find_files(&cfg.user_template_root, html_ext.as_os_str()).into_iter() {
+            let fname = entry.file_name().to_string_lossy().into_owned();
+            let path = entry.path();
+            tera.add_template_file(path, Some(fname.as_str()))?;
+            found.insert(fname);
+        }
+        for entry in cfg.file_manager.find_files(&cfg.internal_template_root, html_ext.as_os_str()).into_iter() {
+            let fname = entry.file_name().to_string_lossy().into_owned();
+            if !found.contains(fname.as_str()) {
+                let path = entry.path();
+                tera.add_template_file(path, Some(fname.as_str()))?;
+                found.insert(fname);
             }
         }
+        let names: Vec<_> = tera.get_template_names().collect();
+        tracing::info!("Templates: {names:?}");
 
         Ok(HtmlGenerator {
             tera,
-            site_title: cfg.site_title,
-            site_lang: cfg.site_lang,
-            highlight_style: cfg.highlight_style,
+            site_title: cfg.site_title.to_owned(),
+            site_lang: cfg.site_lang.to_owned(),
+            highlight_style: cfg.highlight_style.to_owned(),
             index_file: OsString::from(cfg.index_file),
             menu: cfg.menu.into_iter().map(|(title, target)| {
                 MenuItem {
@@ -102,7 +117,6 @@ impl HtmlGenerator {
         body: String,
         scraper: DocumentScraper,
         peers: Option<PeerInfo>,
-        uri: &str,
     ) -> Result<String, ChimeraError> {
         let html_content = self.add_anchors_to_headings(body, &scraper.internal_links, !scraper.starts_with_heading);
         let template = scraper.get_template();
@@ -121,8 +135,7 @@ impl HtmlGenerator {
         vars.insert("peers", &peers);
         vars.insert("code_languages", &scraper.code_languages);
         vars.insert("breadcrumbs", &breadcrumbs);
-        vars.insert("url", &path.to_string_lossy());
-        vars.insert("uri", uri);
+        vars.insert("url", format!("{HOME_DIR}/{}", &path.to_string_lossy()).as_str());
 
         for (key, value) in &scraper.metadata {
             vars.insert(key, value);

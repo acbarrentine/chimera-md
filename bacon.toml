@@ -90,13 +90,13 @@ background = true
 # a binding `r = job:run-long` at the end of this file .
 [jobs.example]
 command = ["cargo", "run", "--color", "always","--",
-    "--config-file", "example.toml"
+    "--config-file", "example/chimera.toml"
 ]
 need_stdout = true
 allow_warnings = true
 background = false
 on_change_strategy = "kill_then_restart"
-watch = ["src", "templates", "./example.toml"]
+watch = ["src", "example/template", "example/template-internal", "example/chimera.toml"]
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.

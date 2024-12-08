@@ -1,8 +1,11 @@
 *.tar
 target/
-examples/
+example/home/
+example/log/
+example/search/
+
 .cargo/
-.DS_Store
+**/.DS_Store
 .git/
 .gitignore
 .vscode/

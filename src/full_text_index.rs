@@ -9,6 +9,7 @@ use tokio::{io::AsyncWriteExt, sync::mpsc::{self, Receiver}};
 
 use crate::chimera_error::ChimeraError;
 use crate::file_manager::FileManager;
+use crate::HOME_DIR;
 
 #[derive(Serialize)]
 pub struct SearchResult {
@@ -93,7 +94,7 @@ impl FullTextIndex {
             index_writer: self.index_writer.clone(),
             file_times,
             work_queue: rx,
-            document_root: root_directory.to_path_buf(),
+            document_root: root_directory,
             title: self.title_field,
             link: self.link_field,
             body: self.body_field,
@@ -211,7 +212,7 @@ impl DocumentScanner {
             let mut index = self.index_writer.write()?;
             for del in deleted {
                 if let Ok(relative_path) = del.strip_prefix(self.document_root.as_path()) {
-                    let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
+                    let anchor_string = format!("{HOME_DIR}/{}", relative_path.to_string_lossy());
                     tracing::debug!("Removing deleted document {} from full text index", del.display());
                     let doc_term = Term::from_field_text(self.link, &anchor_string);
                     index.delete_term(doc_term);
@@ -234,7 +235,7 @@ impl DocumentScanner {
 
             let mut doc = TantivyDocument::default();
             if let Ok(relative_path) = path.strip_prefix(self.document_root.as_path()) {
-                let anchor_string = format!("/home/{}", relative_path.to_string_lossy());
+                let anchor_string = format!("{HOME_DIR}/{}", relative_path.to_string_lossy());
 
                 tracing::debug!("Removing {anchor_string} from full text index");
                 let doc_term = Term::from_field_text(self.link, &anchor_string);

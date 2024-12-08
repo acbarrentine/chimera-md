@@ -7,8 +7,8 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 
-use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::PathBuf, sync::Arc, time::Instant};
-use axum::{extract::{ConnectInfo, OriginalUri, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc, time::Instant};
+use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -27,9 +27,9 @@ use crate::result_cache::ResultCache;
 use crate::perf_timer::PerfTimer;
 use crate::toml_config::TomlConfig;
 
-const HOME_DIR: &str = "/home";
 const SERVER_TIMING: &str = "server-timing";
 const CACHED_HEADER: &str = "cached";
+const HOME_DIR: &str = "/home";
 
 #[derive(Parser, Debug)]
 #[command(about, author, version)]
@@ -39,9 +39,9 @@ struct Config {
 }
 
 struct AppState {
+    user_web_root: PathBuf,
+    internal_web_root: PathBuf,
     index_file: String,
-    style_root: PathBuf,
-    icon_root: PathBuf,
     generate_index: bool,
     full_text_index: FullTextIndex,
     html_generator: HtmlGenerator,
@@ -51,34 +51,40 @@ struct AppState {
 }
 
 impl AppState {
-    pub async fn new(config: TomlConfig) -> Result<Self, ChimeraError> {
-        let template_root = PathBuf::from(config.template_root.as_str());
-        let document_root = PathBuf::from(config.document_root.as_str());
-        let search_index_dir = PathBuf::from(config.search_index_dir.as_str());
+    pub async fn new(chimera_root: PathBuf, config: TomlConfig) -> Result<Self, ChimeraError> {
+        let user_template_root = chimera_root.join("template");
+        let internal_template_root = chimera_root.join("template-internal");
+        let user_web_root = chimera_root.join("www");
+        let internal_web_root = chimera_root.join("www-internal");
+        let document_root = chimera_root.join("home");
+        let search_index_dir = chimera_root.join("search");
 
-        tracing::debug!("Document root: {}", document_root.to_string_lossy());
+        tracing::debug!("Document root: {}", document_root.display());
         if let Err(e) = std::env::set_current_dir(document_root.as_path()) {
-            tracing::error!("Failed to set document root to {}: {e}", document_root.display());
+            tracing::error!("Failed to set web root to {}: {e}", document_root.display());
         }
 
         let mut file_manager = FileManager::new(
             document_root.as_path(),
             config.index_file.as_str(),
         ).await?;
-        tracing::debug!("Template root: {}", template_root.to_string_lossy());
+        tracing::debug!("Template roots: User: {}, Internal: {}", user_template_root.display(), internal_template_root.display());
         file_manager.add_watch(document_root.as_path());
-        file_manager.add_watch(template_root.as_path());
+        file_manager.add_watch(user_template_root.as_path());
+        file_manager.add_watch(internal_template_root.as_path());
 
         let result_cache = ResultCache::new(config.max_cache_size);
         result_cache.listen_for_changes(&file_manager);
 
         let cfg = HtmlGeneratorCfg {
-            template_root: config.template_root.as_str(),
-            site_title: config.site_title,
+            user_template_root,
+            internal_template_root,
+            site_title: config.site_title.as_str(),
+            site_lang: config.site_lang.as_str(),
+            highlight_style: config.highlight_style.as_str(),
             index_file: config.index_file.as_str(),
-            site_lang: config.site_lang,
-            highlight_style: config.highlight_style,
             menu: config.menu,
+            file_manager: &file_manager,
         };
         tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;
@@ -89,9 +95,9 @@ impl AppState {
 
         Ok(AppState {
             index_file: config.index_file,
-            style_root: PathBuf::from(config.style_root),
-            icon_root: PathBuf::from(config.icon_root),
             generate_index: config.generate_index,
+            user_web_root,
+            internal_web_root,
             full_text_index,
             html_generator,
             file_manager,
@@ -107,8 +113,10 @@ pub(crate) type AppStateType = Arc<AppState>;
 async fn main() -> Result<(), ChimeraError> {
     let config = Config::parse();
     let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
+    let chimera_root = path::absolute(toml_config.chimera_root.as_str())?;
+    let log_dir = chimera_root.join("log");
     let tracing_level = toml_config.tracing_level();
-    let file_appender = tracing_appender::rolling::daily(toml_config.log_dir, "chimera.log");
+    let file_appender = tracing_appender::rolling::daily(log_dir, "chimera.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
@@ -127,20 +135,17 @@ async fn main() -> Result<(), ChimeraError> {
         .with(file_layer)
         .with(tty_layer)
         .init();
-    let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
 
     tracing::info!("Starting up Chimera MD server \"{}\" on port {}", toml_config.site_title, toml_config.port);
     let port = toml_config.port;
-    let state = Arc::new(AppState::new(toml_config).await?);
+    let state = Arc::new(AppState::new(chimera_root, toml_config).await?);
 
     let app = Router::new()
         .route("/search", get(handle_search))
-        .route("/style/*path", get(handle_style))
-        .route("/icon/*path", get(handle_icon))
+        .route(format!("{HOME_DIR}/*path").as_str(), get(handle_home))
+        .route(format!("{HOME_DIR}/").as_str(), get(handle_home_folder))
+        .route("/*path", get(handle_root_path))
         .route("/", get(handle_root))
-        .route(HOME_DIR, get(handle_root))
-        .route(format!("{HOME_DIR}/").as_str(), get(handle_root))
-        .route(format!("{HOME_DIR}/*path").as_str(), get(handle_path))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
@@ -223,21 +228,25 @@ async fn mw_response_time(
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
-            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
-                headers.insert(axum::http::header::CACHE_CONTROL, value);
-            }
             match status.is_success() || status.is_redirection() {
-                true => tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16()),
+                true => {
+                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
+                        headers.insert(axum::http::header::CACHE_CONTROL, value);
+                    }
+                    tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
+                },
                 false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
             }
         },
         false => {
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
-                headers.insert(axum::http::header::CACHE_CONTROL, value);
-            }
             match status.is_success()  || status.is_redirection() {
-                true => tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16()),
+                true => {
+                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
+                        headers.insert(axum::http::header::CACHE_CONTROL, value);
+                    }
+                    tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16())
+                },
                 false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {addr}", response.status().as_u16())
             }
         },
@@ -271,58 +280,51 @@ async fn handle_search(
     handle_err(app_state).await.into_response()
 }
 
-async fn handle_internal_file(
-    app_state: AppStateType,
-    path: PathBuf,
-    headers: HeaderMap) -> axum::response::Response {
+async fn handle_root_path(
+    State(app_state): State<AppStateType>,
+    axum::extract::Path(path): axum::extract::Path<String>,
+    headers: HeaderMap
+) -> axum::response::Response {
+    let mut new_path = app_state.user_web_root.join(path.as_str());
+    if !new_path.exists() {
+        new_path = app_state.internal_web_root.join(path.as_str());
+    }
+    tracing::debug!("Root request {path} => {}", new_path.display());
     let mut req = Request::new(axum::body::Body::empty());
     *req.headers_mut() = headers;
-    match ServeDir::new(path.as_path()).try_call(req).await {
+    match ServeDir::new(new_path.as_path()).try_call(req).await {
         Ok(resp) => {
             resp.into_response()
         },
         Err(e) => {
-            tracing::warn!("Error serving style {}: {e}", path.display());
+            tracing::warn!("Error serving file {}: {e}", new_path.display());
             handle_404(app_state).await.into_response()
         }
     }
 }
 
-async fn handle_icon(
+async fn handle_home_folder(
     State(app_state): State<AppStateType>,
-    axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
 ) -> axum::response::Response {
-    let new_path = app_state.icon_root.join(path.as_str());
-    tracing::debug!("Icon request {path} => {}", new_path.display());
-    handle_internal_file(app_state, new_path, headers).await
+    let redirect_path = format!("{HOME_DIR}/{}", app_state.index_file);
+    tracing::debug!("Redirecting /home/ => {redirect_path}");
+    Redirect::permanent(redirect_path.as_str()).into_response()
 }
 
 //#[debug_handler]
-async fn handle_style(
-    State(app_state): State<AppStateType>,
-    axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
-) -> axum::response::Response {
-    let new_path = app_state.style_root.join(path.as_str());
-    tracing::debug!("Style request {path} => {}", new_path.display());
-    handle_internal_file(app_state, new_path, headers).await
-}
-
-//#[debug_handler]
-async fn handle_path(
+async fn handle_home(
     State(mut app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
-    uri: axum::extract::OriginalUri,
     headers: HeaderMap
 ) -> axum::response::Response {
+    tracing::debug!("handle_home: {path}");
     if let Some(redirect) = app_state.known_redirects.get(&path) {
         tracing::debug!("Known redirect: {path} => {redirect}");
         return Redirect::permanent(redirect).into_response()
     }
 
     let path = PathBuf::from(path);
-    match get_response(&mut app_state, path.as_path(), headers, uri).await {
+    match get_response(&mut app_state, path.as_path(), headers).await {
         Ok(resp) => {
             let status = resp.status();
             if status.is_success() || status.is_redirection() {
@@ -373,7 +375,6 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
 async fn serve_markdown_file(
     app_state: &mut AppStateType,
     path: &std::path::Path,
-    uri: &str,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
     let mut headers = axum::http::header::HeaderMap::new();
@@ -395,7 +396,7 @@ async fn serve_markdown_file(
                 false => None,
             };
             perf_timer.sample("find-peers", &mut headers);
-            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers, uri)?;
+            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
             perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
             perf_timer.sample("cache-results", &mut headers);
@@ -433,10 +434,10 @@ async fn serve_index(
         None => {
             tracing::debug!("No file specified. Generating an index result at {}", path.display());
             let peers = if let Ok(abs_path) = path.canonicalize() {
-                app_state.file_manager.find_files_in_directory(abs_path.as_path(), None)
+                app_state.file_manager.find_peers_in_folder(abs_path.as_path(), None)
             }
             else {
-                app_state.file_manager.find_files_in_directory(path, None)
+                app_state.file_manager.find_peers_in_folder(path, None)
             };
             if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
                 headers.append(CACHED_HEADER, hval);
@@ -451,11 +452,10 @@ async fn get_response(
     app_state: &mut AppStateType,
     path: &std::path::Path,
     headers: HeaderMap,
-    uri: OriginalUri,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Chimera request {}", path.display());
     if has_extension(path, "md") {
-        return serve_markdown_file(app_state, path, uri.path()).await;
+        return serve_markdown_file(app_state, path).await;
     }
     else if path.is_dir() { 
         // is this a folder?
@@ -466,11 +466,10 @@ async fn get_response(
             return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
         }
 
-        let uri_with_index = format!("{}{}", uri.path(), app_state.index_file.as_str());
         let path_with_index = path.join(app_state.index_file.as_str());
         if path_with_index.exists() {
             tracing::debug!("No file specified, sending {}", path_with_index.display());
-            return serve_markdown_file(app_state, &path_with_index, uri_with_index.as_str()).await;
+            return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
             return serve_index(app_state, path).await;

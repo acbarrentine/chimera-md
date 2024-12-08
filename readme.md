@@ -32,55 +32,51 @@ they are fancy HTML.
 
 ## Installation
 
-The intended way to install is via [Docker](https://hub.docker.com/repository/docker/acbarrentine/chimera-md/general).
+The intended way to install is via
+[Docker](https://hub.docker.com/repository/docker/acbarrentine/chimera-md/general).
+
 The Docker Compose file is probably the easiest way to get going. The version below should
-get you going, but the [one on Github](https://github.com/acbarrentine/chimera-md/blob/main/compose.yaml)
+get you going, but the
+[one on Github](https://github.com/acbarrentine/chimera-md/blob/main/docker/compose.yaml)
 will probably be more up to date.
+
+HEADS UP: BREAKING CHANGES as of v0.4.0!
 
 ```yaml
 version: '3.8'
 services:
   chimera-md:
     container_name: chimera-md
-    platform: linux/amd64
     image: acbarrentine/chimera-md:latest
     ports:
       - "8080:8080"
 
     volumes:
-      # /data/www is the web root -- Point this to your main documents folder
-      - /usr/data/user1/documents:/data/www:ro
+      # Your chimera.toml config file
+      - /volume1/docker/dismal-ink/chimera.toml:/data/chimera.toml
 
-      # /data/search is where the full text indexer writes its work files
-      # These are persisted to optimize server startup times
-      - /docker/chimera-md/search:/data/search
+      # Markdown document root, media files, etc -- Point this to your main documents folder
+      # Serves from /home
+      - /volume1/docker/dismal-ink/home:/data/home
 
-      # Set a log dir
-      - /docker/chimera-md/log:/data/log
+      # Logging directory
+      - /volume1/docker/dismal-ink/log:/data/log
 
-      # You may want to map an images folder
-      - /usr/data/user1/media:/data/www/images:ro
+      # Temporaries directory needed by the full text search
+      - /volume1/docker/dismal-ink/search:/data/search
 
-      # You can map in a favicon, if you'd like
-      # - /usr/data/user1/images/logo.png:/data/www/favicon.ico:ro
+      # Anything after point this is optional
 
-      # Optional extra document directories can be added to the web root
-      # - /usr/data/user1/notes:/data/www/notes:ro
+      # Web root, for non-markdown files, such as favicon.ico, robots.txt, or site CSS files
+      # Serves from /
+      # - /volume1/docker/dismal-ink/www:/data/www
 
-      # Similarly, you can map additional image directories
-      # - /usr/data/user1/icons:/data/www/images/icons:ro
+      # You can customize by overriding the built-in Tera HTML templates
+      # See customization in readme.md
+      # - /volume1/docker/dismal-ink/templates:/data/template
 
-      # If you use plug-ins, scripts for them will be loaded from /data/www/script
-      # - /volume1/docker/chimera-md/script:/data/www/script:ro
-
-    environment:
-      # HEADS UP!
-      #
-      # Breaking change as of v 0.2.0!
-      #
-      # Configuration data has been moved to a site-based config file
-      # Default is "chimera.toml"
-      - CHIMERA_CONFIG_FILE=chimera.toml
+      # You can map additional media files into your /home folder if they live somewhere else
+      # - /volume1/docker/dismal-ink/home/media:/data/home/media
 
     restart: unless-stopped
 ```
@@ -91,28 +87,16 @@ have mapped reasonable values above. But there's a good chance you'll want to ov
 some of this content. Example with defaults included here:
 
 ```toml
-# When used in Docker, these are probably the only fields you will want to change
-site_title = "Chimera-md"
+# When used in Docker, these are probably the only fields you may want to change
+site_title = "My documents"
 site_lang = "en"
 generate_index = false
 
 # But the rest of these are available if you want to tune things
-document_root = "/data/www"
-template_root = "/data/templates"
-style_root = "/data/style"
-icon_root = "/data/icon"
-search_index_dir = "/data/search"
-log_dir = "/data/log"
 index_file = "index.md"
 highlight_style = "an-old-hope"
 log_level = "Info"
 max_cache_size = 52428800
-port = 8080
-
-[menu]
-# Items to appear in the navigation menu drop-down
-# "label" = "URL"
-"Home" = "/"
 
 [redirects]
 # You can list as many redirects here as you'd like
@@ -122,6 +106,11 @@ port = 8080
 #
 # Example:
 # "original-uri/" = "/home/path/to/new/uri.md"
+
+[menu]
+# Items to appear in the navigation menu drop-down
+# "label" = "URL"
+"Home" = "/home/index.md"
 ```
 
 Note that while Chimera-md is a web server, it is not trying to solve all problems a web server
@@ -138,7 +127,7 @@ root is — the starting point for serving up all your documents.
 The basic organizational structure you'll want is an `index.md` file in each interesting directory
 that points to the files you want to show and to the other folders you want to have reachable from
 there. This doesn't have to be a tree structure, but that's a good way to start. If you don't have
-an index file, but CHIMERA_GENERATE_INDEX is set to `true`, the server will make a best guess from
+an index file, but `generate_index` is set to `true`, the server will make a best guess from
 the contents of a folder (showing anything with a .md extension). That setting will also populate
 a sidebar panel on markdown documents linking to discovered peers. Consider dressing up your index
 documents with pictures to make them look sharp!
@@ -148,7 +137,7 @@ as mappings don't target the same exact Docker directory, they can overlap howev
 have a bunch of Synology "shared folder" mount points mapped into the one document folder, which
 presents as a very serve-able tree.
 
-![index](examples/assets/index.png)
+![index](example/home/assets/index.png)
 
 In Docker, the left side of the mapping is the real, physical path; the right side is how it
 presents in the container. Supposing you have a home directory that contains your main documents
@@ -156,20 +145,20 @@ folder, you could map it this way:
 
 ```yaml
     volumes:
-      - /users/fancy/documents:/data/www
+      - /users/fancy/documents:/data/home
 ```
 
 Then add additional folders in by creating sub-folder mappings:
 
 ```yaml
-      - /users/wifey/budget:/data/www/budget
-      - /users/kiddo/minecraft:/data/www/minecraft
+      - /users/wifey/budget:/data/home/budget
+      - /users/kiddo/minecraft:/data/home/minecraft
 ```
 
 You can also target specific files
 
 ```yaml
-      - /users/fancy/automation/readme.md:/data/www/automation.md
+      - /users/fancy/automation/readme.md:/data/home/automation.md
 ```
 
 Note that while the focus of Chimera-md is serving Markdown files, it is a fully capable web
@@ -192,95 +181,84 @@ references. A file such as `/data/www/images/logo.png` would route as `/home/ima
 There's a few different possible levels of customization points for the Chimera-md server. In
 increasing complexity, these are:
 
-1.  `/home/style/site.css`
+1.  `/style/site.css`
 
-    The Chimera-md header template references three CSS files. Two are termed internal
-    use, and serve from the `/style` route. But the third, `/home/style/site.css` is intended
-    for end-user customization. In there, you can adapt the site style as you see fit. There is
-    a set of CSS color variables to make broad color changes easy. An example of this file is
-    provided on [Github](https://github.com/acbarrentine/chimera-md/blob/main/examples/style/site.css).
-    You can make your own `site.css` file within your document root without having to do any
-    Docker mapping hijinks, and browsers will just immediately start using it. It does expect
-    to be in a `style` subfolder, though. So if your document root was `/users/me/documents`,
-    you would place it in `/users/me/documents/style/site.css`.
+    The default Chimera-md header template references three CSS files. Two are termed internal
+    use, but the third, `/style/site.css` is intended for end-user customization. In there,
+    you can adapt the site style as you see fit. There is a set of CSS color variables to
+    make broad color changes easy. An example of this file is provided on
+    [Github](https://github.com/acbarrentine/chimera-md/blob/main/example/www/style/site.css).
 
-    You can also put a `favicon.ico` file in the web root and browsers will discover it on
-    their own.
+    If you map a `/data/www/style/site.css` file in Docker, or, more likely, add
+    `/style/site/css` to a folder you have already mapped to `/data/www`, Chimera-md will
+    serve it instead of the built-in stub.
 
-2.  Make your own additions to the header and footer. The base Chimera-md image header and
-    footer include empty templates that are intended for site replacement. These are called
-    `site-header.html` and `site-footer.html`. While these are looked file in the image's
-    `/data/templates` directory, you can use volume mapping to overwrite them with your
-    own. Content in here is echoed into the final output by a templating tool called
-    [Tera](https://keats.github.io/tera/). Variables provided by the Chimera-md back-end
-    are available.
+    You can make your own `site.css` file and map it over the Docker image using a file
+    mapping:
 
-```
+```yaml
         volumes:
-        - /users/me/templates/site-header.html:/data/templates/site-header.html
-        - /users/me/templates/site-footer.html:/data/templates/site-footer.html
+        - /docker/chimera-md/site.css:/data/www/style/site.css
 ```
 
-3.  Override the built-in CSS files
+2.  `/favicon.ico`
 
-    Using Docker mapping, you can paper over the built-in CSS files. These are located
-    at `/data/style/skeleton.css` and `/data/style/chimera.css` (in Docker parlance).
-    `skeleton.css` is an open source [CSS framework](http://getskeleton.com/), and I have
-    only lightly customized it. `chimera.css` contains most of what you would consider
-    the look of the site. You could start with my copies from Github and map them over
-    with your adapted copies via Docker volume commands, like so:
+    Like `site.css`, you can put your own `favicon.ico` in the `/data/www` root and it will
+    serve instead of the built-in stub.
 
-    ```
-        volumes:
-        - /users/me/style/my-fancy.css:/data/style/chimera.css
-    ```
+3.  If you want to dig in a little deeper, you can augment or override the built-in [Tera
+    HTML templates](https://keats.github.io/tera/docs/). Place your files in `/data/template`
+    and Chimera-md will index and serve them on request. If they have the same names as the
+    built-ins, it will replace it, but you can also request a different template for a
+    given markdown file by adding a Yaml frontmatter, like so:
 
-    Note, however, that I probably won't be hands-off with these files as I make updates
-    to the app, so grabbing new versions could cause instabilities with your local changes.
-
-4.  Override the html template files
-
-    The Markdown files Chimera-md serves are assembled from your content merged into
-    html template files using a tool called [Tera](https://keats.github.io/tera/). While
-    the template directory is inside the Docker container, you can use volume mapping to
-    add templates of your own. You'll probably want to start by making copies of mine,
-    [found here](https://github.com/acbarrentine/chimera-md/tree/main/templates), and
-    map them to `/data/templates`. By default, a Markdown file renders with the
-    markdown.html template file. But you can use the override mechanism to direct it to
-    your own.
-    
     ```markdown
     ---
     template: dialog.html
     ---
 
-    # My Cool Index
-    
-    ## Generated index with customization
+    # Comic script
     ```
 
-    I made an index.html template to render directories without index files, but I have
-    found it useful as an override on an index.md file to let me customize and decorate
-    the page without having to manually list out all the contents.
+    The built-in template pages include requests to two temples that are basically empty
+    and intended for user substitution. They are called `site-header.html` and
+    `site-footer.html`.
 
-    ```markdown
-    ---
-    template: index.html
-    ---
+    All of these can added with a single Docker volume mapping:
 
-    # Index of /
-
-    ![Logo](/home/media/logo.png)
-    <!-- Files/Folders will show up below this point -->
-    ```
-    
-    If you are _really_ intent on hacking up the server, you can use Docker volume mappings
-    to replace my copies with your own. As with the style files, though, changes here have
-    a decent chance of conflicting with changes I might make as I release new versions. I
-    suggest using the partials system to isolate your changes, if possible. Look for
-    `{% include %}` in the templates for examples.
+```yaml
+      - /volume1/docker/dismal-ink/templates:/data/template
+```
 
 ## Release notes
+
+### v0.4.3
+
+* Documentation update. See below. Important stuff!
+
+### v0.4.2
+
+* I have stabilized the directory structure. (At least I think I have!) It is safe to grab
+  again. The log line for this change is that I separated out the user content folder, what
+  is called `/home` in the web server's perspective, out from the root service folder, `www`.
+
+  I did that because I had a routing problem with my original setup, which Google flagged
+  me. `/home/whatever` paths served successfully from `/whatever`, making the URLs ambiguous.
+  I attempted to fix it in v0.3.8, and while that eliminated the ambiguity, it inadvertently
+  broke access to stuff in the root directory, such as the favicon, robots.txt, and so on.
+
+  I also eliminated a lot of the config variables in an attempt to make configuration and
+  deployment easier. It is likely your `chimera.toml` will still work, but your Docker
+  `compose.yaml` will require updates. So re-read the updated
+  [installation section](#Installation) about setup above to get things back in working
+  order.
+
+### v0.4.1
+
+### v0.4.0 BREAKING CHANGE!
+
+* Big restructuring of the files. Things will be unstable for a while. I will update when
+  I have things stabilized again.
 
 ### v0.3.8
 
@@ -511,11 +489,9 @@ That does not appear to be the case in the Docker version, however.
 variables for controlling the behavior, and more of them will be applicable here. You
 can either use the environment, or specify them on the command line.
 
-`bacon example` will compile and run the `examples` web content and keep watch on the
-source directories for changes. However, at the moment, the paths in the config file
-are required to be absolute, so the values you'll find in git will only work for me.
-You'll need to either change the `example.toml` file or add your own
-[bacon job](https://dystroy.org/bacon/#configuration).
+`bacon example` will compile and run the `example` web content and keep watch on the
+source directories for changes. You can make your own configuration in `bacon.toml`
+by [cloning and editing](https://dystroy.org/bacon/#configuration) the `example` job.
 
 ## Arguments
 
@@ -528,8 +504,9 @@ chimera-md --config-file=example.toml
 ## Contributing
 
 I'm pretty new to this whole open source world, but I welcome contributors and
-feedback! Feel free to file [pull requests](https://github.com/acbarrentine/chimera-md/pulls) for new features
-and [flag bugs](https://github.com/acbarrentine/chimera-md/issues). It takes a village!
+feedback! Feel free to file [pull requests](https://github.com/acbarrentine/chimera-md/pulls)
+for new features and [flag bugs](https://github.com/acbarrentine/chimera-md/issues). It takes
+a village!
 
 ## Roadmap
 

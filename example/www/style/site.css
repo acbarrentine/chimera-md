@@ -1,0 +1,48 @@
+/* Put per-site custom CSS in here */
+
+/*
+:root {
+  --bg-color: rgb(53, 53, 53);
+  --shade-color: rgb(30, 30, 30);
+  --text-color: rgb(210, 208, 208);
+  --link-normal-color: rgb(155, 193, 245);
+  --link-visited-color: rgb(90, 165, 145);
+  --link-hover-color: rgb(120, 210, 165);
+  --rule-color: rgb(90, 165, 145);
+  --heading-color: rgb(136, 160, 216);
+  --box-color: rgb(44,44,44);
+  --border-color: black;
+  --block-color: rgb(44,44,44);
+  --even-row-color: rgb(45, 53, 73);
+  --odd-row-color: rgb(62, 72, 101);
+  --highlight-color: yellow;
+}
+
+nav {
+    background-image: url("/assets/banner.jpg");
+    background-size: cover;
+    background-position: center center;
+}
+*/
+
+.speaker {
+  color: #af89e8;
+  font-size: 1.7rem;
+  font-weight: bold;
+  background-color: #1e1d1d;
+  border-radius: 5px;
+  position: relative;
+  top: 1.9em;
+  left: 20px;
+  padding: 8px 16px;
+  width: fit-content;
+  margin-top: -2em;
+}
+
+.dialog {
+  font-family: "Gill Sans", sans-serif;
+}
+
+.copyright {
+  font-size: 0.7rem;
+}
