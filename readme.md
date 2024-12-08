@@ -250,7 +250,7 @@ increasing complexity, these are:
   I also eliminated a lot of the config variables in an attempt to make configuration and
   deployment easier. It is likely your `chimera.toml` will still work, but your Docker
   `compose.yaml` will require updates. So re-read the updated
-  [installation section](#Installation) about setup above to get things back in working
+  [installation section](#installation) about setup above to get things back in working
   order.
 
 ### v0.4.1
