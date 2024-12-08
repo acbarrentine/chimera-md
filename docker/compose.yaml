@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  chimera-md:
+    container_name: chimera-md
+    image: acbarrentine/chimera-md:latest
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # Your chimera.toml config file
+      - /volume1/docker/dismal-ink/chimera.toml:/data/chimera.toml
+
+      # Markdown document root, media files, etc -- Point this to your main documents folder
+      # Serves from /home
+      - /volume1/docker/dismal-ink/home:/data/home
+
+      # Logging directory
+      - /volume1/docker/dismal-ink/log:/data/log
+
+      # Temporaries directory needed by the full text search
+      - /volume1/docker/dismal-ink/search:/data/search
+
+      # Anything after point this is optional
+
+      # Web root, for non-markdown files, such as favicon.ico, robots.txt, or site CSS files
+      # Serves from /
+      # - /volume1/docker/dismal-ink/www:/data/www
+
+      # You can customize by overriding the built-in Tera HTML templates
+      # See customization in readme.md
+      # - /volume1/docker/dismal-ink/templates:/data/template
+
+      # You can map additional media files into your /home folder if they live somewhere else
+      # - /volume1/docker/dismal-ink/home/media:/data/home/media
+
+    restart: unless-stopped
