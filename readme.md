@@ -232,6 +232,45 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.4
+
+* Adds support for an image size cache. One of the challenges with markdown HTML conversion
+  is that it doesn't have support for setting image sizes, so the resultant pages can hop
+  around when image loading is slow. The HTML generator will now look up images in the cache
+  and if the size is know, include `height` and `width` attributes for it. Specify the name
+  of the cache file in your config like so:
+
+```toml
+image_size_file = "image-sizes.toml"
+```
+  
+  File path is relative to the chimera root. The format of the file is intended for tool
+  generation, so it looks a little funky to human eyes. It looks like this:
+
+```toml
+[map."/home/assets/img-1.jpg"]
+width = 4032
+height = 3024
+```
+
+  And is generated with serde/toml serialization of these structures:
+
+```rust
+#[derive (Deserialize, Debug)]
+pub struct WidthAndHeight {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive (Deserialize, Debug, Default)]
+pub struct ImageSizeCache {
+    map: HashMap<String, WidthAndHeight>,
+}
+```
+
+  There is a limitation with this system currently. The cache is not live updating, so you'd have
+  to restart the server to pick up changes. I'll address that in a future patch
+
 ### v0.4.3
 
 * Documentation update. See below. Important stuff!
