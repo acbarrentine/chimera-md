@@ -3,6 +3,7 @@ site_title = "Chimera Example"
 index_file = "index.md"
 site_lang = "en"
 highlight_style = "a11y_dark"
+image_size_file = "image-sizes.toml"
 generate_index = true
 #log_level = "Trace"
 #log_level = "Debug"

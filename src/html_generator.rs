@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use serde::Serialize;
 use tera::Tera;
 
-use crate::chimera_error::ChimeraError;
+use crate::{chimera_error::ChimeraError, image_size_cache::ImageSizeCache};
 use crate::document_scraper::{DocumentScraper, ExternalLink, InternalLink};
 use crate::file_manager::{FileManager, PeerInfo};
 use crate::full_text_index::SearchResult;
@@ -20,6 +20,7 @@ pub struct HtmlGeneratorCfg<'a> {
     pub highlight_style: &'a str,
     pub menu: IndexMap<String, String>,
     pub file_manager: &'a FileManager,
+    pub image_size_cache: Option<ImageSizeCache>,
 }
 
 #[derive (Debug, Serialize)]
@@ -35,6 +36,7 @@ pub struct HtmlGenerator {
     highlight_style: String,
     index_file: OsString,
     menu: Vec<MenuItem>,
+    image_size_cache: Option<ImageSizeCache>,
 }
 
 impl HtmlGenerator {
@@ -75,6 +77,7 @@ impl HtmlGenerator {
                     target
                 }
             }).collect(),
+            image_size_cache: cfg.image_size_cache
         })
     }
 
@@ -177,6 +180,7 @@ impl HtmlGenerator {
         if num_links == start_index {
             return original_html;
         }
+        tracing::info!("Image sizes: {:?}", self.image_size_cache);
         let mut link_index = start_index;
         let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
         let mut char_iter = original_html.char_indices();
@@ -184,25 +188,50 @@ impl HtmlGenerator {
             if link_index < links.len() && c == '<' {
                 if let Some(open_slice) = original_html.get(i..i+4) {
                     let mut slice_it = open_slice.chars().skip(1);
-                    if slice_it.next() == Some('h') {
-                        if let Some(heading_size) = slice_it.next() {
-                            if slice_it.next() == Some('>') {
-                                let anchor = links[link_index].anchor.as_str();
-                                tracing::debug!("Rewriting anchor: {anchor}");
-                                new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
-                                link_index += 1;
-                                for _ in 0..open_slice.len()-1 {
-                                    if char_iter.next().is_none() {
-                                        return new_html;
+                    let tag_start = slice_it.next();
+                    match tag_start {
+                        Some('h') => {
+                            if let Some(heading_size) = slice_it.next() {
+                                if slice_it.next() == Some('>') {
+                                    let anchor = links[link_index].anchor.as_str();
+                                    tracing::debug!("Rewriting anchor: {anchor}");
+                                    new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
+                                    link_index += 1;
+                                    // advance outer iterator
+                                    let _ = char_iter.nth(open_slice.len()-2);
+                                    continue;
+                                }
+                                else if slice_it.next() == Some(' ') {
+                                    // already has an id?
+                                    link_index += 1;
+                                }
+                            }
+                        },
+                        Some('i') => {
+                            if let Some(image_size_cache) = &self.image_size_cache {
+                                if slice_it.next() == Some('m') && slice_it.next() == Some('g') {
+                                    let mut consume = 5;
+                                    let forward = &original_html[i+consume..];
+                                    let mut parts = forward.split('\"');
+                                    let src_tag = "src=";
+                                    if parts.next() == Some(src_tag) {
+                                        consume += src_tag.len();
+                                        if let Some(img_src) = parts.next() {
+                                            if let Some(dim) = image_size_cache.get_dimensions(img_src) {
+                                                tracing::debug!("Rewriting img tag \"{img_src}\"");
+                                                new_html.push_str(format!("<img src=\"{img_src}\" width=\"{}\" height = \"{}\"", dim.width, dim.height).as_str());
+                                                consume += img_src.len();
+                                                // advance outer iterator
+                                                let _ = char_iter.nth(consume);
+                                                continue;
+                                            }
+                                        }
                                     }
                                 }
-                                continue;
                             }
-                            else if slice_it.next() == Some(' ') {
-                                // already has an id?
-                                link_index += 1;
-                            }
-                        }
+                        },
+                        Some(_) => {},
+                        None => {},
                     }
                 }
             }

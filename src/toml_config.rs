@@ -29,6 +29,8 @@ pub struct TomlConfig {
     #[serde(default = "default_site_lang")]
     pub site_lang: String,
 
+    pub image_size_file: Option<String>,
+
     #[serde(default)]
     pub generate_index: bool,
 

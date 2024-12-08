@@ -6,9 +6,11 @@ mod html_generator;
 mod file_manager;
 mod result_cache;
 mod perf_timer;
+mod image_size_cache;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc, time::Instant};
 use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use image_size_cache::ImageSizeCache;
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -73,6 +75,11 @@ impl AppState {
         file_manager.add_watch(user_template_root.as_path());
         file_manager.add_watch(internal_template_root.as_path());
 
+        let image_size_cache = config.image_size_file.map(|name| {
+            let image_size_file = chimera_root.join(name.as_str());
+            ImageSizeCache::new(image_size_file)
+        });
+
         let result_cache = ResultCache::new(config.max_cache_size);
         result_cache.listen_for_changes(&file_manager);
 
@@ -85,6 +92,7 @@ impl AppState {
             index_file: config.index_file.as_str(),
             menu: config.menu,
             file_manager: &file_manager,
+            image_size_cache,
         };
         tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;
