@@ -180,7 +180,7 @@ impl HtmlGenerator {
         if num_links == start_index {
             return original_html;
         }
-        tracing::info!("Image sizes: {:?}", self.image_size_cache);
+        //tracing::info!("Image sizes: {:?}", self.image_size_cache);
         let mut link_index = start_index;
         let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
         let mut char_iter = original_html.char_indices();
@@ -208,15 +208,19 @@ impl HtmlGenerator {
                             }
                         },
                         Some('i') => {
+                            tracing::debug!("<i");
                             if let Some(image_size_cache) = &self.image_size_cache {
                                 if slice_it.next() == Some('m') && slice_it.next() == Some('g') {
+                                    tracing::debug!("<img");
                                     let mut consume = 5;
                                     let forward = &original_html[i+consume..];
                                     let mut parts = forward.split('\"');
                                     let src_tag = "src=";
                                     if parts.next() == Some(src_tag) {
+                                        tracing::debug!("src=");
                                         consume += src_tag.len();
                                         if let Some(img_src) = parts.next() {
+                                            tracing::debug!("Found img tag \"{img_src}\"");
                                             if let Some(dim) = image_size_cache.get_dimensions(img_src) {
                                                 tracing::debug!("Rewriting img tag \"{img_src}\"");
                                                 new_html.push_str(format!("<img src=\"{img_src}\" width=\"{}\" height = \"{}\"", dim.width, dim.height).as_str());
