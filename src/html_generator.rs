@@ -185,20 +185,20 @@ impl HtmlGenerator {
         let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
         let mut char_iter = original_html.char_indices();
         while let Some((i, c)) = char_iter.next() {
-            if link_index < links.len() && c == '<' {
+            if c == '<' {
                 if let Some(open_slice) = original_html.get(i..i+4) {
                     let mut slice_it = open_slice.chars().skip(1);
                     let tag_start = slice_it.next();
                     match tag_start {
                         Some('h') => {
                             if let Some(heading_size) = slice_it.next() {
-                                if slice_it.next() == Some('>') {
+                                if link_index < links.len() && slice_it.next() == Some('>') {
                                     let anchor = links[link_index].anchor.as_str();
                                     tracing::debug!("Rewriting anchor: {anchor}");
                                     new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
                                     link_index += 1;
                                     // advance outer iterator
-                                    let _ = char_iter.nth(open_slice.len()-2);
+                                    let e = char_iter.nth(open_slice.len()-2);
                                     continue;
                                 }
                                 else if slice_it.next() == Some(' ') {
