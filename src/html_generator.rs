@@ -198,7 +198,7 @@ impl HtmlGenerator {
                                     new_html.push_str(format!("<h{heading_size} id=\"{anchor}\">").as_str());
                                     link_index += 1;
                                     // advance outer iterator
-                                    let e = char_iter.nth(open_slice.len()-2);
+                                    let _ = char_iter.nth(open_slice.len()-2);
                                     continue;
                                 }
                                 else if slice_it.next() == Some(' ') {

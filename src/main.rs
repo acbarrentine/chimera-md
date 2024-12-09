@@ -77,8 +77,10 @@ impl AppState {
 
         let image_size_cache = config.image_size_file.map(|name| {
             let image_size_file = chimera_root.join(name.as_str());
-            //tracing::debug!("Image size file cache: {}", image_size_file.display());
-            ImageSizeCache::new(image_size_file)
+            file_manager.add_watch(&image_size_file);
+            let cache = ImageSizeCache::new(image_size_file);
+            cache.listen_for_changes(&file_manager);
+            cache
         });
 
         let result_cache = ResultCache::new(config.max_cache_size);
