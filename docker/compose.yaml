@@ -8,7 +8,7 @@ services:
 
     volumes:
       # Your chimera.toml config file
-      - /volume1/docker/dismal-ink/chimera.toml:/data/chimera.toml
+      - /volume1/docker/dismal-ink/chimera.toml:/data/chimera.toml:ro
 
       # Markdown document root, media files, etc -- Point this to your main documents folder
       # Serves from /home
@@ -31,6 +31,6 @@ services:
       # - /volume1/docker/dismal-ink/templates:/data/template
 
       # You can map additional media files into your /home folder if they live somewhere else
-      # - /volume1/docker/dismal-ink/home/media:/data/home/media
+      # - /volume1/users/me/Photos:/data/home/media
 
     restart: unless-stopped
