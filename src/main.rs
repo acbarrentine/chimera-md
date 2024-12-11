@@ -296,6 +296,10 @@ async fn handle_root_path(
     axum::extract::Path(path): axum::extract::Path<String>,
     headers: HeaderMap
 ) -> axum::response::Response {
+    if let Some(redirect) = app_state.known_redirects.get(&path) {
+        tracing::debug!("Known redirect: {path} => {redirect}");
+        return Redirect::permanent(redirect).into_response()
+    }
     let mut new_path = app_state.user_web_root.join(path.as_str());
     if !new_path.exists() {
         new_path = app_state.internal_web_root.join(path.as_str());
@@ -329,11 +333,6 @@ async fn handle_home(
     headers: HeaderMap
 ) -> axum::response::Response {
     tracing::debug!("handle_home: {path}");
-    if let Some(redirect) = app_state.known_redirects.get(&path) {
-        tracing::debug!("Known redirect: {path} => {redirect}");
-        return Redirect::permanent(redirect).into_response()
-    }
-
     let path = PathBuf::from(path);
     match get_response(&mut app_state, path.as_path(), headers).await {
         Ok(resp) => {

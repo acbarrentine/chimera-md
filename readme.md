@@ -232,6 +232,18 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.7
+
+* Fix bug with configured redirects. They were not firing for non-/home routes
+
+### v0.4.6
+
+* Updated structure of image cache file to make it easier to order contents
+
+### v0.4.5
+
+* Fix bug with image dimension setting in the HTML generator
+
 ### v0.4.4
 
 * Adds support for an image size cache. One of the challenges with markdown HTML conversion
