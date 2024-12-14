@@ -232,6 +232,11 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.8
+
+* Just added size information to a couple of the image elements to optimize page
+  loading
+
 ### v0.4.7
 
 * Fix bug with configured redirects. They were not firing for non-/home routes

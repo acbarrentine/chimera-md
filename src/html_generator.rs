@@ -208,7 +208,6 @@ impl HtmlGenerator {
                             }
                         },
                         Some('i') => {
-                            tracing::debug!("<i");
                             if let Some(image_size_cache) = &self.image_size_cache {
                                 if slice_it.next() == Some('m') && slice_it.next() == Some('g') {
                                     tracing::debug!("<img");
@@ -217,7 +216,6 @@ impl HtmlGenerator {
                                     let mut parts = forward.split('\"');
                                     let src_tag = "src=";
                                     if parts.next() == Some(src_tag) {
-                                        tracing::debug!("src=");
                                         consume += src_tag.len();
                                         if let Some(img_src) = parts.next() {
                                             tracing::debug!("Found img tag \"{img_src}\"");
