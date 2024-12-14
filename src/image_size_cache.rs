@@ -86,7 +86,7 @@ async fn listen_for_changes(
 ) {
     while let Ok(path) = rx.recv().await {
         if let Some(ext) = path.extension() {
-            tracing::debug!("Image size cache change event {}", path.display());
+            tracing::info!("Image size cache change event {}", path.display());
             if ext == OsStr::new("toml") {
                 cache.load();
             }
