@@ -1,4 +1,4 @@
-FROM rust:1.79-alpine AS builder
+FROM rust:1.83-alpine AS builder
 
 WORKDIR /usr/src/chimera-md
 COPY . .
