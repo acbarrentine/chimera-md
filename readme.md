@@ -232,6 +232,12 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.9
+
+* Adds a multi-arch builder to the Docker build procedure, so Chimera-md can now
+  run natively on Linux in both x86_64 and Arm64 architectures. It seems like there
+  should be a Mac-native way to run it too, but this is a good upgrade
+
 ### v0.4.8
 
 * Just added size information to a couple of the image elements to optimize page
