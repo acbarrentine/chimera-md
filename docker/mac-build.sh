@@ -5,5 +5,6 @@ version=latest
 
 echo "Building docker image for Mac version: $version";
 # cargo build --release
-docker build -t acbarrentine/chimera-md-mac:$version -f Dockerfile .;
-# docker build -t acbarrentine/chimera-md-mac:$version -f native-dockerfile .;
+cargo build --release --target=aarch64-unknown-linux-gnu
+# docker build -t acbarrentine/chimera-md-mac:$version -f Dockerfile .;
+docker build -t acbarrentine/chimera-md-mac:$version -f native-dockerfile .;

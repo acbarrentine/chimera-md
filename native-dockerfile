@@ -1,16 +1,5 @@
-# FROM rust:1.79-alpine AS builder
-# FROM scratch
-
-# WORKDIR /usr/src/chimera-md
-# COPY . .
-
-# RUN apk add --no-cache musl-dev
 FROM scratch
-# RUN cargo build --release
-# RUN cargo build --release --target=x86_64-unknown-linux-gnu
-
-# FROM scratch
-COPY target/release/chimera-md /bin/chimera-md
+COPY target/aarch64-unknown-linux-gnu/release/chimera-md /bin/chimera-md
 COPY docker/home /data/home
 COPY example/template-internal /data/template-internal
 COPY example/www-internal /data/www-internal
