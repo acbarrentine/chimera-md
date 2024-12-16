@@ -232,6 +232,14 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.10
+
+* I've been working to improve Chimera-md's content layout shift (CLS) score. As an
+  amateur web developer, it has involved a fair bit of firing blind at a poorly
+  understood target. Today's update changes the breadcrumb separator from an SVG
+  image into a little unicode character: `»`. Because the breadcrumbs indicators
+  are created by CSS, they don't apparently support height and width info.
+
 ### v0.4.9
 
 * Adds a multi-arch builder to the Docker build procedure, so Chimera-md can now

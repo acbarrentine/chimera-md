@@ -119,7 +119,7 @@ div.search button {
 .show {display:block;}
 
 .breadcrumbs .crumb::before {
-    content: url("/icon/chevron.svg");
+    content: "»";
     padding: 10px;
 }
 

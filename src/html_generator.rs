@@ -34,7 +34,7 @@ pub struct HtmlGenerator {
     site_title: String,
     site_lang: String,
     highlight_style: String,
-    index_file: OsString,
+    index_file: String,
     menu: Vec<MenuItem>,
     image_size_cache: Option<ImageSizeCache>,
 }
@@ -70,7 +70,7 @@ impl HtmlGenerator {
             site_title: cfg.site_title.to_owned(),
             site_lang: cfg.site_lang.to_owned(),
             highlight_style: cfg.highlight_style.to_owned(),
-            index_file: OsString::from(cfg.index_file),
+            index_file: cfg.index_file.to_string(),
             menu: cfg.menu.into_iter().map(|(title, target)| {
                 MenuItem {
                     title,
@@ -129,7 +129,7 @@ impl HtmlGenerator {
                 None => path.as_os_str(),
             }.to_string_lossy().into_owned()
         });
-        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
+        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_str());
         let title = format!("{}: {}", self.site_title, title);
 
         let mut vars = self.get_vars(title.as_str(), scraper.has_code_blocks);
@@ -159,7 +159,7 @@ impl HtmlGenerator {
     }
 
     pub async fn gen_index(&self, path: &Path, peers: Option<PeerInfo>) -> Result<String, ChimeraError> {
-        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_os_str());
+        let breadcrumbs = get_breadcrumbs(path, self.index_file.as_str());
         let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
         let title = format!("{}: {}", self.site_title, path_str);
@@ -243,7 +243,7 @@ impl HtmlGenerator {
     }
 }
 
-fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {
+fn get_breadcrumbs(path: &Path, skip: &str) -> Vec<ExternalLink> {
     let parts: Vec<&OsStr> = path.iter().filter(|el| {
         el != &skip
     }).collect();
@@ -251,12 +251,12 @@ fn get_breadcrumbs(path: &Path, skip: &OsStr) -> Vec<ExternalLink> {
     let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
     url.push_str(format!("{HOME_DIR}/").as_str());
 
-    crumbs.push(ExternalLink::new(url.clone(), "Home".to_string()));
+    crumbs.push(ExternalLink::new(format!("{}{}", url, skip), "Home".to_string()));
 
     for p in parts {
         url.push_str(&urlencoding::encode(&p.to_string_lossy()));
         url.push('/');
-        crumbs.push(ExternalLink::new(url.clone(), p.to_string_lossy().into_owned()));
+        crumbs.push(ExternalLink::new(format!("{}{}", url, skip), p.to_string_lossy().into_owned()));
     }
     crumbs
 }
