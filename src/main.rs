@@ -156,9 +156,8 @@ fn main() -> Result<(), ChimeraError> {
     let tracing_level = toml_config.tracing_level();
     let file_appender = tracing_appender::rolling::daily(log_dir, "chimera.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    let timer = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339().unwrap_or(
-        tracing_subscriber::fmt::time::OffsetTime::new(time::UtcOffset::UTC, time::format_description::well_known::Rfc3339)
-    );
+    let time_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
+    let timer = tracing_subscriber::fmt::time::OffsetTime::new(time_offset, time::format_description::well_known::Rfc3339);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
     let file_layer = tracing_subscriber::fmt::layer()
