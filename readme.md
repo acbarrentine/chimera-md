@@ -232,9 +232,13 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.11
+
+* Logger should now use the local time if available
+
 ### v0.4.10
 
-* I've been working to improve Chimera-md's content layout shift (CLS) score. As an
+* I've been working to improve Chimera-md's cumulative layout shift (CLS) score. As an
   amateur web developer, it has involved a fair bit of firing blind at a poorly
   understood target. Today's update changes the breadcrumb separator from an SVG
   image into a little unicode character: `»`. Because the breadcrumbs indicators

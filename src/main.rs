@@ -8,7 +8,7 @@ mod result_cache;
 mod perf_timer;
 mod image_size_cache;
 
-use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc, time::Instant};
+use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
 use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use tokio::signal;
@@ -121,32 +121,7 @@ impl AppState {
 pub(crate) type AppStateType = Arc<AppState>;
 
 #[tokio::main]
-async fn main() -> Result<(), ChimeraError> {
-    let config = Config::parse();
-    let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
-    let chimera_root = path::absolute(toml_config.chimera_root.as_str())?;
-    let log_dir = chimera_root.join("log");
-    let tracing_level = toml_config.tracing_level();
-    let file_appender = tracing_appender::rolling::daily(log_dir, "chimera.log");
-    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    let trace_filter = tracing_subscriber::filter::Targets::new()
-        .with_default(tracing_level);
-    let file_layer = tracing_subscriber::fmt::layer()
-        .compact()
-        .with_writer(non_blocking)
-        .with_ansi(false)
-        .with_line_number(false)
-        .with_filter(trace_filter.clone());
-    let tty_layer = tracing_subscriber::fmt::layer()
-        .compact()
-        .with_ansi(true)
-        .with_line_number(true)
-        .with_filter(trace_filter);
-    tracing_subscriber::registry()
-        .with(file_layer)
-        .with(tty_layer)
-        .init();
-
+async fn run(toml_config: TomlConfig, chimera_root: PathBuf) -> Result<(), ChimeraError> {
     tracing::info!("Starting up Chimera MD server \"{}\" on port {}", toml_config.site_title, toml_config.port);
     let port = toml_config.port;
     let state = Arc::new(AppState::new(chimera_root, toml_config).await?);
@@ -170,6 +145,41 @@ async fn main() -> Result<(), ChimeraError> {
         .unwrap();
 
     Ok(())
+}
+
+fn main() -> Result<(), ChimeraError> {
+    let config = Config::parse();
+    let toml_config = TomlConfig::read_config(config.config_file.as_str())?;
+
+    let chimera_root = path::absolute(toml_config.chimera_root.as_str())?;
+    let log_dir = chimera_root.join("log");
+    let tracing_level = toml_config.tracing_level();
+    let file_appender = tracing_appender::rolling::daily(log_dir, "chimera.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    let timer = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339().unwrap_or(
+        tracing_subscriber::fmt::time::OffsetTime::new(time::UtcOffset::UTC, time::format_description::well_known::Rfc3339)
+    );
+    let trace_filter = tracing_subscriber::filter::Targets::new()
+        .with_default(tracing_level);
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_timer(timer.clone())
+        .compact()
+        .with_writer(non_blocking)
+        .with_ansi(false)
+        .with_line_number(false)
+        .with_filter(trace_filter.clone());
+    let tty_layer = tracing_subscriber::fmt::layer()
+        .with_timer(timer)
+        .compact()
+        .with_ansi(true)
+        .with_line_number(true)
+        .with_filter(trace_filter);
+    tracing_subscriber::registry()
+        .with(file_layer)
+        .with(tty_layer)
+        .init();
+
+    run(toml_config, chimera_root)
 }
 
 async fn shutdown_signal() {
@@ -206,7 +216,7 @@ async fn mw_response_time(
     request: axum::extract::Request,
     next: Next,
 ) -> Response {
-    let start_time = Instant::now();
+    let start_time = std::time::Instant::now();
     let path = match request.uri().path_and_query() {
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
         None => { request.uri().path().to_string() }
