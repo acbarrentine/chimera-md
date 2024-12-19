@@ -78,6 +78,10 @@ services:
       # You can map additional media files into your /home folder if they live somewhere else
       # - /volume1/docker/dismal-ink/home/media:/data/home/media
 
+      # You can set timezone equal to the local machine (for logging)
+      # - /etc/timezone:/etc/timezone:ro
+      # - /etc/localtime:/etc/localtime:ro
+
     restart: unless-stopped
 ```
 
