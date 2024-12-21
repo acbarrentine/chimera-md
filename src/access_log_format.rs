@@ -12,9 +12,11 @@ fn optional(opt: Option<String>) -> String {
     opt.unwrap_or(String::from("-"))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn log_access(
     status: u16,
     method: &str,
+    bytes: &str,
     version: Version,
     uri: &str,
     addr: &str,
@@ -24,7 +26,6 @@ pub fn log_access(
     // "Combined" log format. Example:
     // 127.0.0.1 - - [05/Feb/2012:17:11:55 +0000] "GET / HTTP/1.1" 200 140 "-" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.5 Safari/535.19"
     let now = Local::now();
-    let bytes = 0; // Can we get the size of the response?
     info!(target: "access_log", "{addr} - - [{}] \"{method} {uri} {version:?}\" {status} {bytes} \"{}\" \"{}\"",
         now.format("%d/%b/%Y:%H:%M:%S %z"),
         optional(user_agent),

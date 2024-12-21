@@ -10,7 +10,7 @@ mod image_size_cache;
 mod access_log_format;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
-use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{Extensions, HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use access_log_format::{log_access, AccessLogFormat};
 use tokio::signal;
@@ -137,7 +137,8 @@ async fn run(toml_config: TomlConfig, chimera_root: PathBuf) -> Result<(), Chime
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state)
         .layer(tower_http::compression::CompressionLayer::new())
-        .layer(middleware::from_fn(mw_response_time));
+        .layer(middleware::from_fn(mw_headers))
+        .layer(middleware::from_fn(mw_access_log));
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     let connect_wrapper = app.into_make_service_with_connect_info::<SocketAddr>();
@@ -208,44 +209,30 @@ async fn shutdown_signal() {
     }
 }
 
-#[debug_middleware]
-async fn mw_response_time(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+//#[debug_middleware]
+async fn mw_headers(
     request: axum::extract::Request,
     next: Next,
 ) -> Response {
     let start_time = std::time::Instant::now();
-    let path = match request.uri().path_and_query() {
-        Some(p_and_q) => { p_and_q.as_str().to_owned() },
-        None => { request.uri().path().to_string() }
-    };
-    let method = request.method().to_owned();
-    let version = request.version();
-    let req_headers = request.headers();
-    let user_agent = req_headers.get("user-agent").cloned();
-    let referer = req_headers.get("referer").cloned();
-    let forward_addr = req_headers.get("X-Forwarded-For").cloned();
-    let addr = forward_addr.map_or(addr.ip().to_string(), |addr| {
-        String::from_utf8_lossy(addr.as_bytes()).to_string()
-    });
-
+    let path = request.uri().path().to_string();
     let mut response = next.run(request).await;
     let status = response.status();
+    let cache_check = response.extensions().get::<bool>().map(|b|b.to_owned());
     let headers = response.headers_mut();
-
-    log_access(
-        status.as_u16(),
-        method.as_str(),
-        version,
-        path.as_str(),
-        addr.as_str(),
-        user_agent.map(|v|v.to_str().expect("user agent extract").to_string()),
-        referer.map(|v|v.to_str().expect("referer extract").to_string()),
-    );
 
     match path.ends_with(".md") {
         true => {
-            let cached_status = match headers.remove(CACHED_HEADER) {
+            let cached_status = match cache_check {
+                Some(b) => {
+                    match b {
+                        true => "cached",
+                        false => "generated",
+                    }
+                },
+                None => "generated",
+            };
+            match headers.remove(CACHED_HEADER) {
                 Some(status) => {
                     match status.to_str() {
                         Ok(str) => str.to_string(),
@@ -273,6 +260,57 @@ async fn mw_response_time(
             }
         },
     }
+    response
+}
+
+//#[debug_middleware]
+async fn mw_access_log(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    let path = request.uri().path().to_string();
+    let method = request.method().to_owned();
+    let version = request.version();
+    let req_headers = request.headers();
+    let user_agent = req_headers.get("user-agent").cloned();
+    let referer = req_headers.get("referer").cloned();
+    let forward_addr = req_headers.get("X-Forwarded-For").cloned();
+    let addr = forward_addr.map_or(addr.ip().to_string(), |addr| {
+        String::from_utf8_lossy(addr.as_bytes()).to_string()
+    });
+
+    let response = next.run(request).await;
+    let status = response.status();
+    let content_size = response.headers().get("content-length");
+    let ext_size = response.extensions().get::<usize>();
+    let size_hint = response.body().size_hint();
+    let size_str = match size_hint.upper() {
+        Some(hint) => hint.to_string(),
+        None => {
+            match ext_size {
+                Some(size) => size.to_string(),
+                None => {
+                    match content_size {
+                        Some(size) => {
+                            size.to_str().unwrap_or("0").to_string()
+                        },
+                        None => "0".to_string(),
+                    }
+                },
+            }
+        },
+    };
+    log_access(
+        status.as_u16(),
+        method.as_str(),
+        size_str.as_str(),
+        version,
+        path.as_str(),
+        addr.as_str(),
+        user_agent.map(|v|v.to_str().expect("user agent extract").to_string()),
+        referer.map(|v|v.to_str().expect("referer extract").to_string()),
+    );
     response
 }
 
@@ -341,11 +379,10 @@ async fn handle_home_folder(
 async fn handle_home(
     State(mut app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
 ) -> axum::response::Response {
     tracing::debug!("handle_home: {path}");
     let path = PathBuf::from(path);
-    match get_response(&mut app_state, path.as_path(), headers).await {
+    match get_response(&mut app_state, path.as_path()).await {
         Ok(resp) => {
             let status = resp.status();
             if status.is_success() || status.is_redirection() {
@@ -399,11 +436,10 @@ async fn serve_markdown_file(
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Markdown request {}", path.display());
     let mut headers = axum::http::header::HeaderMap::new();
+    let mut ext = Extensions::new();
     let html = match app_state.result_cache.get(path).await {
         Some(html) => {
-            if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
-                headers.append(CACHED_HEADER, hval);
-            }
+            ext.insert(true);
             html
         },
         None => {
@@ -421,22 +457,19 @@ async fn serve_markdown_file(
             perf_timer.sample("generate-html", &mut headers);
             app_state.result_cache.add(path, html.as_str()).await;
             perf_timer.sample("cache-results", &mut headers);
-            if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
-                headers.append(CACHED_HEADER, hval);
-            }
+            ext.insert(false);
             html
         }
     };
-    Ok((StatusCode::OK, headers, Html(html)).into_response())
+    ext.insert(html.len());
+    Ok((StatusCode::OK, headers, ext, Html(html)).into_response())
 }
 
 async fn serve_static_file(
     path: &std::path::Path,
-    headers: HeaderMap,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Static request {}", path.display());
-    let mut req = Request::new(axum::body::Body::empty());
-    *req.headers_mut() = headers;
+    let req = Request::new(axum::body::Body::empty());
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
 }
 
@@ -444,12 +477,10 @@ async fn serve_index(
     app_state: &mut AppStateType,
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
-    let mut headers = axum::http::header::HeaderMap::new();
+    let mut ext = Extensions::new();
     let html = match app_state.result_cache.get(path).await {
         Some(html) => {
-            if let Ok(hval) = axum::http::HeaderValue::from_str("cached") {
-                headers.append(CACHED_HEADER, hval);
-            }
+            ext.insert(true);
             html
         },
         None => {
@@ -460,19 +491,17 @@ async fn serve_index(
             else {
                 app_state.file_manager.find_peers_in_folder(path, None)
             };
-            if let Ok(hval) = axum::http::HeaderValue::from_str("generated") {
-                headers.append(CACHED_HEADER, hval);
-            }
+            ext.insert(false);
             app_state.html_generator.gen_index(path, peers).await?
         }
     };
-    Ok((StatusCode::OK, headers, Html(html)).into_response())
+    ext.insert(html.len());
+    Ok((StatusCode::OK, ext, Html(html)).into_response())
 }
 
 async fn get_response(
     app_state: &mut AppStateType,
     path: &std::path::Path,
-    headers: HeaderMap,
 ) -> Result<axum::response::Response, ChimeraError> {
     tracing::debug!("Chimera request {}", path.display());
     if has_extension(path, "md") {
@@ -497,5 +526,5 @@ async fn get_response(
         }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
-    serve_static_file(path, headers).await
+    serve_static_file(path).await
 }
