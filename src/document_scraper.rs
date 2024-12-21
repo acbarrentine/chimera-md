@@ -106,9 +106,6 @@ impl DocumentScraper {
                             }
                         }
                     },
-                    // Tag::Image { link_type, dest_url, title, id } => {
-                    //     tracing::info!("Image: {link_type:?}, dest_url: {dest_url}, title: {title}, id: {id}");
-                    // }
                     _ => {
                         self.has_readable_text = true;
                     }

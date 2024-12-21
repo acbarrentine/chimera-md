@@ -10,7 +10,7 @@ mod image_size_cache;
 mod access_log_format;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
-use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use access_log_format::{log_access, AccessLogFormat};
 use tokio::signal;
@@ -156,23 +156,18 @@ fn main() -> Result<(), ChimeraError> {
     let chimera_root = path::absolute(toml_config.chimera_root.as_str())?;
     let log_dir = chimera_root.join("log");
     let tracing_level = toml_config.tracing_level();
-    let file_appender = tracing_appender::rolling::daily(log_dir, "chimera.log");
+    let file_appender = tracing_appender::rolling::daily(log_dir, "access_log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    let time_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
-    let timer = tracing_subscriber::fmt::time::OffsetTime::new(time_offset, time::format_description::well_known::Rfc3339);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
-
     let file_layer = tracing_subscriber::fmt::layer()
         .without_time()
         .compact()
         .with_writer(non_blocking)
         .with_ansi(false)
         .with_line_number(false)
-        .event_format(AccessLogFormat)
-        ;
+        .event_format(AccessLogFormat);
     let tty_layer = tracing_subscriber::fmt::layer()
-        .with_timer(timer)
         .compact()
         .with_ansi(true)
         .with_line_number(true)

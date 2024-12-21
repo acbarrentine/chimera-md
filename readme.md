@@ -236,6 +236,12 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.12
+
+* access_log and trace information are now separated. access_log is written in 
+  traditional ["Combined" log file format](http://fileformats.archiveteam.org/wiki/Combined_Log_Format)
+  for easy analysis by tools like [GoAccess](https://goaccess.io/)
+
 ### v0.4.11
 
 * Logger should now use the local time if available
@@ -246,7 +252,7 @@ increasing complexity, these are:
   amateur web developer, it has involved a fair bit of firing blind at a poorly
   understood target. Today's update changes the breadcrumb separator from an SVG
   image into a little unicode character: `»`. Because the breadcrumbs indicators
-  are created by CSS, they don't apparently support height and width info.
+  are created by CSS, they don't apparently support height and width info
 
 ### v0.4.9
 

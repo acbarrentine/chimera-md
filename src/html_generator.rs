@@ -180,7 +180,6 @@ impl HtmlGenerator {
         if num_links == start_index {
             return original_html;
         }
-        //tracing::info!("Image sizes: {:?}", self.image_size_cache);
         let mut link_index = start_index;
         let mut new_html = String::with_capacity(original_html.len() * 11 / 10);
         let mut char_iter = original_html.char_indices();
