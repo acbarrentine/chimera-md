@@ -6,7 +6,7 @@ highlight_style = "a11y_dark"
 image_size_file = "image-sizes.toml"
 generate_index = true
 #log_level = "Trace"
-#log_level = "Debug"
+log_level = "Debug"
 max_cache_size = 52428800
 port = 8080
 

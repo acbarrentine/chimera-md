@@ -210,7 +210,6 @@ impl HtmlGenerator {
                         Some('i') => {
                             if let Some(image_size_cache) = &self.image_size_cache {
                                 if slice_it.next() == Some('m') && slice_it.next() == Some('g') {
-                                    tracing::debug!("<img");
                                     let mut consume = 5;
                                     let forward = &original_html[i+consume..];
                                     let mut parts = forward.split('\"');
@@ -218,7 +217,6 @@ impl HtmlGenerator {
                                     if parts.next() == Some(src_tag) {
                                         consume += src_tag.len();
                                         if let Some(img_src) = parts.next() {
-                                            tracing::debug!("Found img tag \"{img_src}\"");
                                             if let Some(dim) = image_size_cache.get_dimensions(img_src) {
                                                 tracing::debug!("Rewriting img tag \"{img_src}\"");
                                                 new_html.push_str(format!("<img src=\"{img_src}\" width=\"{}\" height = \"{}\"", dim.width, dim.height).as_str());

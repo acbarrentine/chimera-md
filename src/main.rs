@@ -7,10 +7,13 @@ mod file_manager;
 mod result_cache;
 mod perf_timer;
 mod image_size_cache;
+mod access_log_format;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
 use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use chrono::TimeZone;
 use image_size_cache::ImageSizeCache;
+use access_log_format::{log_access, AccessLogFormat};
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -160,13 +163,23 @@ fn main() -> Result<(), ChimeraError> {
     let timer = tracing_subscriber::fmt::time::OffsetTime::new(time_offset, time::format_description::well_known::Rfc3339);
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
+
+    // let _subscriber = tracing_subscriber::fmt()
+    //     .event_format(LogFormat)
+    //     .init();
+
+    //let thing = tracing_subscriber::fmt::layer();
+
     let file_layer = tracing_subscriber::fmt::layer()
-        .with_timer(timer.clone())
+        //.with_timer(timer.clone())
+        .without_time()
         .compact()
         .with_writer(non_blocking)
         .with_ansi(false)
         .with_line_number(false)
-        .with_filter(trace_filter.clone());
+        .event_format(AccessLogFormat)
+        //.with_filter(trace_filter.clone())
+        ;
     let tty_layer = tracing_subscriber::fmt::layer()
         .with_timer(timer)
         .compact()
@@ -232,6 +245,15 @@ async fn mw_response_time(
     let mut response = next.run(request).await;
     let status = response.status();
     let headers = response.headers_mut();
+
+    log_access(
+        status.as_u16(),
+        path.as_str(),
+        addr.as_str(),
+        user_agent.map(|v|v.to_str().expect("user agent extract").to_string()),
+        referer.map(|v|v.to_str().expect("referer extract").to_string()),
+    );
+
     match path.ends_with(".md") {
         true => {
             let cached_status = match headers.remove(CACHED_HEADER) {
@@ -248,26 +270,17 @@ async fn mw_response_time(
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
-            match status.is_success() || status.is_redirection() {
-                true => {
-                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
-                        headers.insert(axum::http::header::CACHE_CONTROL, value);
-                    }
-                    tracing::info!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
-                },
-                false => tracing::warn!("{}: {path} in {elapsed} ms ({cached_status}), user_agent: {user_agent:?}, referer: {referer:?}, addr: {addr}", response.status().as_u16())
+            if status.is_success() || status.is_redirection() {
+                if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
+                    headers.insert(axum::http::header::CACHE_CONTROL, value);
+                }
             }
         },
         false => {
-            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            match status.is_success()  || status.is_redirection() {
-                true => {
-                    if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
-                        headers.insert(axum::http::header::CACHE_CONTROL, value);
-                    }
-                    tracing::debug!("{}: {path} in {elapsed} ms", response.status().as_u16())
-                },
-                false => tracing::warn!("{}: {path} in {elapsed} ms, user_agent: {user_agent:?}, addr: {addr}", response.status().as_u16())
+            if status.is_success()  || status.is_redirection() {
+                if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
+                    headers.insert(axum::http::header::CACHE_CONTROL, value);
+                }
             }
         },
     }
