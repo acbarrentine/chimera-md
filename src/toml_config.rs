@@ -48,6 +48,9 @@ pub struct TomlConfig {
 
     #[serde(default)]
     pub menu: IndexMap<String, String>,
+
+    #[serde(default)]
+    pub cache_control: IndexMap<String, usize>,
 }
 
 fn default_chimera_root() -> String { "/data".to_string() }

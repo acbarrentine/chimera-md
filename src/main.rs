@@ -10,9 +10,10 @@ mod image_size_cache;
 mod access_log_format;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
-use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{Extensions, HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
+use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{Extensions, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use access_log_format::{log_access, AccessLogFormat};
+use indexmap::IndexMap;
 use tokio::signal;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
@@ -32,7 +33,6 @@ use crate::perf_timer::PerfTimer;
 use crate::toml_config::TomlConfig;
 
 const SERVER_TIMING: &str = "server-timing";
-const CACHED_HEADER: &str = "cached";
 const HOME_DIR: &str = "/home";
 
 #[derive(Parser, Debug)]
@@ -51,6 +51,7 @@ struct AppState {
     html_generator: HtmlGenerator,
     file_manager: FileManager,
     known_redirects: HashMap<String, String>,
+    cache_control: IndexMap<String, usize>,
     result_cache: ResultCache,
 }
 
@@ -114,6 +115,7 @@ impl AppState {
             full_text_index,
             html_generator,
             file_manager,
+            cache_control: config.cache_control,
             known_redirects: config.redirects,
             result_cache,
         })
@@ -135,10 +137,11 @@ async fn run(toml_config: TomlConfig, chimera_root: PathBuf) -> Result<(), Chime
         .route("/*path", get(handle_root_path))
         .route("/", get(handle_root))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
-        .with_state(state)
+        .with_state(state.clone())
         .layer(tower_http::compression::CompressionLayer::new())
-        .layer(middleware::from_fn(mw_headers))
-        .layer(middleware::from_fn(mw_access_log));
+        .layer(middleware::from_fn_with_state(state, mw_headers))
+        .layer(middleware::from_fn(mw_access_log))
+        ;
 
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, port)).await.unwrap();
     let connect_wrapper = app.into_make_service_with_connect_info::<SocketAddr>();
@@ -209,8 +212,21 @@ async fn shutdown_signal() {
     }
 }
 
-//#[debug_middleware]
+fn get_cache_duration(app_state: &AppState, content_type: Option<&str>) -> Option<usize> {
+    tracing::info!("Cache: {:?}", app_state.cache_control);
+    if let Some(content_type) = content_type {
+        for (k, v) in app_state.cache_control.iter() {
+            if content_type.starts_with(k) {
+                return Some(v.to_owned())
+            }
+        }
+    }
+    None
+}
+
+#[debug_middleware]
 async fn mw_headers(
+    State(app_state): State<AppStateType>,
     request: axum::extract::Request,
     next: Next,
 ) -> Response {
@@ -220,46 +236,32 @@ async fn mw_headers(
     let status = response.status();
     let cache_check = response.extensions().get::<bool>().map(|b|b.to_owned());
     let headers = response.headers_mut();
+    let content_type = headers.get(axum::http::header::CONTENT_TYPE);
+    let content_type = content_type.and_then(|h|h.to_str().ok());
+    let cache_duration = get_cache_duration(&app_state, content_type);
+    if status.is_success() || status.is_redirection() {
+        if let Some(cache_duration) = cache_duration {
+            let cache_control_string = format!("public, max-age={cache_duration}");
+            if let Ok(value) = axum::http::HeaderValue::from_str(cache_control_string.as_str()) {
+                headers.insert(axum::http::header::CACHE_CONTROL, value);
+            }
+        }
+    }
 
-    match path.ends_with(".md") {
-        true => {
-            let cached_status = match cache_check {
-                Some(b) => {
-                    match b {
-                        true => "cached",
-                        false => "generated",
-                    }
-                },
-                None => "generated",
-            };
-            match headers.remove(CACHED_HEADER) {
-                Some(status) => {
-                    match status.to_str() {
-                        Ok(str) => str.to_string(),
-                        Err(_) => "err".to_string(),
-                    }
-                },
-                None => "static".to_string(),
+    if path.ends_with(".md") {
+        if let Some(b) = cache_check {
+            let cache_status = match b {
+                true => "cached",
+                false => "generated",
             };
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cached_status);
+            let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cache_status);
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
-            if status.is_success() || status.is_redirection() {
-                if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=360") {
-                    headers.insert(axum::http::header::CACHE_CONTROL, value);
-                }
-            }
-        },
-        false => {
-            if status.is_success()  || status.is_redirection() {
-                if let Ok(value) = axum::http::HeaderValue::from_str("public, max-age=28800") {
-                    headers.insert(axum::http::header::CACHE_CONTROL, value);
-                }
-            }
-        },
+        }
     }
+
     response
 }
 
@@ -343,7 +345,6 @@ async fn handle_search(
 async fn handle_root_path(
     State(app_state): State<AppStateType>,
     axum::extract::Path(path): axum::extract::Path<String>,
-    headers: HeaderMap
 ) -> axum::response::Response {
     if let Some(redirect) = app_state.known_redirects.get(&path) {
         tracing::debug!("Known redirect: {path} => {redirect}");
@@ -354,8 +355,7 @@ async fn handle_root_path(
         new_path = app_state.internal_web_root.join(path.as_str());
     }
     tracing::debug!("Root request {path} => {}", new_path.display());
-    let mut req = Request::new(axum::body::Body::empty());
-    *req.headers_mut() = headers;
+    let req = Request::new(axum::body::Body::empty());
     match ServeDir::new(new_path.as_path()).try_call(req).await {
         Ok(resp) => {
             resp.into_response()
@@ -473,10 +473,11 @@ async fn serve_static_file(
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
 }
 
-async fn serve_index(
+async fn serve_generated_index(
     app_state: &mut AppStateType,
     path: &std::path::Path,
 ) -> Result<axum::response::Response, ChimeraError> {
+    let mut headers = axum::http::header::HeaderMap::new();
     let mut ext = Extensions::new();
     let html = match app_state.result_cache.get(path).await {
         Some(html) => {
@@ -484,6 +485,7 @@ async fn serve_index(
             html
         },
         None => {
+            let mut perf_timer = PerfTimer::new();
             tracing::debug!("No file specified. Generating an index result at {}", path.display());
             let peers = if let Ok(abs_path) = path.canonicalize() {
                 app_state.file_manager.find_peers_in_folder(abs_path.as_path(), None)
@@ -491,12 +493,17 @@ async fn serve_index(
             else {
                 app_state.file_manager.find_peers_in_folder(path, None)
             };
+            perf_timer.sample("find-peers", &mut headers);
             ext.insert(false);
-            app_state.html_generator.gen_index(path, peers).await?
+            let html = app_state.html_generator.gen_index(path, peers).await?;
+            perf_timer.sample("generate-html", &mut headers);
+            app_state.result_cache.add(path, html.as_str()).await;
+            perf_timer.sample("cache-results", &mut headers);
+            html
         }
     };
     ext.insert(html.len());
-    Ok((StatusCode::OK, ext, Html(html)).into_response())
+    Ok((StatusCode::OK, ext, headers, Html(html)).into_response())
 }
 
 async fn get_response(
@@ -522,7 +529,7 @@ async fn get_response(
             return serve_markdown_file(app_state, &path_with_index).await;
         }
         else if app_state.generate_index {
-            return serve_index(app_state, path).await;
+            return serve_generated_index(app_state, path).await;
         }
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());

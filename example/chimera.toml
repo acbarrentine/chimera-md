@@ -19,3 +19,9 @@ port = 8080
 "Home" = "/home/index.md"
 "Tests" = "/home/tests/index.md"
 "Subfolder" = "/home/subfolder/index.md"
+
+[cache_control]
+"text/html" = 720
+"text/css" = 28800
+"image" = 57600
+"video" = 57600
