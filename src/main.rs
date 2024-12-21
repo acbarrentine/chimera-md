@@ -10,8 +10,7 @@ mod image_size_cache;
 mod access_log_format;
 
 use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
-use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
-use chrono::TimeZone;
+use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{HeaderMap, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use access_log_format::{log_access, AccessLogFormat};
 use tokio::signal;
@@ -164,21 +163,13 @@ fn main() -> Result<(), ChimeraError> {
     let trace_filter = tracing_subscriber::filter::Targets::new()
         .with_default(tracing_level);
 
-    // let _subscriber = tracing_subscriber::fmt()
-    //     .event_format(LogFormat)
-    //     .init();
-
-    //let thing = tracing_subscriber::fmt::layer();
-
     let file_layer = tracing_subscriber::fmt::layer()
-        //.with_timer(timer.clone())
         .without_time()
         .compact()
         .with_writer(non_blocking)
         .with_ansi(false)
         .with_line_number(false)
         .event_format(AccessLogFormat)
-        //.with_filter(trace_filter.clone())
         ;
     let tty_layer = tracing_subscriber::fmt::layer()
         .with_timer(timer)
@@ -233,7 +224,8 @@ async fn mw_response_time(
         Some(p_and_q) => { p_and_q.as_str().to_owned() },
         None => { request.uri().path().to_string() }
     };
-
+    let method = request.method().to_owned();
+    let version = request.version();
     let req_headers = request.headers();
     let user_agent = req_headers.get("user-agent").cloned();
     let referer = req_headers.get("referer").cloned();
@@ -248,6 +240,8 @@ async fn mw_response_time(
 
     log_access(
         status.as_u16(),
+        method.as_str(),
+        version,
         path.as_str(),
         addr.as_str(),
         user_agent.map(|v|v.to_str().expect("user agent extract").to_string()),

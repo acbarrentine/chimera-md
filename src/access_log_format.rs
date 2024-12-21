@@ -1,4 +1,5 @@
 use std::fmt;
+use axum::http::Version;
 use chrono::Local;
 use tracing::{info, Event, Subscriber};
 use tracing_subscriber::fmt::{
@@ -13,14 +14,19 @@ fn optional(opt: Option<String>) -> String {
 
 pub fn log_access(
     status: u16,
+    method: &str,
+    version: Version,
     uri: &str,
     addr: &str,
     user_agent: Option<String>,
     referer: Option<String>,
 ) {
+    // "Combined" log format. Example:
+    // 127.0.0.1 - - [05/Feb/2012:17:11:55 +0000] "GET / HTTP/1.1" 200 140 "-" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.5 Safari/535.19"
     let now = Local::now();
-    info!(target: "access_log", "{addr} - - [{}] \"{status} {uri} HTTP/1.1\" {} {}",
-        now.format("%d-%b-%Y:%H:%M:%S %z"),
+    let bytes = 0; // Can we get the size of the response?
+    info!(target: "access_log", "{addr} - - [{}] \"{method} {uri} {version:?}\" {status} {bytes} \"{}\" \"{}\"",
+        now.format("%d/%b/%Y:%H:%M:%S %z"),
         optional(user_agent),
         optional(referer));
 }
@@ -38,7 +44,6 @@ where
         mut writer: format::Writer<'_>,
         event: &Event<'_>,
     ) -> fmt::Result {
-        // Format values from the event's's metadata:
         let metadata = event.metadata();
         if metadata.target() == "access_log" {
             ctx.field_format().format_fields(writer.by_ref(), event)?;
