@@ -236,6 +236,21 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.13
+
+* Adds configurable cache-control headers to responses. Add configuration for them to your
+  `chimera.toml` file. Cache time is measured in seconds. Use MIME content type as a key
+  to looking up the time. Matching is done with `starts_with()`, so you can use just the
+  beginning of the MIME type as a key. Example durations:
+
+```toml
+[cache_control]
+"text/html" = 14400    # 4 hours
+"text/css" = 43200     # 12 hours
+"image" = 86400        # 24 hours
+"video" = 86400        # 24 hours
+```
+
 ### v0.4.12
 
 * access_log and trace information are now separated. access_log is written in 

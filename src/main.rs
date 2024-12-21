@@ -213,7 +213,6 @@ async fn shutdown_signal() {
 }
 
 fn get_cache_duration(app_state: &AppState, content_type: Option<&str>) -> Option<usize> {
-    tracing::info!("Cache: {:?}", app_state.cache_control);
     if let Some(content_type) = content_type {
         for (k, v) in app_state.cache_control.iter() {
             if content_type.starts_with(k) {
