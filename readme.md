@@ -236,6 +236,12 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.14
+
+* I discovered my "uri" Tera variable wasn't working, and that's because it was actually
+  called "url". Sigh. This release updates the Axum crate to 0.8.1, which necessitated
+  changing the path mappings
+
 ### v0.4.13
 
 * Adds configurable cache-control headers to responses. Add configuration for them to your
@@ -363,14 +369,14 @@ pub struct ImageSizeCache {
 
 * Trying out a couple things with this release. I have added a `cache-control` header to
   the responses to tell caching layers (like CloudFlare) that it's ok to remember things.
-  The other item is that the back-end is providing a new variable `uri` to the Tera template
+  The other item is that the back-end is providing a new variable `url` to the Tera template
   engine. My intention with that is to combine it with a server name in the site-header.html
   to give a full canonical URL to each page. There's nothing using it in the default install,
-  though, so you don't need to worry about it if you don't need. `uri` will start with a
+  though, so you don't need to worry about it if you don't need. `url` will start with a
   slash if you intend to use it.
 
 ```html
-<link rel="canonical" href="https://canonical.server.name{{uri}}" />
+<link rel="canonical" href="https://canonical.server.name{{url}}" />
 ```
 
 ### v0.3.8

@@ -29,12 +29,11 @@ impl ImageSizeCacheInternal {
     }
 
     fn load(&mut self) {
+        tracing::info!("Reloading image cache");
         self.map = match fs::read_to_string(self.path.as_path()) {
             Ok(cached_file_data) => {
                 match toml::from_str(&cached_file_data) {
-                    Ok(m) => {
-                        m
-                    },
+                    Ok(m) => m,
                     Err(e) => {
                         tracing::error!("Error parsing image-sizes.toml: {e}");
                         IndexMap::new()
@@ -62,6 +61,7 @@ impl ImageSizeCache {
     
     fn load(&mut self) {
         let Ok(mut lock) = self.lock.write() else {
+            tracing::error!("Failed to get write lock for image cache");
             return;
         };
         lock.load();

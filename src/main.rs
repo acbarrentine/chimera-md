@@ -132,9 +132,9 @@ async fn run(toml_config: TomlConfig, chimera_root: PathBuf) -> Result<(), Chime
 
     let app = Router::new()
         .route("/search", get(handle_search))
-        .route(format!("{HOME_DIR}/*path").as_str(), get(handle_home))
+        .route(format!("{HOME_DIR}/{{*path}}").as_str(), get(handle_home))
         .route(format!("{HOME_DIR}/").as_str(), get(handle_home_folder))
-        .route("/*path", get(handle_root_path))
+        .route("/{*path}", get(handle_root_path))
         .route("/", get(handle_root))
         .fallback_service(get(handle_fallback).with_state(state.clone()))
         .with_state(state.clone())
