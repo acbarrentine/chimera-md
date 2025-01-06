@@ -1,3 +1,5 @@
+#!/bin/zsh
+
 version=$(cargo metadata --format-version 1  | jq -r '.packages[]  | select(.name | test("chimera-md")) | .version');
 
 echo "Building multi-platform docker image for version: $version";
