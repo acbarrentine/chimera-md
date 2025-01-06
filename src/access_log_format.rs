@@ -28,8 +28,9 @@ pub fn log_access(
     let now = Local::now();
     info!(target: "access_log", "{addr} - - [{}] \"{method} {uri} {version:?}\" {status} {bytes} \"{}\" \"{}\"",
         now.format("%d/%b/%Y:%H:%M:%S %z"),
+        optional(referer),
         optional(user_agent),
-        optional(referer));
+    );
 }
 
 pub struct AccessLogFormat;

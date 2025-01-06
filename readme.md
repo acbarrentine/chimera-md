@@ -236,6 +236,10 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.15
+
+* I had referer and user-agent flipped in the combined log format
+
 ### v0.4.14
 
 * I discovered my "uri" Tera variable wasn't working, and that's because it was actually
