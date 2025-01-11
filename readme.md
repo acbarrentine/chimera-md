@@ -236,9 +236,17 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.16
+
+* I have seen from Google and Yandex that they don't like the way I have been handling
+  requests to a folder that redirect to an index file. Because I was handling that
+  internally, not generating a client redirect, there would be 3 URLs that led to the
+  same page. /home == /home/ == /home/index.md. This now generates client redirects
+  for folder names. Hopefully that suits the search engines.
+
 ### v0.4.15
 
-* I had referer and user-agent flipped in the combined log format
+* I had referrer and user-agent flipped in the combined log format
 
 ### v0.4.14
 

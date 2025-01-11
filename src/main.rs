@@ -9,7 +9,7 @@ mod perf_timer;
 mod image_size_cache;
 mod access_log_format;
 
-use std::{collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
+use std::{borrow::Borrow, collections::HashMap, net::{Ipv4Addr, SocketAddr}, path::{self, PathBuf}, sync::Arc};
 use axum::{body::HttpBody, extract::{ConnectInfo, State}, http::{Extensions, Request, StatusCode}, middleware::{self, Next}, response::{Html, IntoResponse, Redirect, Response}, routing::get, Form, Router};
 use image_size_cache::ImageSizeCache;
 use access_log_format::{log_access, AccessLogFormat};
@@ -442,22 +442,46 @@ async fn serve_markdown_file(
             html
         },
         None => {
-            let mut perf_timer = PerfTimer::new();
-            let md_content = tokio::fs::read_to_string(path).await?;
-            perf_timer.sample("read-file", &mut headers);
-            let (body, scraper) = parse_markdown(md_content.as_str());
-            perf_timer.sample("parse-markdown", &mut headers);
-            let peers = match app_state.generate_index {
-                true => app_state.file_manager.find_peers(path),
-                false => None,
-            };
-            perf_timer.sample("find-peers", &mut headers);
-            let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
-            perf_timer.sample("generate-html", &mut headers);
-            app_state.result_cache.add(path, html.as_str()).await;
-            perf_timer.sample("cache-results", &mut headers);
-            ext.insert(false);
-            html
+            if path.exists() {
+                let mut perf_timer = PerfTimer::new();
+                let md_content = tokio::fs::read_to_string(path).await?;
+                perf_timer.sample("read-file", &mut headers);
+                let (body, scraper) = parse_markdown(md_content.as_str());
+                perf_timer.sample("parse-markdown", &mut headers);
+                let peers = match app_state.generate_index {
+                    true => app_state.file_manager.find_peers(path),
+                    false => None,
+                };
+                perf_timer.sample("find-peers", &mut headers);
+                let html = app_state.html_generator.gen_markdown(path, body, scraper, peers)?;
+                perf_timer.sample("generate-html", &mut headers);
+                app_state.result_cache.add(path, html.as_str()).await;
+                perf_timer.sample("cache-results", &mut headers);
+                ext.insert(false);
+                html
+            }
+            else if path.ends_with(app_state.index_file.as_str()){
+                let mut perf_timer = PerfTimer::new();
+                tracing::debug!("Generating an index result at {}", path.display());
+                let folder = match path.parent() {
+                    Some(p) => p,
+                    None => std::path::Path::new("/"),
+                };
+                let peers = match app_state.generate_index {
+                    true => app_state.file_manager.find_peers_in_folder(folder, None),
+                    false => None,
+                };
+                perf_timer.sample("find-peers", &mut headers);
+                ext.insert(false);
+                let html = app_state.html_generator.gen_index(path, peers).await?;
+                perf_timer.sample("generate-html", &mut headers);
+                app_state.result_cache.add(path, html.as_str()).await;
+                perf_timer.sample("cache-results", &mut headers);
+                html
+            }
+            else {
+                return Ok(StatusCode::NOT_FOUND.into_response())
+            }
         }
     };
     ext.insert(html.len());
@@ -472,39 +496,6 @@ async fn serve_static_file(
     Ok(ServeDir::new(path).try_call(req).await?.into_response())
 }
 
-async fn serve_generated_index(
-    app_state: &mut AppStateType,
-    path: &std::path::Path,
-) -> Result<axum::response::Response, ChimeraError> {
-    let mut headers = axum::http::header::HeaderMap::new();
-    let mut ext = Extensions::new();
-    let html = match app_state.result_cache.get(path).await {
-        Some(html) => {
-            ext.insert(true);
-            html
-        },
-        None => {
-            let mut perf_timer = PerfTimer::new();
-            tracing::debug!("No file specified. Generating an index result at {}", path.display());
-            let peers = if let Ok(abs_path) = path.canonicalize() {
-                app_state.file_manager.find_peers_in_folder(abs_path.as_path(), None)
-            }
-            else {
-                app_state.file_manager.find_peers_in_folder(path, None)
-            };
-            perf_timer.sample("find-peers", &mut headers);
-            ext.insert(false);
-            let html = app_state.html_generator.gen_index(path, peers).await?;
-            perf_timer.sample("generate-html", &mut headers);
-            app_state.result_cache.add(path, html.as_str()).await;
-            perf_timer.sample("cache-results", &mut headers);
-            html
-        }
-    };
-    ext.insert(html.len());
-    Ok((StatusCode::OK, ext, headers, Html(html)).into_response())
-}
-
 async fn get_response(
     app_state: &mut AppStateType,
     path: &std::path::Path,
@@ -514,22 +505,9 @@ async fn get_response(
         return serve_markdown_file(app_state, path).await;
     }
     else if path.is_dir() { 
-        // is this a folder?
-        let path_str = path.to_string_lossy();
-        if !path_str.ends_with('/') {
-            let path_with_slash = format!("{}/", path_str);
-            tracing::debug!("Missing /, redirecting to {path_with_slash}");
-            return Ok(Redirect::permanent(path_with_slash.as_str()).into_response());
-        }
-
-        let path_with_index = path.join(app_state.index_file.as_str());
-        if path_with_index.exists() {
-            tracing::debug!("No file specified, sending {}", path_with_index.display());
-            return serve_markdown_file(app_state, &path_with_index).await;
-        }
-        else if app_state.generate_index {
-            return serve_generated_index(app_state, path).await;
-        }
+        let new_path = path::Path::new(HOME_DIR).join(path).join(app_state.index_file.as_str());
+        tracing::debug!("Not a file. Redirecting to {}", new_path.display());
+        return Ok(Redirect::permanent(new_path.to_string_lossy().borrow()).into_response());
     }
     tracing::debug!("Not md or a dir {}. Falling back to static routing", path.display());
     serve_static_file(path).await
