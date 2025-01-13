@@ -236,6 +236,10 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.17
+
+* Experimenting with support for HTTP/2
+
 ### v0.4.16
 
 * I have seen from Google and Yandex that they don't like the way I have been handling

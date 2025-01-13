@@ -1,6 +1,6 @@
 [package]
 name = "chimera-md"
-version = "0.4.16"
+version = "0.4.17"
 edition = "2021"
 authors = ["Alexander Barrentine", "Alexander Barrentine <acbarrentine@gmail.com>"]
 description = "A Markdown-aware web server"
@@ -8,7 +8,7 @@ description = "A Markdown-aware web server"
 [dependencies]
 pulldown-cmark = "0.12.2"
 tokio = { version = "1.43.0", features = ["full", "test-util"] }
-axum = { version = "0.8.1", features = ["macros"] }
+axum = { version = "0.8.1", features = ["macros", "http2"] }
 tower-http = { version = "0.6.2", features = ["fs", "trace", "compression-gzip"] }
 tera = "1.20.0"
 tracing = "0.1.41"
