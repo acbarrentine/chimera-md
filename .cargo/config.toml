@@ -1,3 +1,11 @@
 [profile.profiling]
 inherits = "release"
 debug = true
+
+[target.aarch64-apple-darwin]
+rustflags = [ 
+    "-C",
+    "link-arg=-fuse-ld=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
+    "-C",
+    "link-arg=-ld_new",
+]

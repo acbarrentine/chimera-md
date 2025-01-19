@@ -1,6 +1,6 @@
 # Chimera-md
 
-![screenshot](examples/assets/screenshot.jpg)
+![screenshot](example/home/assets/screenshot.jpg)
 
 Chimera-md is a [Markdown](https://www.markdownguide.org/)-aware documentation server.
 
