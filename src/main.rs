@@ -327,7 +327,7 @@ async fn handle_search(
 ) -> axum::response::Response {
     if let Some(query) = search.query {
         if !query.is_empty() {
-            tracing::debug!("Search for {}", query);
+            tracing::info!("Search for \"{}\"", query);
             if let Ok(results) = app_state.full_text_index.search(query.as_str()) {
                 if let Ok(html) = app_state.html_generator.gen_search(query.as_str(), results) {
                     return axum::response::Html(html).into_response();

@@ -125,16 +125,15 @@ impl DocumentScraper {
                         Some(id_text) => {
                             // id="the-middle"
                             tracing::debug!("id_text: {}", id_text.as_str());
-                            if let Some(id_captures) = self.id_re.captures(id_text.as_str()) {
+                            match self.id_re.captures(id_text.as_str()) { Some(id_captures) => {
                                 match id_captures.get(1) {
                                     Some(id) => id.as_str(),
                                     None => return,
                                 }
-                            }
-                            else {
+                            } _ => {
                                 tracing::debug!("No id found for heading");
                                 return
-                            }
+                            }}
                         },
                         None => {
                             heading_text
