@@ -6,7 +6,7 @@
     {% elif loop.last-%}
     <span class="crumb">{{crumb.name}}</span>
     {% else -%}
-    <span class="crumb"><a href="{{crumb.url}}">{{crumb.name}}</a>
+    <span class="crumb"><a href="{{crumb.url}}">{{crumb.name}}</a></span>
     {% endif -%}
   {% endfor -%}
 </div>

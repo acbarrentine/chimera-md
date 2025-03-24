@@ -236,6 +236,11 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.4.18
+
+* Building with the new Rust 2024 edition. Fixes a minor HTML defect in the breadcrumbs
+  (missing an `</span>` tag). Support crate updates
+
 ### v0.4.17
 
 * Experimenting with support for HTTP/2

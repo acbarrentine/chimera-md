@@ -1,6 +1,6 @@
 [package]
 name = "chimera-md"
-version = "0.4.17"
+version = "0.4.18"
 edition = "2024"
 authors = ["Alexander Barrentine", "Alexander Barrentine <acbarrentine@gmail.com>"]
 description = "A Markdown-aware web server"
