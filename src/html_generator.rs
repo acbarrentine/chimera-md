@@ -1,6 +1,4 @@
 use std::{collections::HashSet, ffi::{OsStr, OsString}, path::{Path, PathBuf}};
-use indexmap::IndexMap;
-use serde::Serialize;
 use tera::Tera;
 
 use crate::{chimera_error::ChimeraError, image_size_cache::ImageSizeCache};
@@ -18,15 +16,8 @@ pub struct HtmlGeneratorCfg<'a> {
     pub index_file: &'a str,
     pub site_lang: &'a str,
     pub highlight_style: &'a str,
-    pub menu: IndexMap<String, String>,
     pub file_manager: &'a FileManager,
     pub image_size_cache: Option<ImageSizeCache>,
-}
-
-#[derive (Debug, Serialize)]
-struct MenuItem {
-    title: String,
-    target: String,
 }
 
 pub struct HtmlGenerator {
@@ -35,7 +26,6 @@ pub struct HtmlGenerator {
     site_lang: String,
     highlight_style: String,
     index_file: String,
-    menu: Vec<MenuItem>,
     image_size_cache: Option<ImageSizeCache>,
 }
 
@@ -71,12 +61,6 @@ impl HtmlGenerator {
             site_lang: cfg.site_lang.to_owned(),
             highlight_style: cfg.highlight_style.to_owned(),
             index_file: cfg.index_file.to_string(),
-            menu: cfg.menu.into_iter().map(|(title, target)| {
-                MenuItem {
-                    title,
-                    target
-                }
-            }).collect(),
             image_size_cache: cfg.image_size_cache
         })
     }
@@ -89,7 +73,6 @@ impl HtmlGenerator {
         vars.insert("highlight_style", self.highlight_style.as_str());
         vars.insert("has_code", &has_code);
         vars.insert("version", VERSION);
-        vars.insert("menu", &self.menu);
         vars
     }
 

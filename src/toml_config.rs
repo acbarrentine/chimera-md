@@ -47,9 +47,6 @@ pub struct TomlConfig {
     pub redirects: HashMap<String, String>,
 
     #[serde(default)]
-    pub menu: IndexMap<String, String>,
-
-    #[serde(default)]
     pub cache_control: IndexMap<String, usize>,
 }
 

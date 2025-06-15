@@ -10,16 +10,5 @@
     {% endif -%}
   {% endfor -%}
 </div>
-{% if menu -%}
-<span class="menu-anchor">
-  <button class="menu-button" onclick="showNavMenu()">
-    <img src="/icon/menu-outline.svg" id="menu-button" width="28" height="28" aria-label="Menu" alt="Menu">
-  </button>
-  <div id="myDropdown" class="dropdown-content">
-    {% for menu_item in menu -%}
-    <button onclick="window.location.href='{{menu_item.target}}';">{{menu_item.title}}</button>
-    {% endfor -%}
-  </div>
-</span>
-{% endif -%}
+{%- include "site-menu.html" -%}
 </span>

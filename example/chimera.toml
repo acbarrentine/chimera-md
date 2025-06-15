@@ -1,5 +1,5 @@
 chimera_root = "example"
-site_title = "Chimera Example"
+site_title = "Chimera example"
 index_file = "index.md"
 site_lang = "en"
 highlight_style = "a11y_dark"
@@ -12,13 +12,6 @@ port = 8080
 
 [redirects]
 "dialog-test/" = "/home/Dialog%20test%202.md"
-
-[menu]
-# Items to appear in the navigation menu drop-down
-# "label" = "URL"
-"Home" = "/home/index.md"
-"Tests" = "/home/tests/index.md"
-"Subfolder" = "/home/subfolder/index.md"
 
 [cache_control]
 "text/html" = 14400    # 4 hours

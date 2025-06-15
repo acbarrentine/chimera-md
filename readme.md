@@ -236,6 +236,14 @@ increasing complexity, these are:
 
 ## Release notes
 
+### v0.5.0
+
+* Moved the menu widget into its own Tera template, rather than passing individual menu
+  items through the config file. Ultimately this was to be able to support adding separators
+  into the design, which don't fit well in the `"name" = "value"` kind of array markup in
+  toml. If you are using the menu facility, you will need to build out `site-menu.html` and
+  map that into the `/data/template` directory
+
 ### v0.4.18
 
 * Building with the new Rust 2024 edition. Fixes a minor HTML defect in the breadcrumbs

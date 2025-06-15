@@ -96,7 +96,6 @@ impl AppState {
             site_lang: config.site_lang.as_str(),
             highlight_style: config.highlight_style.as_str(),
             index_file: config.index_file.as_str(),
-            menu: config.menu,
             file_manager: &file_manager,
             image_size_cache,
         };
@@ -202,6 +201,8 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
+    // TODO
+    // Is this happening on the NAS?
     tokio::select! {
         _ = ctrl_c => {
             tracing::info!("Ctrl-c detected. Shutting down");

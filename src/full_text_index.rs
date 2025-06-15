@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, ffi::OsStr, path::PathBuf, sync::{Arc, RwLock},
 use serde::{Deserialize, Serialize};
 use tantivy::{collector::TopDocs, directory::MmapDirectory, IndexReader};
 use tantivy::query::QueryParser;
-use tantivy::{schema::*, SnippetGenerator};
+use tantivy::{schema::*, snippet::SnippetGenerator};
 use tantivy::{Index, IndexWriter, ReloadPolicy};
 use tokio::{io::AsyncWriteExt, sync::mpsc::{self, Receiver}};
 
@@ -124,16 +124,20 @@ impl FullTextIndex {
             let title = retrieved_doc.get_first(self.title_field);
             let anchor = retrieved_doc.get_first(self.link_field);
             tracing::debug!("Search result: {title:?} {anchor:?}");
-            if let Some(OwnedValue::Str(title)) = title {
-                if let Some(OwnedValue::Str(anchor)) = anchor {
-                    let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
-                    tracing::debug!("Snippet: {snippet:?}");
-                    let snippet = self.highlight(snippet.fragment(), snippet.highlighted());
-                    results.push(SearchResult {
-                        title: title.clone(),
-                        link: anchor.clone(),
-                        snippet,
-                    });
+            if let Some(title_val) = title {
+                if let Some(title_str) = title_val.as_str() {
+                    if let Some(anchor_val) = anchor {
+                        if let Some(anchor_str) = anchor_val.as_str() {
+                            let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
+                            tracing::debug!("Snippet: {snippet:?}");
+                            let snippet = self.highlight(snippet.fragment(), snippet.highlighted());
+                            results.push(SearchResult {
+                                title: title_str.to_owned(),
+                                link: anchor_str.to_owned(),
+                                snippet,
+                            });
+                        }
+                    }
                 }
             }
         }
