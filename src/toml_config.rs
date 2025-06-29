@@ -63,6 +63,28 @@ fn default_max_cache_size() -> usize { 50 * 1024 * 1024 }
 fn default_port() -> u16 { 8080 }
 
 impl TomlConfig {
+    /// Reads and parses a TOML configuration file.
+    /// 
+    /// # Arguments
+    /// * `config_file` - Path to the TOML configuration file
+    /// 
+    /// # Returns
+    /// * `Ok(TomlConfig)` - Parsed configuration with defaults applied
+    /// * `Err(ChimeraError)` - If file cannot be read or parsed
+    /// 
+    /// # Configuration Fields
+    /// * `chimera_root` - Base directory for all server data (default: "/data")
+    /// * `site_title` - Website title displayed in templates (default: "My documents") 
+    /// * `site_lang` - HTML language attribute (default: "en")
+    /// * `index_file` - Default file for directory requests (default: "index.md")
+    /// * `port` - Server port (default: 8080)
+    /// * `generate_index` - Auto-generate directory indexes (default: false)
+    /// * `highlight_style` - Code syntax highlighting theme (default: "an-old-hope")
+    /// * `max_cache_size` - Result cache size limit in bytes (default: 50MB)
+    /// * `image_size_file` - Optional image dimensions cache file
+    /// * `redirects` - URL redirect mappings (old_path -> new_path)
+    /// * `menu` - Navigation menu items (label -> URL)
+    /// * `cache_control` - HTTP cache durations by content type (mime_type -> seconds)
     pub fn read_config(config_file: &str) -> Result<TomlConfig, ChimeraError> {
         let config_file_data = match std::fs::read_to_string(config_file) {
             Ok(config_file_data) => config_file_data,

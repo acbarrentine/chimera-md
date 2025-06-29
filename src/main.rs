@@ -42,20 +42,60 @@ struct Config {
     config_file: String,
 }
 
+/// Application state containing all server components and configuration.
+/// 
+/// This struct holds all the core components needed to serve markdown files:
+/// - File system monitoring and management
+/// - HTML generation with templating
+/// - Full-text search indexing
+/// - Result caching for performance
+/// - Configuration for routing and caching
 struct AppState {
+    /// Root directory for user-provided static files (CSS, images, etc.)
     user_web_root: PathBuf,
+    /// Root directory for built-in static files (internal CSS, icons, etc.)
     internal_web_root: PathBuf,
+    /// Default filename to serve for directory requests (e.g., "index.md")
     index_file: String,
+    /// Whether to auto-generate index pages for directories without index files
     generate_index: bool,
+    /// Full-text search engine for markdown content
     full_text_index: FullTextIndex,
+    /// HTML generator using Tera templates
     html_generator: HtmlGenerator,
+    /// File system watcher and peer file discovery
     file_manager: FileManager,
+    /// URL redirect mappings from old to new paths
     known_redirects: HashMap<String, String>,
+    /// HTTP cache control headers by content type (seconds)
     cache_control: IndexMap<String, usize>,
+    /// In-memory cache for rendered HTML content
     result_cache: ResultCache,
 }
 
 impl AppState {
+    /// Creates a new application state by initializing all server components.
+    /// 
+    /// This is an expensive async operation that:
+    /// 1. Sets up file system watching for templates and documents
+    /// 2. Initializes the full-text search index
+    /// 3. Configures HTML template rendering
+    /// 4. Sets up result caching with change invalidation
+    /// 
+    /// # Arguments
+    /// * `chimera_root` - Base directory containing all server data (home/, www/, etc.)
+    /// * `config` - Server configuration from TOML file
+    /// 
+    /// # Returns
+    /// * `Ok(AppState)` - Fully initialized application state
+    /// * `Err(ChimeraError)` - If any component fails to initialize
+    /// 
+    /// # Errors
+    /// Can fail if:
+    /// - Directory structure is invalid or inaccessible
+    /// - Template compilation fails
+    /// - Search index initialization fails
+    /// - File watchers cannot be established
     pub async fn new(chimera_root: PathBuf, config: TomlConfig) -> Result<Self, ChimeraError> {
         let user_template_root = chimera_root.join("template");
         let internal_template_root = chimera_root.join("template-internal");
@@ -320,6 +360,25 @@ struct SearchForm {
     query: Option<String>,
 }
 
+/// Handles full-text search requests via form submission.
+/// 
+/// This endpoint processes search queries and returns HTML pages with:
+/// - Search results with snippets and links
+/// - Empty search page if no query provided
+/// - Error page if search fails
+/// 
+/// # Arguments
+/// * `app_state` - Application state containing search index
+/// * `search` - Form data containing the search query
+/// 
+/// # Returns
+/// * HTML response with search results or search form
+/// 
+/// # Behavior
+/// - Empty queries return the blank search page
+/// - Valid queries are logged and processed by Tantivy
+/// - Results are rendered using the search template
+/// - Errors fall back to generic error page
 //#[debug_handler]
 async fn handle_search(
     State(app_state): State<AppStateType>,
@@ -429,6 +488,35 @@ fn has_extension(file_name: &std::path::Path, match_ext: &str) -> bool {
     false
 }
 
+/// Serves a markdown file as HTML with caching and performance timing.
+/// 
+/// This is the core function for processing markdown files. It handles:
+/// - Cache lookup for previously rendered HTML
+/// - Markdown parsing and HTML generation
+/// - Peer file discovery for navigation
+/// - Auto-generated index pages for missing files
+/// - Performance timing via Server-Timing headers
+/// 
+/// # Arguments
+/// * `app_state` - Mutable reference to application state for caching
+/// * `path` - Filesystem path to the markdown file
+/// 
+/// # Returns
+/// * `Ok(Response)` - HTML response with appropriate headers and timing
+/// * `Err(ChimeraError)` - If file reading or processing fails
+/// 
+/// # Caching Behavior
+/// - Cache hit: Returns stored HTML with timing header indicating cache status
+/// - Cache miss: Processes file, stores result, returns new HTML
+/// - Non-existent files: May generate index pages if enabled in config
+/// 
+/// # Performance Timing
+/// Uses Server-Timing headers to report:
+/// - File reading time
+/// - Markdown parsing time  
+/// - Peer discovery time
+/// - HTML generation time
+/// - Cache storage time
 async fn serve_markdown_file(
     app_state: &mut AppStateType,
     path: &std::path::Path,

@@ -1,3 +1,23 @@
+//! Markdown document parsing and metadata extraction.
+//!
+//! This module provides functionality for parsing markdown documents and extracting
+//! structured information including:
+//! - Internal links (headings with anchors)
+//! - External links for validation
+//! - YAML frontmatter processing
+//! - Heading hierarchy normalization
+//!
+//! The primary entry point is [`parse_markdown`] which returns both the processed
+//! markdown body and a [`DocumentScraper`] containing extracted metadata.
+//!
+//! # Example
+//! ```rust
+//! let markdown = "# Title\n\nSome content with [link](http://example.com)";
+//! let (body, scraper) = parse_markdown(markdown);
+//! println!("Internal links: {:?}", scraper.internal_links());
+//! println!("External links: {:?}", scraper.external_links());
+//! ```
+
 use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -214,11 +234,24 @@ impl DocumentScraper {
         }
     }
 
-    // The indenting scheme requires that we not grow more than 1 step at a time
-    // Unfortunately, because this depends on user data, we can easily be asked
-    // to process an invalid setup. Eg: <h1> directly to <h3>
-    // Outdents don't have the same problem
-    // Renumber the link list so we don't violate that assumption
+    /// Normalizes heading levels to prevent invalid hierarchies.
+    /// 
+    /// HTML heading hierarchy requires that heading levels increment by at most 1
+    /// (e.g., h1 -> h2 -> h3), but markdown authors often violate this rule by
+    /// jumping from h1 directly to h3, etc.
+    /// 
+    /// This function corrects such violations by:
+    /// 1. Tracking the last used heading level
+    /// 2. When a heading jumps more than 1 level, clamping it to last_level + 1
+    /// 3. Allowing any level of outdenting (h3 -> h1 is fine)
+    /// 
+    /// # Examples
+    /// - Input: h1, h3, h2 -> Output: h1, h2, h2
+    /// - Input: h2, h5, h4 -> Output: h2, h3, h3  
+    /// - Input: h3, h1, h4 -> Output: h3, h1, h2
+    /// 
+    /// This ensures the resulting HTML has a valid heading structure for
+    /// accessibility and proper document outline generation.
     fn normalize_headings(&mut self) {
         let mut last_used_level = 0;
         let mut last_seen_level = 0;
