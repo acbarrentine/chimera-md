@@ -1,0 +1,44 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - chimera-md
+    networks:
+      - nginx-network
+
+  chimera-md:
+    container_name: chimera-md
+    image: acbarrentine/chimera-md:latest
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - ./chimera.toml:/data/chimera.toml:ro
+      - ./home:/data/home:ro
+      - ./data/log:/data/log
+      - ./data/search:/data/search
+    networks:
+      - nginx-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    restart: "no"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  nginx-network:
+    driver: bridge

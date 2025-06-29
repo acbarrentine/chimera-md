@@ -1,0 +1,82 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config:/etc/traefik:ro
+      - ./traefik/data:/data
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true  # Only for initial setup - disable in production
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=your-email@example.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/data/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=INFO
+      - --accesslog=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.yourdomain.com`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      # Redirect HTTP to HTTPS
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      - "traefik.http.routers.traefik-http.rule=Host(`traefik.yourdomain.com`)"
+      - "traefik.http.routers.traefik-http.entrypoints=web"
+      - "traefik.http.routers.traefik-http.middlewares=redirect-to-https"
+    networks:
+      - traefik-network
+
+  chimera-md:
+    container_name: chimera-md
+    image: acbarrentine/chimera-md:latest
+    restart: unless-stopped
+    volumes:
+      - ./chimera.toml:/data/chimera.toml:ro
+      - ./home:/data/home:ro
+      - ./data/log:/data/log
+      - ./data/search:/data/search
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router
+      - "traefik.http.routers.chimera-md.rule=Host(`docs.yourdomain.com`)"
+      - "traefik.http.routers.chimera-md.entrypoints=websecure"
+      - "traefik.http.routers.chimera-md.tls.certresolver=letsencrypt"
+      - "traefik.http.services.chimera-md.loadbalancer.server.port=8080"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.chimera-md-http.rule=Host(`docs.yourdomain.com`)"
+      - "traefik.http.routers.chimera-md-http.entrypoints=web"
+      - "traefik.http.routers.chimera-md-http.middlewares=redirect-to-https"
+      # Security headers middleware
+      - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.security-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.customRequestHeaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.chimera-md.middlewares=security-headers"
+      # Rate limiting
+      - "traefik.http.middlewares.rate-limit.ratelimit.average=100"
+      - "traefik.http.middlewares.rate-limit.ratelimit.burst=200"
+      - "traefik.http.routers.chimera-md.middlewares=security-headers,rate-limit"
+    networks:
+      - traefik-network
+    depends_on:
+      - traefik
+
+networks:
+  traefik-network:
+    external: true
