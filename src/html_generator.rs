@@ -143,7 +143,7 @@ impl HtmlGenerator {
 
     pub async fn gen_index(&self, path: &Path, peers: Option<PeerInfo>) -> Result<String, ChimeraError> {
         let breadcrumbs = get_breadcrumbs(path, self.index_file.as_str());
-        let path_os_str = path.iter().last().unwrap_or(path.as_os_str());
+        let path_os_str = path.iter().next_back().unwrap_or(path.as_os_str());
         let path_str = path_os_str.to_string_lossy().to_string();
         let title = format!("{}: {}", self.site_title, path_str);
         let mut vars = self.get_vars(title.as_str(), false);
@@ -231,12 +231,12 @@ fn get_breadcrumbs(path: &Path, skip: &str) -> Vec<ExternalLink> {
     let mut url = String::with_capacity(path.as_os_str().len() * 3 / 2);
     url.push_str(format!("{HOME_DIR}/").as_str());
 
-    crumbs.push(ExternalLink::new(format!("{}{}", url, skip), "Home".to_string()));
+    crumbs.push(ExternalLink::new(format!("{url}{skip}"), "Home".to_string()));
 
     for p in parts {
         url.push_str(&urlencoding::encode(&p.to_string_lossy()));
         url.push('/');
-        crumbs.push(ExternalLink::new(format!("{}{}", url, skip), p.to_string_lossy().into_owned()));
+        crumbs.push(ExternalLink::new(format!("{url}{skip}"), p.to_string_lossy().into_owned()));
     }
     crumbs
 }

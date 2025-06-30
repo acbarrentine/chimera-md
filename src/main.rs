@@ -255,7 +255,7 @@ async fn mw_headers(
                 false => "generated",
             };
             let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            let time_str = format!("total; dur={}; desc=\"total ({})\"", elapsed, cache_status);
+            let time_str = format!("total; dur={elapsed}; desc=\"total ({cache_status})\"");
             if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
                 headers.append(SERVER_TIMING, hval);
             }
