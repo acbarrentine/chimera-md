@@ -88,6 +88,22 @@ impl FileManager {
                 folder_set.insert(parent.to_owned());
             }
         }
+        // Also include direct child directories that may not contain .md files
+        // within max_depth(2) range but are still navigable
+        if let Ok(entries) = std::fs::read_dir(abs_path) {
+            for entry in entries.flatten() {
+                if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if !name_str.starts_with('.') {
+                        let dir_path = PathBuf::from(name.clone());
+                        if !folder_set.contains(&dir_path) {
+                            folder_set.insert(dir_path);
+                        }
+                    }
+                }
+            }
+        }
         if files.is_empty() && folder_set.is_empty() {
             return None;
         }
