@@ -2,20 +2,20 @@
 
 /*
 :root {
-  --bg-color: rgb(53, 53, 53);
-  --shade-color: rgb(30, 30, 30);
-  --text-color: rgb(210, 208, 208);
-  --link-normal-color: rgb(155, 193, 245);
-  --link-visited-color: rgb(90, 165, 145);
-  --link-hover-color: rgb(120, 210, 165);
-  --rule-color: rgb(90, 165, 145);
-  --heading-color: rgb(136, 160, 216);
-  --box-color: rgb(44,44,44);
-  --border-color: black;
-  --block-color: rgb(44,44,44);
-  --even-row-color: rgb(45, 53, 73);
-  --odd-row-color: rgb(62, 72, 101);
-  --highlight-color: yellow;
+  --bg-color: #16161a;
+  --shade-color: #0f0f12;
+  --text-color: #c9c9cd;
+  --link-normal-color: #7aa2f7;
+  --link-visited-color: #9d7cd8;
+  --link-hover-color: #a9c7ff;
+  --rule-color: #2a2a30;
+  --heading-color: #e1e1e4;
+  --box-color: #1c1c21;
+  --border-color: #2a2a30;
+  --block-color: #1c1c21;
+  --even-row-color: #1a1a1f;
+  --odd-row-color: #1f1f25;
+  --highlight-color: #e0af68;
 }
 
 nav {

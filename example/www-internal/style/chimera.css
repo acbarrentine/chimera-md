@@ -5,12 +5,17 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     color: var(--heading-color);
-    font-weight: 500;
+    font-weight: 600;
+}
+
+h3, h4, h5, h6 {
+    color: var(--text-color);
 }
 
 a:link {
     color: var(--link-normal-color);
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 a:visited {
@@ -23,7 +28,7 @@ a:hover {
 
 nav {
     height: 130px;
-    border-bottom: 5px solid var(--rule-color);
+    border-bottom: 3px solid var(--rule-color);
     margin: -10px -10px 0px -10px;
     display: flex;
     align-items: center;
@@ -137,20 +142,22 @@ img, video {
 code {
     font-family: monospace;
     font-size: 100%;
-    background-color: #2b2b2b;
-    border: 1px solid rgb(102, 120, 162);
+    background-color: #1e1e24;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.15em 0.4em;
 }
 
 pre code {
     border-radius: 5px;
     border: none;
-    border-left: 5px solid var(--border-color);
+    border-left: 3px solid #3d3d45;
 }
 
 blockquote {
     margin: 5px 5px 2rem 5px;
     background: var(--block-color);
-    border-left: 5px solid var(--border-color);
+    border-left: 3px solid #3d3d45;
     border-radius: 5px;
     padding: 10px;
 }
@@ -180,14 +187,16 @@ li {
 }
 
 td, th {
-    margin: 10px;
-    border: none;
-    box-shadow: 0 0 0 1px var(--shade-color);
+    margin: 0;
+    border: 1px solid var(--border-color);
     vertical-align: top;
 }
 
+
 th {
     background-color: var(--shade-color);
+    font-weight: 600;
+    color: var(--heading-color);
 }
 
 tr:nth-child(even) {
