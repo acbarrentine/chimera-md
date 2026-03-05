@@ -41,10 +41,9 @@ impl FileManager {
             let p = entry.path();
             if entry.file_type().is_file() {
                 let fname = entry.file_name().to_string_lossy();
-                if let Some((_stem, ext)) = fname.rsplit_once('.') {
-                    if ext.eq_ignore_ascii_case("md") {
-                        files.push(p.to_owned());
-                    }
+                if let Some((_stem, ext)) = fname.rsplit_once('.')
+                && ext.eq_ignore_ascii_case("md") {
+                    files.push(p.to_owned());
                 }
             }
         }
@@ -72,10 +71,8 @@ impl FileManager {
             let fname_str = fname.to_string_lossy();
             let direct_child = parent.as_os_str().len() == abs_path.as_os_str().len();
             if direct_child {
-                if let Some(skip) = skip {
-                    if fname.eq(skip) {
-                        continue;
-                    }
+                if let Some(skip) = skip && fname.eq(skip) {
+                    continue;
                 }
                 if let Some(stem) = entry.path().file_stem() {
                     files.push(ExternalLink::new(

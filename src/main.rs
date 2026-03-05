@@ -101,7 +101,7 @@ impl AppState {
         };
         tracing::debug!("HtmlGenerator");
         let html_generator = HtmlGenerator::new(cfg)?;
-        
+
         tracing::debug!("Full text index: {}", search_index_dir.to_string_lossy());
         let full_text_index = FullTextIndex::new(search_index_dir.as_path())?;
         full_text_index.scan_directory(document_root, search_index_dir, &file_manager).await?;
@@ -239,26 +239,23 @@ async fn mw_headers(
     let content_type = headers.get(axum::http::header::CONTENT_TYPE);
     let content_type = content_type.and_then(|h|h.to_str().ok());
     let cache_duration = get_cache_duration(&app_state, content_type);
-    if status.is_success() || status.is_redirection() {
-        if let Some(cache_duration) = cache_duration {
-            let cache_control_string = format!("public, max-age={cache_duration}");
-            if let Ok(value) = axum::http::HeaderValue::from_str(cache_control_string.as_str()) {
-                headers.insert(axum::http::header::CACHE_CONTROL, value);
-            }
+    if (status.is_success() || status.is_redirection())
+        && let Some(cache_duration) = cache_duration {
+        let cache_control_string = format!("public, max-age={cache_duration}");
+        if let Ok(value) = axum::http::HeaderValue::from_str(cache_control_string.as_str()) {
+            headers.insert(axum::http::header::CACHE_CONTROL, value);
         }
     }
 
-    if path.ends_with(".md") {
-        if let Some(b) = cache_check {
-            let cache_status = match b {
-                true => "cached",
-                false => "generated",
-            };
-            let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
-            let time_str = format!("total; dur={elapsed}; desc=\"total ({cache_status})\"");
-            if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
-                headers.append(SERVER_TIMING, hval);
-            }
+    if path.ends_with(".md") && let Some(b) = cache_check {
+        let cache_status = match b {
+            true => "cached",
+            false => "generated",
+        };
+        let elapsed = start_time.elapsed().as_micros() as f64 / 1000.0;
+        let time_str = format!("total; dur={elapsed}; desc=\"total ({cache_status})\"");
+        if let Ok(hval) = axum::http::HeaderValue::from_str(time_str.as_str()) {
+            headers.append(SERVER_TIMING, hval);
         }
     }
 
@@ -326,19 +323,17 @@ async fn handle_search(
     State(app_state): State<AppStateType>,
     Form(search): Form<SearchForm>
 ) -> axum::response::Response {
-    if let Some(query) = search.query {
-        if !query.is_empty() {
-            tracing::info!("Search for \"{}\"", query);
-            if let Ok(results) = app_state.full_text_index.search(query.as_str()) {
-                if let Ok(html) = app_state.html_generator.gen_search(query.as_str(), results) {
-                    return axum::response::Html(html).into_response();
-                }
+    if let Some(query) = search.query
+        && !query.is_empty() {
+        tracing::info!("Search for \"{}\"", query);
+        if let Ok(results) = app_state.full_text_index.search(query.as_str())
+            && let Ok(html) = app_state.html_generator.gen_search(query.as_str(), results) {
+                return axum::response::Html(html).into_response();
             }
         }
-    }
     if let Ok(html) = app_state.html_generator.gen_search_blank() {
         return axum::response::Html(html).into_response();
-    }    
+    }
     handle_err(app_state).await.into_response()
 }
 
@@ -439,7 +434,7 @@ async fn serve_markdown_file(
     let mut ext = Extensions::new();
     let html = match app_state.result_cache.get(path).await {
         Some(html) => {
-            ext.insert(true);
+            ext.insert(true);   // bool extension = cached = true
             html
         },
         None => {
@@ -458,22 +453,22 @@ async fn serve_markdown_file(
                 perf_timer.sample("generate-html", &mut headers);
                 app_state.result_cache.add(path, html.as_str()).await;
                 perf_timer.sample("cache-results", &mut headers);
-                ext.insert(false);
+                ext.insert(false);   // bool extension = cached = false
                 html
             }
             else if path.ends_with(app_state.index_file.as_str()){
                 let mut perf_timer = PerfTimer::new();
                 tracing::debug!("Generating an index result at {}", path.display());
                 let folder = match path.parent() {
-                    Some(p) => p,
-                    None => std::path::Path::new("/"),
+                    Some(p) if !p.as_os_str().is_empty() => p,
+                    _ => std::path::Path::new("."),
                 };
                 let peers = match app_state.generate_index {
                     true => app_state.file_manager.find_peers_in_folder(folder, None),
                     false => None,
                 };
                 perf_timer.sample("find-peers", &mut headers);
-                ext.insert(false);
+                ext.insert(false);   // bool extension = cached = false
                 let html = app_state.html_generator.gen_index(path, peers).await?;
                 perf_timer.sample("generate-html", &mut headers);
                 app_state.result_cache.add(path, html.as_str()).await;
@@ -485,7 +480,7 @@ async fn serve_markdown_file(
             }
         }
     };
-    ext.insert(html.len());
+    ext.insert(html.len());   // usize extension = (sizeof response)
     Ok((StatusCode::OK, headers, ext, Html(html)).into_response())
 }
 
@@ -505,7 +500,7 @@ async fn get_response(
     if has_extension(path, "md") {
         return serve_markdown_file(app_state, path).await;
     }
-    else if path.is_dir() { 
+    else if path.is_dir() {
         let new_path = path::Path::new(HOME_DIR).join(path).join(app_state.index_file.as_str());
         tracing::debug!("Not a file. Redirecting to {}", new_path.display());
         return Ok(Redirect::permanent(new_path.to_string_lossy().borrow()).into_response());

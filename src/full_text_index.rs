@@ -31,6 +31,7 @@ pub struct FullTextIndex {
     title_field: Field,
     link_field: Field,
     body_field: Field,
+    path_field: Field,
     index_writer: Arc<RwLock<IndexWriter>>,
     index_reader: IndexReader,
 }
@@ -43,6 +44,7 @@ struct DocumentScanner {
     title: Field,
     link: Field,
     body: Field,
+    path: Field,
 }
 
 impl FullTextIndex {
@@ -56,8 +58,9 @@ impl FullTextIndex {
             .set_stored();
 
         let mut schema_builder = Schema::builder();
-        let title_field = schema_builder.add_text_field("title", STRING | STORED);
+        let title_field = schema_builder.add_text_field("title", TEXT | FAST | STORED);
         let link_field = schema_builder.add_text_field("link", STRING | STORED);
+        let path_field = schema_builder.add_text_field("path", STRING | FAST | STORED);
         let body_field = schema_builder.add_text_field("body", text_options);
         let schema = schema_builder.build();
 
@@ -75,6 +78,7 @@ impl FullTextIndex {
             title_field,
             link_field,
             body_field,
+            path_field,
             index_writer,
             index_reader,
         };
@@ -98,6 +102,7 @@ impl FullTextIndex {
             title: self.title_field,
             link: self.link_field,
             body: self.body_field,
+            path: self.path_field,
         };
         tokio::spawn(scanner.scan());
 
@@ -124,21 +129,18 @@ impl FullTextIndex {
             let title = retrieved_doc.get_first(self.title_field);
             let anchor = retrieved_doc.get_first(self.link_field);
             tracing::debug!("Search result: {title:?} {anchor:?}");
-            if let Some(title_val) = title {
-                if let Some(title_str) = title_val.as_str() {
-                    if let Some(anchor_val) = anchor {
-                        if let Some(anchor_str) = anchor_val.as_str() {
-                            let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
-                            tracing::debug!("Snippet: {snippet:?}");
-                            let snippet = self.highlight(snippet.fragment(), snippet.highlighted());
-                            results.push(SearchResult {
-                                title: title_str.to_owned(),
-                                link: anchor_str.to_owned(),
-                                snippet,
-                            });
-                        }
-                    }
-                }
+            if let Some(title_val) = title
+                && let Some(title_str) = title_val.as_str()
+                && let Some(anchor_val) = anchor
+                && let Some(anchor_str) = anchor_val.as_str() {
+                let snippet = snippet_generator.snippet_from_doc(&retrieved_doc);
+                tracing::debug!("Snippet: {snippet:?}");
+                let snippet = self.highlight(snippet.fragment(), snippet.highlighted());
+                results.push(SearchResult {
+                    title: title_str.to_owned(),
+                    link: anchor_str.to_owned(),
+                    snippet,
+                });
             }
         }
         tracing::debug!("Result count: {}", results.len());
@@ -190,10 +192,9 @@ fn normalize_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
 }
 
 async fn get_modtime(path: &std::path::Path) -> Option<SystemTime> {
-    if let Ok(metadata) = tokio::fs::metadata(path).await {
-        if let Ok(modtime) = metadata.modified() {
-            return Some(modtime);
-        }
+    if let Ok(metadata) = tokio::fs::metadata(path).await
+        && let Ok(modtime) = metadata.modified() {
+        return Some(modtime);
     }
     None
 }
@@ -251,10 +252,12 @@ impl DocumentScanner {
                 if let Some(title_string) = path.file_name() {
                     let title_string = title_string.to_string_lossy();
                     if let Ok(body_text) = tokio::fs::read_to_string(path.as_path()).await {
-                        tracing::debug!("Adding {} to full-text index", title_string);
+                        let path_str = relative_path.to_str().unwrap_or("");
+                        tracing::debug!("Adding {title_string} to full-text index at path {path_str}");
                         doc.add_text(self.title, title_string);
                         doc.add_text(self.link, anchor_string);
                         doc.add_text(self.body, body_text);
+                        doc.add_text(self.path, path_str);
                         {
                             let index = self.index_writer.write()?;
                             index.add_document(doc)?;
@@ -282,11 +285,10 @@ async fn listen_for_changes(
 ) {
     while let Ok(path) = rx.recv().await {
         tracing::debug!("FTI change event {}", path.display());
-        if let Some(ext) = path.extension() {
-            if ext == OsStr::new("md") {
-                // forward to the DocumentScanner
-                let _ = tx.send(path).await;
-            }
+        if let Some(ext) = path.extension()
+            && ext == OsStr::new("md") {
+            // forward to the DocumentScanner
+            let _ = tx.send(path).await;
         }
     }
 }

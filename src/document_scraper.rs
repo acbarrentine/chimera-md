@@ -178,30 +178,29 @@ impl DocumentScraper {
                         }
                     },
                     TagEnd::MetadataBlock(_) => {
-                        if let Some(metadata) = self.text_collector.take() {
-                            if let Ok(docs) = YamlLoader::load_from_str(metadata.as_str()) {
-                                for doc in docs {
-                                    match doc {
-                                        yaml_rust2::Yaml::Real(_) => todo!(),
-                                        yaml_rust2::Yaml::Integer(_) => todo!(),
-                                        yaml_rust2::Yaml::String(_) => todo!(),
-                                        yaml_rust2::Yaml::Boolean(_) => todo!(),
-                                        yaml_rust2::Yaml::Array(vec) => {
-                                            tracing::debug!("Vec: {vec:?}");
-                                        },
-                                        yaml_rust2::Yaml::Hash(linked_hash_map) => {
-                                            //tracing::debug!("Hash: {linked_hash_map:?}");
-                                            for (key,value) in linked_hash_map {
-                                                let key = key.as_str().unwrap();
-                                                let value = value.as_str().unwrap();
-                                                tracing::debug!("Adding metadata var: {key} = {value}");
-                                                self.metadata.insert(key.to_string(), value.to_string());
-                                            }
-                                        },
-                                        yaml_rust2::Yaml::Alias(_) => todo!(),
-                                        yaml_rust2::Yaml::Null => todo!(),
-                                        yaml_rust2::Yaml::BadValue => todo!(),
-                                    }
+                        if let Some(metadata) = self.text_collector.take()
+                            && let Ok(docs) = YamlLoader::load_from_str(metadata.as_str()) {
+                            for doc in docs {
+                                match doc {
+                                    yaml_rust2::Yaml::Real(_) => todo!(),
+                                    yaml_rust2::Yaml::Integer(_) => todo!(),
+                                    yaml_rust2::Yaml::String(_) => todo!(),
+                                    yaml_rust2::Yaml::Boolean(_) => todo!(),
+                                    yaml_rust2::Yaml::Array(vec) => {
+                                        tracing::debug!("Vec: {vec:?}");
+                                    },
+                                    yaml_rust2::Yaml::Hash(linked_hash_map) => {
+                                        //tracing::debug!("Hash: {linked_hash_map:?}");
+                                        for (key,value) in linked_hash_map {
+                                            let key = key.as_str().unwrap();
+                                            let value = value.as_str().unwrap();
+                                            tracing::debug!("Adding metadata var: {key} = {value}");
+                                            self.metadata.insert(key.to_string(), value.to_string());
+                                        }
+                                    },
+                                    yaml_rust2::Yaml::Alias(_) => todo!(),
+                                    yaml_rust2::Yaml::Null => todo!(),
+                                    yaml_rust2::Yaml::BadValue => todo!(),
                                 }
                             }
                         }
