@@ -465,8 +465,8 @@ async fn serve_markdown_file(
                 let mut perf_timer = PerfTimer::new();
                 tracing::debug!("Generating an index result at {}", path.display());
                 let folder = match path.parent() {
-                    Some(p) => p,
-                    None => std::path::Path::new("/"),
+                    Some(p) if !p.as_os_str().is_empty() => p,
+                    _ => std::path::Path::new("."),
                 };
                 let peers = match app_state.generate_index {
                     true => app_state.file_manager.find_peers_in_folder(folder, None),

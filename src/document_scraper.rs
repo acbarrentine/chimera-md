@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, collections::{HashMap, HashSet}, ops::Range};
 use lazy_static::lazy_static;
 use regex::Regex;
-use pulldown_cmark::{Event, Tag, TagEnd};
+use pulldown_cmark::{CowStr, Event, LinkType, Tag, TagEnd};
 use serde::Serialize;
 use slugify::slugify;
 use yaml_rust2::YamlLoader;
@@ -44,6 +44,59 @@ lazy_static! {
         "html", "ini", "java", "js", "make", "markdown", "objectivec", "perl", "php",
         "python", "r", "rust", "sql", "text", "xml", "yaml",
     ]);
+
+    static ref FILE_EXTENSIONS: HashSet<&'static str> = HashSet::from([
+        "md", "py", "txt", "csv", "toml", "json", "yaml", "yml", "sh", "rs", "js", "ts",
+        "html", "css", "xml", "log", "cfg", "ini", "conf", "env", "lock", "rb", "go",
+        "java", "c", "cpp", "h", "hpp", "sql", "r", "pl", "php", "swift", "kt", "scala",
+        "tex", "bib", "org", "rst", "adoc",
+    ]);
+}
+
+fn looks_like_file_path(text: &str) -> bool {
+    if text.contains(' ') || text.is_empty() {
+        return false;
+    }
+    if text.ends_with('/') {
+        return true;
+    }
+    if let Some(dot_pos) = text.rfind('.') {
+        let ext = &text[dot_pos + 1..];
+        return FILE_EXTENSIONS.contains(ext);
+    }
+    false
+}
+
+fn linkify_file_references<'a>(events: Vec<Event<'a>>) -> Vec<Event<'a>> {
+    let mut result = Vec::with_capacity(events.len());
+    let mut inside_link = 0_usize;
+    for ev in events {
+        match &ev {
+            Event::Start(Tag::Link { .. }) => {
+                inside_link += 1;
+                result.push(ev);
+            }
+            Event::End(TagEnd::Link) => {
+                inside_link = inside_link.saturating_sub(1);
+                result.push(ev);
+            }
+            Event::Code(text) if inside_link == 0 && looks_like_file_path(text) => {
+                let url: CowStr = text.to_string().into();
+                result.push(Event::Start(Tag::Link {
+                    link_type: LinkType::Inline,
+                    dest_url: url,
+                    title: CowStr::from(""),
+                    id: CowStr::from(""),
+                }));
+                result.push(Event::Code(text.clone()));
+                result.push(Event::End(TagEnd::Link));
+            }
+            _ => {
+                result.push(ev);
+            }
+        }
+    }
+    result
 }
 
 #[derive(Clone)]
@@ -151,7 +204,7 @@ impl DocumentScraper {
                     self.internal_links.push(
                         InternalLink::new(
                             anchor.to_string(),
-                            heading_text.to_string(), 
+                            heading_text.to_string(),
                             level
                         )
                     );
@@ -243,16 +296,17 @@ impl DocumentScraper {
 
 pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
     let mut scraper = DocumentScraper::new();
-    let parser = pulldown_cmark::Parser::new_ext(
+    let events: Vec<Event> = pulldown_cmark::Parser::new_ext(
         md, pulldown_cmark::Options::ENABLE_TABLES |
         pulldown_cmark::Options::ENABLE_SMART_PUNCTUATION |
         pulldown_cmark::Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
     ).into_offset_iter().map(|(ev, range)| {
         scraper.check_event(&ev, range);
         ev
-    });
+    }).collect();
+    let events = linkify_file_references(events);
     let mut html_content = String::with_capacity(md.len() * 3 / 2);
-    pulldown_cmark::html::push_html(&mut html_content, parser);
+    pulldown_cmark::html::push_html(&mut html_content, events.into_iter());
     if !scraper.starts_with_heading {
         scraper.internal_links.insert(0, InternalLink::new("top".to_string(), "Top".to_string(), 1));
     }
@@ -266,6 +320,66 @@ pub fn parse_markdown(md: &str) -> (String, DocumentScraper) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_looks_like_file_path() {
+        assert!(looks_like_file_path("answers.md"));
+        assert!(looks_like_file_path("archive/foo/bar.py"));
+        assert!(looks_like_file_path("scripts/"));
+        assert!(looks_like_file_path("config.toml"));
+        assert!(looks_like_file_path("data.csv"));
+        assert!(looks_like_file_path("deep/nested/path/file.rs"));
+
+        assert!(!looks_like_file_path("DISPROVEN"));
+        assert!(!looks_like_file_path("stale conclusions"));
+        assert!(!looks_like_file_path("some_variable"));
+        assert!(!looks_like_file_path(""));
+        assert!(!looks_like_file_path("no-extension"));
+    }
+
+    #[test]
+    fn test_file_ref_becomes_link() {
+        let md = "See `answers.md` for details.";
+        let (html, _scraper) = parse_markdown(md);
+        assert!(html.contains("<a href=\"answers.md\"><code>answers.md</code></a>"),
+            "Expected clickable file link, got: {html}");
+    }
+
+    #[test]
+    fn test_directory_ref_becomes_link() {
+        let md = "Check `scripts/` for utilities.";
+        let (html, _scraper) = parse_markdown(md);
+        assert!(html.contains("<a href=\"scripts/\"><code>scripts/</code></a>"),
+            "Expected clickable directory link, got: {html}");
+    }
+
+    #[test]
+    fn test_nested_path_becomes_link() {
+        let md = "See `archive/2026-03-02-codex/analysis.md` for info.";
+        let (html, _scraper) = parse_markdown(md);
+        assert!(html.contains("<a href=\"archive/2026-03-02-codex/analysis.md\"><code>archive/2026-03-02-codex/analysis.md</code></a>"),
+            "Expected clickable nested path link, got: {html}");
+    }
+
+    #[test]
+    fn test_non_file_code_unchanged() {
+        let md = "The status is `DISPROVEN` here.";
+        let (html, _scraper) = parse_markdown(md);
+        assert!(html.contains("<code>DISPROVEN</code>"), "Expected plain code, got: {html}");
+        assert!(!html.contains("<a href=\"DISPROVEN\""), "Should not be a link: {html}");
+    }
+
+    #[test]
+    fn test_code_inside_link_not_double_wrapped() {
+        let md = "See [`answers.md`](http://example.com) for details.";
+        let (html, _scraper) = parse_markdown(md);
+        // Should have exactly one <a> wrapping the code, not a nested one
+        assert!(html.contains("<a href=\"http://example.com\"><code>answers.md</code></a>"),
+            "Expected single link wrapping code, got: {html}");
+        // Should NOT have a second nested link
+        let link_count = html.matches("<a ").count();
+        assert_eq!(link_count, 1, "Expected exactly 1 link, got {link_count} in: {html}");
+    }
 
     #[test]
     fn test_link_in_md_heading() {
@@ -310,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_metadata_with_multiple_lines() {
-        let md = 
+        let md =
 "---
 template: index.html
 title: Index
@@ -329,7 +443,7 @@ type: website
 
     #[test]
     fn test_metadata_with_nested_struct() {
-        let _md = 
+        let _md =
 "---
 template: index.html
 og:
