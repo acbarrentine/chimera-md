@@ -53,7 +53,7 @@ impl FileManager {
     pub fn find_files(&self, abs_path: &Path, ext: &OsStr) -> Vec<walkdir::DirEntry> {
         tracing::debug!("Find files in: {}", abs_path.display());
         let mut files = Vec::new();
-        for entry in walkdir::WalkDir::new(abs_path).max_depth(2).into_iter().flatten() {
+        for entry in walkdir::WalkDir::new(abs_path).max_depth(8).into_iter().flatten() {
             if entry.path().extension() == Some(ext) {
                 files.push(entry);
             }
@@ -81,8 +81,9 @@ impl FileManager {
                     );
                 }
             }
-            else if let Ok(parent) = parent.strip_prefix(abs_path) {
-                folder_set.insert(parent.to_owned());
+            else if let Ok(parent) = parent.strip_prefix(abs_path)
+                && let Some(p) = parent.components().next() {
+                folder_set.insert(p.as_os_str().to_owned());
             }
         }
         if files.is_empty() && folder_set.is_empty() {
